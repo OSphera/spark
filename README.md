@@ -1,5 +1,3 @@
-> **This is a fork.** [FORK.md](FORK.md) says what it changes. Ember itself is at [NYLLON-SOFTWARE/ember-cloudflare](https://github.com/NYLLON-SOFTWARE/ember-cloudflare).
-
 <p align="center">
   <img src="docs/screenshots/banner.png" alt="Ember: team chat that's yours, on your own Cloudflare account. Open source, deployed in one click, with no per-seat fees, and every message kept.">
 </p>
