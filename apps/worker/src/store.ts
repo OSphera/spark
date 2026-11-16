@@ -42,6 +42,8 @@ interface MessageRow {
   in_room: number;
   /** 1 for a message deleted while replies in its thread are left, which keeps its place for them. */
   deleted: number;
+  /** The name of the AI app that sent it as its creator, or null, or missing from a row the search index kept before apps were named. */
+  sent_via?: string | null;
   /**
    * Its thread, a JSON `ThreadRow`, read with it, or null for a reply, which has none, or missing from a
    * row the search index kept before threads.
@@ -195,6 +197,7 @@ function toMessage(row: MessageRow): Message {
     ...(row.parent_id != null && { parentId: row.parent_id, alsoSent: row.in_room === 1, parentText: row.parent_text ?? "" }),
     ...(thread && { thread }),
     ...(row.deleted === 1 && { deleted: true }),
+    ...(row.sent_via != null && { sentVia: row.sent_via }),
   };
 }
 
@@ -217,8 +220,11 @@ async function toMessages(rows: MessageRow[], signer: () => Promise<Signer>): Pr
   );
 }
 
-/** What a message keeps of what was written: its text, as `prepareBody` keeps it, and a bot's cards, if it has any. */
-export type StoredBody = Pick<PreparedBody, "html" | "plainText" | "mentions"> & { cards?: Card[] };
+/**
+ * What a message keeps of what was written: its text, as `prepareBody` keeps it, a bot's cards, if it has
+ * any, and the name of the AI app that sent it, if one did, which only a new message keeps.
+ */
+export type StoredBody = Pick<PreparedBody, "html" | "plainText" | "mentions"> & { cards?: Card[]; sentVia?: string };
 
 /** A file message's file, as the batch that stores the message posts it, with what records that its upload has finished as that message. */
 export interface PostedFile {
@@ -515,8 +521,8 @@ export class MessageStore {
     const seq = await this.change(
       (seq) => [
         statement(
-          `INSERT INTO messages (id, room_id, client_message_id, creator_id, creator_name, body, plain_text, mentions, created_at, updated_at, change_seq, attachment, cards, parent_id, in_room)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO messages (id, room_id, client_message_id, creator_id, creator_name, body, plain_text, mentions, created_at, updated_at, change_seq, attachment, cards, parent_id, in_room, sent_via)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           id,
           this.roomId,
           clientMessageId,
@@ -532,6 +538,7 @@ export class MessageStore {
           body.cards ? JSON.stringify(body.cards) : null,
           inThread?.parent.id ?? null,
           inRoom ? 1 : 0,
+          body.sentVia ?? null,
         ),
         logEvent(this.roomId, kind, creator.id, now, id, inRoom),
         logIndexing(this.roomId, id),
@@ -559,6 +566,7 @@ export class MessageStore {
         ...(posted && { attachment: await shownFile(posted.file, await this.sign()) }),
         ...(body.cards && { cards: body.cards }),
         ...(inThread && { parentId: inThread.parent.id, alsoSent: inThread.alsoSend, parentText: parentTextOf(inThread.parent.plainText) }),
+        ...(body.sentVia !== undefined && { sentVia: body.sentVia }),
       },
       seq,
     };

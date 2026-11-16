@@ -1523,6 +1523,11 @@ export interface Message {
    * cards and boosts are gone, and it goes once its last reply does.
    */
   deleted?: boolean;
+  /**
+   * The name of the AI app that sent it as its creator, through Outside AI, as the app registered it:
+   * only the app's own word for itself, which clients show as text. A message its creator wrote has none.
+   */
+  sentVia?: string;
 }
 
 /** How much of a reply's parent's plain text the room shows over a reply also sent there, which it cuts to one line. */

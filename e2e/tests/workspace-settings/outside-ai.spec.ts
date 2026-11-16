@@ -115,7 +115,7 @@ test.describe("Outside AI", () => {
     await expect(page.getByRole("heading", { level: 1, name: new RegExp(`^Connect ${APP_NAME} to .+\\?$`) })).toBeVisible();
     await expect(page.getByRole("listitem")).toHaveText(["See the rooms you're in, read their messages and search them, as you can"]);
     // Sending is theirs to leave out, and allowed unless they do.
-    await expect(page.getByRole("checkbox", { name: "Send messages as you, in the rooms you're in" })).toBeChecked();
+    await expect(page.getByRole("checkbox", { name: "Send messages as you, in the rooms you're in, marked as sent by it" })).toBeChecked();
     await expect(page.getByText(`You'll go back to ${new URL(callback).host}.`)).toBeVisible();
     await page.getByRole("button", { name: "Allow", exact: true }).click();
 

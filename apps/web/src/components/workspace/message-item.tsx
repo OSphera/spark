@@ -236,6 +236,16 @@ export const MessageItem = memo(function MessageItem({ message, me, threaded: fo
   const threaded = follows && !context;
   // Edited messages are marked, as Slack marks them, so readers can tell a message changed.
   const edited = message.editedAt !== null && <span className="text-xs text-message-muted">(edited)</span>;
+  // A message an AI app sent as its author says which, by the name the app gave itself, so nobody takes
+  // the app's words for the person's. It's only text, and a long name runs to an ellipsis.
+  const via = message.sentVia !== undefined && (
+    <>
+      {" "}
+      <span title={`Sent by ${message.sentVia}, an AI app`} className="min-w-0 truncate text-xs text-message-muted">
+        via {message.sentVia}
+      </span>
+    </>
+  );
 
   // The permalink: the time, linking to the message, though not while the message is on its way to the
   // room. A follow-up's shows only on hover or focus, after its text, without moving it.
@@ -312,6 +322,7 @@ export const MessageItem = memo(function MessageItem({ message, me, threaded: fo
           ) : (
             <h3 className="flex min-h-[22px] items-baseline gap-2 text-[15px] leading-[22px] max-md:flex-wrap max-md:gap-x-2 max-md:gap-y-0.5 max-md:pr-[22px]">
               <Author user={message.creator} />
+              {via}
               {permalink}
               {edited}
             </h3>

@@ -1,6 +1,7 @@
 import { HISTORY_PAGE_SIZE, MAX_MESSAGE_LENGTH, MAX_SEARCH_LENGTH, MESSAGE_TOO_LONG, type BotAnswer, type Me, type Message, type NewWorkspace, type ProfileAnswer, type RoomId, type WorkspaceSettings } from "@ember/protocol";
 import {
   MAX_OUTSIDE_CONNECTIONS,
+  MAX_OUTSIDE_NAME_LENGTH,
   OUTSIDE_ASK_REFUSED,
   OUTSIDE_CONNECTION_GONE,
   OUTSIDE_FORBIDDEN,
@@ -779,7 +780,7 @@ describe("What a connected AI app reads", () => {
 
 describe("What a connected AI app sends", () => {
   type Listed = { tools: Array<{ name: string; annotations: unknown; inputSchema: { required?: string[] } }> };
-  type Sent = { room: unknown; message: { id: string; at: string; from: string; text: string; reply_to?: string } };
+  type Sent = { room: unknown; message: { id: string; at: string; from: string; text: string; reply_to?: string; sent_via?: string } };
 
   /** Grace's connection's token, which she let send, with Ada's and her sessions, and the room everyone's in. */
   async function sending() {
@@ -828,18 +829,79 @@ describe("What a connected AI app sends", () => {
 
     const sent = await found<Sent>(token, "send_message", { room_id: general, text: "**Ship** it, @Ada Lovelace: see [the plan](https://example.com/plan)" });
     const { message: heard } = await ada.next("message.created");
-    expect(heard).toMatchObject({ id: sent.message.id, creator: { name: "Grace Hopper" }, plainText: "Ship it, @Ada Lovelace: see the plan" });
+    expect(heard).toMatchObject({ id: sent.message.id, creator: { name: "Grace Hopper" }, plainText: "Ship it, @Ada Lovelace: see the plan", sentVia: "Claude" });
     expect(heard.body).toContain("<strong>Ship</strong>");
     expect(heard.body).toContain('href="https://example.com/plan"');
     // Markdown mentions nobody, so nobody is called, @ember and the agents included.
     expect(heard.mentions).toEqual([]);
-    expect(sent).toEqual({ room: { id: general, kind: "open", name: "general" }, message: { id: heard.id, at: heard.createdAt, from: "Grace Hopper", text: heard.plainText } });
+    expect(sent).toEqual({ room: { id: general, kind: "open", name: "general" }, message: { id: heard.id, at: heard.createdAt, from: "Grace Hopper", text: heard.plainText, sent_via: "Claude" } });
 
     const answered = await found<Sent>(token, "send_message", { room_id: general, text: "Yes", thread_id: question.id });
-    expect(answered.message).toEqual({ id: expect.any(String), at: expect.any(String), from: "Grace Hopper", text: "Yes", reply_to: question.id });
+    expect(answered.message).toEqual({ id: expect.any(String), at: expect.any(String), from: "Grace Hopper", text: "Yes", reply_to: question.id, sent_via: "Claude" });
     const thread = await found<{ replies: unknown[] }>(token, "read_thread", { room_id: general, message_id: question.id });
     expect(thread.replies).toEqual([answered.message]);
     ada.close();
+  });
+
+  it("marks what it sends with the app's name, wherever the message is read, and keeps it once the app is disconnected", async () => {
+    const { administrator, member, token, general } = await sending();
+    const [ada, grace] = [await connect(general, administrator), await connect(general, member)];
+    const own = await post(grace, "<p>My own kumquat words</p>");
+    await ada.next("message.created");
+    const sent = await found<Sent>(token, "send_message", { room_id: general, text: "The kumquat harvest is in" });
+    expect(sent.message.sent_via).toBe("Claude");
+    const { message: heard } = await ada.next("message.created");
+    expect(heard.sentVia).toBe("Claude");
+    // What she writes herself is hers alone.
+    expect(own.sentVia).toBeUndefined();
+
+    // Her edit leaves the mark: the app still wrote it.
+    grace.send({ type: "message.update", messageId: heard.id, body: "<p>The kumquat harvest is in at last</p>" });
+    expect((await ada.next("message.updated")).message).toMatchObject({ id: heard.id, editedAt: expect.any(String), sentVia: "Claude" });
+
+    // The stored message keeps it, as the room's page, another app and a bot read it.
+    expect((await connect(general, administrator)).welcome.messages.map(({ sentVia }) => sentVia)).toEqual([undefined, "Claude"]);
+    const read = await found<{ messages: Array<{ id: string; sent_via?: string }> }>(token, "read_room", { room_id: general });
+    expect(read.messages.map(({ id, sent_via }) => [id, sent_via])).toEqual([
+      [own.id, undefined],
+      [heard.id, "Claude"],
+    ]);
+    await caughtUp(general);
+    const searched = await found<{ matches: Array<{ id: string; sent_via?: string }> }>(token, "search_messages", { words: "kumquat" });
+    expect(searched.matches.map(({ id, sent_via }) => [id, sent_via])).toEqual([
+      [heard.id, "Claude"],
+      [own.id, undefined],
+    ]);
+    const added = await api("/api/account/bots", { method: "POST", headers: { Cookie: administrator.cookie }, body: JSON.stringify({ name: "Build Bot" }) });
+    const listed = `/rooms/${general}/${((await added.json()) as BotAnswer).bot.key}/messages`;
+    const asBot = async () => ((await (await api(listed)).json()) as Array<{ id: string; sent_via?: string }>).map(({ id, sent_via }) => [id, sent_via]);
+    expect(await asBot()).toEqual([
+      [own.id, undefined],
+      [heard.id, "Claude"],
+    ]);
+
+    const [connection] = (await yours(member))!;
+    expect((await api(`/api/users/me/outside/${connection!.id}`, { method: "DELETE", headers: as(member) })).status).toBe(200);
+    expect(await asBot()).toEqual([
+      [own.id, undefined],
+      [heard.id, "Claude"],
+    ]);
+    ada.close();
+    grace.close();
+  });
+
+  it("marks a message with the app's name cut as Ember keeps it, as the app's own words and nothing more", async () => {
+    const { administrator, member } = await setUpOn();
+    const name = `<b>Claude</b> ${"x".repeat(200)}`;
+    const response = await register({ client_name: `  ${name}  `, redirect_uris: [BACK] });
+    const clientId = ((await response.json()) as { client_id: string }).client_id;
+    const back = await allowed(member, askOf(clientId, { scope: "read write" }));
+    const { access_token: token } = (await (await exchange(clientId, back.searchParams.get("code")!)).json()) as Tokens;
+    const general = (await roomsFor(token)).find((room) => room.name === "general")!.id;
+
+    const sent = await found<Sent>(token, "send_message", { room_id: general, text: "Hello" });
+    expect(sent.message.sent_via).toBe(name.slice(0, MAX_OUTSIDE_NAME_LENGTH));
+    expect((await connect(general, administrator)).welcome.messages.at(-1)!.sentVia).toBe(name.slice(0, MAX_OUTSIDE_NAME_LENGTH));
   });
 
   it("sends what it sends to no bot, though it's to a direct message with one, where what its person writes goes to it", async () => {

@@ -381,6 +381,16 @@ describe("Message rows", () => {
     expect(within(show(message()).article).queryByText("Agent")).not.toBeInTheDocument();
   });
 
+  it("says which AI app sent a message as its author, after the name, as text, and nothing on one they wrote", () => {
+    const { article } = show(message({ creator: grace, sentVia: "<b>Claude</b>", createdAt: "2026-10-12T15:04:00" }));
+    const heading = within(article).getByRole("heading", { level: 3 });
+    expect(heading).toHaveTextContent(/^Grace via <b>Claude<\/b>3:04 PM$/);
+    expect(heading.querySelector("b")).toBeNull();
+    expect(within(heading).getByText("via <b>Claude</b>")).toHaveClass("text-message-muted");
+    cleanup();
+    expect(within(show(message({ creator: grace })).article).queryByText(/^via /)).not.toBeInTheDocument();
+  });
+
   it("follows the name of every agent the people directory lists with the badge, deleted ones too, and no other bot's", () => {
     const bot = (id: string, name: string, changes: Partial<DirectoryUser> = {}): DirectoryUser => ({ id, name, bio: null, role: "bot", status: "active", avatarUrl: "", ...changes });
     const authors = [bot("u4", "Recap", { agent: true }), bot("u5", "Scout", { agent: true, status: "deactivated" }), bot("u6", "Build Bot")];

@@ -62,7 +62,8 @@ function dayOf(message: Message): string {
  * is from another day. It's threaded, without its author's avatar and name, when the one above it is the
  * same person's from no more than five minutes before or after, even across midnight, when it has a separator
  * and still no header. A message deleted while its thread has replies shows neither its author nor its time,
- * so nothing threads under it, and it threads under nothing.
+ * so nothing threads under it, and it threads under nothing. Nor does a message an AI app sent as its author
+ * thread under one it didn't, or one under it, since only the header says which app sent it.
  */
 export function timeline(messages: Message[]): TimelineItem[] {
   return messages.map((message, index) => {
@@ -73,7 +74,11 @@ export function timeline(messages: Message[]): TimelineItem[] {
       message,
       firstOfDay: dayOf(previous) !== dayOf(message),
       threaded:
-        !message.deleted && !previous.deleted && previous.creator.id === message.creator.id && Math.abs(created.getTime() - before.getTime()) <= THREAD_WINDOW_MS,
+        !message.deleted &&
+        !previous.deleted &&
+        previous.creator.id === message.creator.id &&
+        previous.sentVia === message.sentVia &&
+        Math.abs(created.getTime() - before.getTime()) <= THREAD_WINDOW_MS,
     };
   });
 }
