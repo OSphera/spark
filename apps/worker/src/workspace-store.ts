@@ -80,16 +80,16 @@ export interface Client {
 
 /** The user statuses. Only active people can sign in. */
 export const ACTIVE = 0;
-const DEACTIVATED = 1;
-const BANNED = 2;
+export const DEACTIVATED = 1;
+export const BANNED = 2;
 /** For a member whose Memberful membership has lapsed, until it's renewed. */
-const SUSPENDED = 3;
+export const SUSPENDED = 3;
 /** The role for everyone who neither runs the workspace nor is a bot. */
 const MEMBER = 0;
 /** The role for the people who run the workspace. */
 const ADMINISTRATOR = 1;
 /** The role for bots. */
-const BOT = 2;
+export const BOT = 2;
 /** The roles and statuses, each at the number it stores. */
 const ROLES: readonly Role[] = ["member", "administrator", "bot"];
 const STATUSES: readonly UserStatus[] = ["active", "deactivated", "banned", "suspended"];
@@ -284,8 +284,10 @@ export interface DirectoryEntry extends User {
   role: Role;
   status: UserStatus;
   updatedAt: string;
-  /** Whether they're an AI agent, @ember or one an administrator made, deleted ones too. */
+  /** Whether they're an agent, @ember, one an administrator made or a personal one, deleted ones too. */
   agent: boolean;
+  /** For a personal agent, whose it is; null for anyone else. */
+  ownerId: UserId | null;
 }
 
 /** Someone as the people directory lists them, with their email address, which their profile shows too. */
@@ -625,6 +627,8 @@ export interface BotWebhook {
 export interface BotKey {
   bot: User;
   token: string | null;
+  /** For a personal agent, the digest of its key's token (bots/personal-agents.ts), and when its key was last used; null for another bot. */
+  personal: { digest: string | null; usedAt: string | null } | null;
   member: boolean;
   webhook: Pick<BotWebhook, "url" | "savedAt"> | null;
 }
@@ -917,7 +921,7 @@ const SESSION = `SELECT sessions.id AS session_id, sessions.last_active_at, user
   WHERE sessions.token_digest = ? AND users.status = ${ACTIVE}`;
 
 /** Someone as `DIRECTORY_COLUMNS` reads them. */
-interface DirectoryRow {
+export interface DirectoryRow {
   id: UserId;
   name: string;
   bio: string | null;
@@ -925,6 +929,7 @@ interface DirectoryRow {
   status: number;
   updated_at: string;
   agent: number;
+  owner_id: UserId | null;
 }
 
 /** The columns that say what avatar someone has uploaded (migrations/0032_avatars.sql). */
@@ -961,7 +966,7 @@ const roomsChange = (agentId: UserId, rooms: RoomId[] | null, now: string): Stat
         statement(GRANT_PICKED_ROOMS, agentId, JSON.stringify(rooms), now),
       ];
 
-const directoryEntry = (row: DirectoryRow): DirectoryEntry => ({
+export const directoryEntry = (row: DirectoryRow): DirectoryEntry => ({
   id: row.id,
   name: row.name,
   bio: row.bio,
@@ -969,6 +974,7 @@ const directoryEntry = (row: DirectoryRow): DirectoryEntry => ({
   status: STATUSES[row.status] ?? "active",
   updatedAt: row.updated_at,
   agent: row.agent === 1,
+  ownerId: row.owner_id,
 });
 
 interface BotRow extends DirectoryRow {
@@ -1978,11 +1984,13 @@ export const ACTIVE_PEOPLE = `SELECT id, name FROM users WHERE status = ${ACTIVE
 
 /**
  * What the people directory lists of whoever `users` reads, as `DirectoryRow` has it, with whether they're
- * an AI agent: a bot without a token, as @ember and the agents administrators make are and chat bots never
- * are, deleted agents too, whose answers stay.
+ * an agent, which the Agent badge shows: a bot without a token, as @ember, the AI agents administrators
+ * make and personal agents are and chat bots never are, deleted ones too, whose messages stay. A personal
+ * agent keeps only a digest of its key's token, and it's told apart from an AI agent by its owner, whom
+ * this reads too; what makes an AI agent is its row in `agents`.
  */
-const DIRECTORY_COLUMNS = `users.id, users.name, users.bio, users.role, users.status, users.updated_at,
-  (users.role = ${BOT} AND users.bot_token IS NULL) AS agent`;
+export const DIRECTORY_COLUMNS = `users.id, users.name, users.bio, users.role, users.status, users.updated_at,
+  (users.role = ${BOT} AND users.bot_token IS NULL) AS agent, users.owner_id`;
 
 /** Everyone, for the people directory: removed and banned people too, whose messages stay. */
 const DIRECTORY = `SELECT ${DIRECTORY_COLUMNS} FROM users ORDER BY id`;
@@ -1993,8 +2001,11 @@ const ACTIVE_PERSON = `SELECT ${DIRECTORY_COLUMNS} FROM users WHERE id = ? AND s
 /** The same, or someone suspended for their membership's lapsing, as an administrator can remove them too. */
 const REMOVABLE_PERSON = `SELECT ${DIRECTORY_COLUMNS} FROM users WHERE id = ? AND status IN (${ACTIVE}, ${SUSPENDED})`;
 
-/** Whether the user `users` reads is no agent's: the AI assistant tab looks after agents, as it does @ember, not Chat bots. */
-const NOT_AN_AGENT = `NOT EXISTS (SELECT 1 FROM agents WHERE agents.user_id = users.id)`;
+/**
+ * Whether the user `users` reads is no agent's: the AI assistant tab looks after AI agents, as it does
+ * @ember, and their people their personal agents, not Chat bots.
+ */
+const NOT_AN_AGENT = `NOT EXISTS (SELECT 1 FROM agents WHERE agents.user_id = users.id) AND users.owner_id IS NULL`;
 
 /**
  * The active bots, by name, with their tokens. @ember and the agents aren't among them: the AI assistant
@@ -2020,12 +2031,16 @@ const ACTIVE_BOT = `SELECT ${DIRECTORY_COLUMNS}, users.bot_token, webhooks.url A
 
 /**
  * Active bot ?2's token, with whether it's in room ?1, and its webhook's URL and when that was saved, if
- * it has one.
+ * it has one. A personal agent's is the digest of its token, with when it was last used, and it's found
+ * only while the person whose it is is active too, so that one suspended for their membership's lapsing
+ * answers for nothing meanwhile.
  */
-const ACTIVE_BOT_KEY = `SELECT users.id, users.name, users.bot_token, webhooks.url AS webhook_url, webhooks.updated_at AS webhook_saved_at,
+const ACTIVE_BOT_KEY = `SELECT users.id, users.name, users.bot_token, users.owner_id, users.bot_key_digest, users.bot_key_used_at,
+    webhooks.url AS webhook_url, webhooks.updated_at AS webhook_saved_at,
     EXISTS (SELECT 1 FROM memberships WHERE memberships.room_id = ?1 AND memberships.user_id = users.id) AS member
   FROM users LEFT JOIN webhooks ON webhooks.user_id = users.id
-  WHERE users.id = ?2 AND users.status = ${ACTIVE} AND users.role = ${BOT}`;
+  WHERE users.id = ?2 AND users.status = ${ACTIVE} AND users.role = ${BOT}
+    AND (users.owner_id IS NULL OR EXISTS (SELECT 1 FROM users AS owners WHERE owners.id = users.owner_id AND owners.status = ${ACTIVE}))`;
 
 /** The rooms a bot is in but its DMs, by name. */
 const BOT_ROOMS = `SELECT rooms.id, rooms.name FROM memberships JOIN rooms ON rooms.id = memberships.room_id
@@ -2220,7 +2235,7 @@ const CHANGE_ROLE = `UPDATE users SET role = ?, updated_at = ? WHERE id = ?`;
  * Takes someone out of every room but their DMs, which they stay in. It looks up each of their rooms,
  * where `room_id IN (SELECT ...)` would read them all.
  */
-const LEAVE_SHARED_ROOMS = `DELETE FROM memberships WHERE user_id = ?
+export const LEAVE_SHARED_ROOMS = `DELETE FROM memberships WHERE user_id = ?
   AND EXISTS (SELECT 1 FROM rooms WHERE rooms.id = memberships.room_id AND rooms.kind <> 'direct')`;
 
 /**
@@ -2357,10 +2372,11 @@ const GRANT_OPEN_ROOMS_TO_USER = `INSERT INTO memberships (room_id, user_id, cre
 
 /**
  * Puts every active person in an open room, keeping the memberships they already have, and answers whom
- * it put in. Agents kept to the open rooms an administrator picked stay out.
+ * it put in. Agents kept to the open rooms an administrator picked stay out, as do personal agents, which
+ * go only where their people put them.
  */
 const GRANT_ROOM_TO_ACTIVE_USERS = `INSERT INTO memberships (room_id, user_id, created_at, updated_at)
-  SELECT ?, id, ?, ? FROM users WHERE status = ${ACTIVE}
+  SELECT ?, id, ?, ? FROM users WHERE status = ${ACTIVE} AND owner_id IS NULL
     AND NOT EXISTS (SELECT 1 FROM agents WHERE agents.user_id = users.id AND agents.every_open_room = 0)
   ON CONFLICT DO NOTHING RETURNING user_id`;
 
@@ -2373,7 +2389,7 @@ const INSERT_FIRST_ROOM = `INSERT INTO rooms (id, kind, name, creator_id, create
 
 /** Puts every active person in one of first run's rooms, if it was added: one it found has them already, being open. */
 const GRANT_FIRST_ROOM = `INSERT INTO memberships (room_id, user_id, created_at, updated_at)
-  SELECT rooms.id, users.id, ?, ? FROM rooms, users WHERE rooms.id = ? AND users.status = ${ACTIVE} ON CONFLICT DO NOTHING`;
+  SELECT rooms.id, users.id, ?, ? FROM rooms, users WHERE rooms.id = ? AND users.status = ${ACTIVE} AND users.owner_id IS NULL ON CONFLICT DO NOTHING`;
 
 /** The oldest open room with a name, which first run opens: the one it added, or the one it found. */
 const OPEN_ROOM_NAMED = `SELECT id, kind, name, icon FROM rooms WHERE kind = 'open' AND name = ? ORDER BY created_at, id LIMIT 1`;
@@ -2387,6 +2403,53 @@ const GRANT_ROOM_TO_USERS = `INSERT INTO memberships (room_id, user_id, created_
 /** Takes everyone but the people a JSON list names and anyone suspended whose membership it keeps (`KEPT_SUSPENDED_MEMBERSHIP`) out of a room, and answers whom. */
 export const REVOKE_ROOM_FROM_OTHERS = `DELETE FROM memberships WHERE room_id = ? AND user_id NOT IN (SELECT value FROM json_each(?)) AND NOT ${KEPT_SUSPENDED_MEMBERSHIP}
   RETURNING user_id`;
+
+/**
+ * Queues revoking, with ?2 due at ?3, room ?1 for each personal agent in it whose person isn't, which
+ * `REMOVE_ORPHANED_AGENTS` then takes out: an agent is only ever in rooms its person is in.
+ */
+const QUEUE_ORPHANED_AGENT_REVOCATIONS = `INSERT INTO pending_revocations (room_id, tag, code, due_at)
+  SELECT memberships.room_id, memberships.user_id, ?2, ?3 FROM memberships JOIN users ON users.id = memberships.user_id
+  WHERE memberships.room_id = ?1 AND users.owner_id IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM memberships AS theirs WHERE theirs.room_id = ?1 AND theirs.user_id = users.owner_id)
+  RETURNING id`;
+
+/** Takes each personal agent whose person isn't in room ?1 out of it, and answers whom. */
+const REMOVE_ORPHANED_AGENTS = `DELETE FROM memberships WHERE room_id = ?1 AND user_id IN (SELECT users.id FROM users WHERE users.owner_id IS NOT NULL
+    AND NOT EXISTS (SELECT 1 FROM memberships AS theirs WHERE theirs.room_id = ?1 AND theirs.user_id = users.owner_id))
+  RETURNING user_id`;
+
+/** What takes the personal agents whose people aren't in room `roomId` out of it, queueing revoking it for them with `code` due at `dueAt`. */
+const orphanedAgentsLeave = (roomId: RoomId, code: CloseCode, dueAt: number): Statement[] => [
+  statement(QUEUE_ORPHANED_AGENT_REVOCATIONS, roomId, code, dueAt),
+  statement(REMOVE_ORPHANED_AGENTS, roomId),
+];
+
+/**
+ * Queues revoking, with ?1 due at ?2, every room the active personal agents of ?3 are in, DMs too, so
+ * that what their keys began is turned away there, as `TURN_OFF_OWNERS_AGENTS` turns them off.
+ */
+const QUEUE_OWNERS_AGENTS_REVOCATIONS = `INSERT INTO pending_revocations (room_id, tag, code, due_at)
+  SELECT memberships.room_id, memberships.user_id, ?1, ?2 FROM users JOIN memberships ON memberships.user_id = users.id
+  WHERE users.owner_id = ?3 AND users.status = ${ACTIVE} RETURNING id`;
+
+/** Takes the personal agents of ?1 out of every room but their DMs, as `LEAVE_SHARED_ROOMS` takes someone. */
+const OWNERS_AGENTS_LEAVE_SHARED_ROOMS = `DELETE FROM memberships WHERE user_id IN (SELECT id FROM users WHERE owner_id = ?1)
+  AND EXISTS (SELECT 1 FROM rooms WHERE rooms.id = memberships.room_id AND rooms.kind <> 'direct')`;
+
+/** Turns off the active personal agents of ?2, recording when at ?1: deactivated, with no digest any key matches. Answers which. */
+const TURN_OFF_OWNERS_AGENTS = `UPDATE users SET status = ${DEACTIVATED}, bot_key_digest = NULL, updated_at = ?1 WHERE owner_id = ?2 AND status = ${ACTIVE} RETURNING id`;
+
+/**
+ * What turns off the active personal agents of `ownerId` at `now`, as removing or banning them does:
+ * queues revoking what they can open with `code` due at `dueAt`, takes them out of every room but their
+ * DMs, and deactivates them, forgetting their keys. The last statement answers which it turned off.
+ */
+const ownersAgentsOff = (ownerId: UserId, code: CloseCode, dueAt: number, now: string): Statement[] => [
+  statement(QUEUE_OWNERS_AGENTS_REVOCATIONS, code, dueAt, ownerId),
+  statement(OWNERS_AGENTS_LEAVE_SHARED_ROOMS, ownerId),
+  statement(TURN_OFF_OWNERS_AGENTS, now, ownerId),
+];
 
 /** Who's in a room, which the memberships' key finds. */
 export const ROOM_MEMBERS = `SELECT user_id FROM memberships WHERE room_id = ?`;
@@ -3201,12 +3264,14 @@ export class WorkspaceStore {
    * room but their DMs, ends their sessions, forgets their recent searches, their push subscriptions
    * the sign-ins they made to apps and the AI apps connected as them, and marks them removed, recording when, with
    * `-deactivated-<uuid>` before each "@" of their email address. Their messages, boosts, DMs, role and
-   * avatar stay. Answers whether it queued any.
+   * avatar stay. Their personal agents are turned off with them (`ownersAgentsOff`). Answers whether it
+   * queued any revocations, and which agents it turned off.
    */
-  async removePerson(userId: UserId, uuid: string, code: CloseCode, dueAt: number, now: string): Promise<boolean> {
-    const [queued] = await this.db.batch([
+  async removePerson(userId: UserId, uuid: string, code: CloseCode, dueAt: number, now: string): Promise<{ queued: boolean; agentsOff: UserId[] }> {
+    const [queued, agentsQueued, , agentsOff] = (await this.db.batch([
       // Before they leave the rooms it finds their sockets in.
       statement(QUEUE_PERSON_SESSION_REVOCATIONS, SESSION_TAG_PREFIX, code, dueAt, userId),
+      ...ownersAgentsOff(userId, code, dueAt, now),
       statement(LEAVE_SHARED_ROOMS, userId),
       statement(`DELETE FROM sessions WHERE user_id = ?`, userId),
       ...forgettingSearches(userId),
@@ -3215,8 +3280,8 @@ export class WorkspaceStore {
       statement(`DELETE FROM outside_spent_tokens WHERE connection_id IN (SELECT id FROM outside_connections WHERE user_id = ?)`, userId),
       statement(`DELETE FROM outside_connections WHERE user_id = ?`, userId),
       statement(DEACTIVATE, `-deactivated-${uuid}@`, now, userId),
-    ]);
-    return queued!.length > 0;
+    ])) as Array<Array<{ id: UserId }>>;
+    return { queued: queued!.length > 0 || agentsQueued!.length > 0, agentsOff: agentsOff!.map((row) => row.id) };
   }
 
   /**
@@ -3226,12 +3291,21 @@ export class WorkspaceStore {
    * they can have written in, due then too. It queues having every room tell the sockets from those
    * addresses to reconnect, due then as well, so they come back able only to read, and forgets the
    * sign-ins they made to apps and the AI apps connected as them. Their memberships, role and avatar
-   * stay. Answers whether it queued anything.
+   * stay. Their personal agents are turned off (`ownersAgentsOff`), and lifting the ban doesn't turn them
+   * on again. Answers whether it queued anything, and which agents it turned off.
    */
-  async banPerson(userId: UserId, ipAddresses: string[], code: CloseCode, reconnect: CloseCode, dueAt: number, now: string): Promise<boolean> {
-    const [revocations, , reconnections, , , purges] = (await this.db.batch([
+  async banPerson(
+    userId: UserId,
+    ipAddresses: string[],
+    code: CloseCode,
+    reconnect: CloseCode,
+    dueAt: number,
+    now: string,
+  ): Promise<{ queued: boolean; agentsOff: UserId[] }> {
+    const [revocations, agentRevocations, , agentsOff, , reconnections, , , purges] = (await this.db.batch([
       // Before their sessions go, which it finds their sockets by.
       statement(QUEUE_PERSON_SESSION_REVOCATIONS, SESSION_TAG_PREFIX, code, dueAt, userId),
+      ...ownersAgentsOff(userId, code, dueAt, now),
       statement(`INSERT INTO bans (user_id, ip_address, created_at, updated_at) SELECT ?, value, ?, ? FROM json_each(?)`, userId, now, now, JSON.stringify(ipAddresses)),
       statement(QUEUE_ADDRESS_REVOCATIONS, ADDRESS_TAG_PREFIX, reconnect, dueAt, JSON.stringify(ipAddresses)),
       statement(`DELETE FROM sessions WHERE user_id = ?`, userId),
@@ -3241,7 +3315,8 @@ export class WorkspaceStore {
       statement(`DELETE FROM outside_spent_tokens WHERE connection_id IN (SELECT id FROM outside_connections WHERE user_id = ?)`, userId),
       statement(`DELETE FROM outside_connections WHERE user_id = ?`, userId),
     ])) as unknown[][];
-    return revocations!.length > 0 || reconnections!.length > 0 || purges!.length > 0;
+    const queued = revocations!.length > 0 || agentRevocations!.length > 0 || reconnections!.length > 0 || purges!.length > 0;
+    return { queued, agentsOff: (agentsOff as Array<{ id: UserId }>).map((row) => row.id) };
   }
 
   /**
@@ -3809,14 +3884,21 @@ export class WorkspaceStore {
 
   /** The active bot `botId`, with its token, whether it's in room `roomId` and its webhook, or null unless it's one. */
   async activeBotKey(botId: UserId, roomId: RoomId): Promise<BotKey | null> {
-    const [row] = await this.db.all<User & { bot_token: string | null; webhook_url: string | null; webhook_saved_at: string | null; member: number }>(
-      ACTIVE_BOT_KEY,
-      roomId,
-      botId,
-    );
+    const [row] = await this.db.all<
+      User & {
+        bot_token: string | null;
+        owner_id: UserId | null;
+        bot_key_digest: string | null;
+        bot_key_used_at: string | null;
+        webhook_url: string | null;
+        webhook_saved_at: string | null;
+        member: number;
+      }
+    >(ACTIVE_BOT_KEY, roomId, botId);
     if (!row) return null;
     const webhook = row.webhook_url === null || row.webhook_saved_at === null ? null : { url: row.webhook_url, savedAt: row.webhook_saved_at };
-    return { bot: { id: row.id, name: row.name }, token: row.bot_token, member: row.member === 1, webhook };
+    const personal = row.owner_id === null ? null : { digest: row.bot_key_digest, usedAt: row.bot_key_used_at };
+    return { bot: { id: row.id, name: row.name }, token: row.bot_token, personal, member: row.member === 1, webhook };
   }
 
   /** Bot `botId`'s webhook as a delivery to it in room `roomId` finds it now, or null unless it's an active bot in the room with one. */
@@ -4472,19 +4554,22 @@ export class WorkspaceStore {
     }
     const memberIds = JSON.stringify(changes.memberIds);
     // Whom it takes out is read before the room's kind changes, which says whether anyone suspended stays.
-    const [, removed, updated, added, after, rank] = (await this.db.batch([
+    // A personal agent whose person it takes out goes too, though it was listed.
+    const [, removed, updated, added, , orphaned, after, rank] = (await this.db.batch([
       statement(QUEUE_MEMBER_REVOCATIONS, code, dueAt, roomId, memberIds),
       statement(REVOKE_ROOM_FROM_OTHERS, roomId, memberIds),
       update,
       statement(GRANT_ROOM_TO_USERS, roomId, now, now, memberIds),
+      ...orphanedAgentsLeave(roomId, code, dueAt),
       members,
       ranked,
     ])) as UserIdRow[][];
+    const left = new Set(userIdsOf(orphaned!));
     return {
       roomChanged: updated!.length > 0,
       memberIds: userIdsOf(after!),
-      addedIds: userIdsOf(added!),
-      removedIds: userIdsOf(removed!),
+      addedIds: userIdsOf(added!).filter((id) => !left.has(id)),
+      removedIds: [...userIdsOf(removed!), ...left],
       ranked: isRanked(rank!),
     };
   }
@@ -4495,11 +4580,15 @@ export class WorkspaceStore {
     return row!.found === 1;
   }
 
-  /** Takes someone out of a room, and in the same transaction queues closing their sockets there with `code`, due at `dueAt`. */
+  /**
+   * Takes someone out of a room, and their personal agents with them, and in the same transaction queues
+   * closing their sockets there with `code`, due at `dueAt`, and revoking it for the agents.
+   */
   async leaveRoom(roomId: RoomId, userId: UserId, code: CloseCode, dueAt: number): Promise<void> {
     await this.db.batch([
       statement(`INSERT INTO pending_revocations (room_id, tag, code, due_at) VALUES (?, ?, ?, ?)`, roomId, userId, code, dueAt),
       statement(`DELETE FROM memberships WHERE room_id = ? AND user_id = ?`, roomId, userId),
+      ...orphanedAgentsLeave(roomId, code, dueAt),
     ]);
   }
 
@@ -4537,7 +4626,7 @@ export class WorkspaceStore {
    * Answers who's in it.
    */
   async createRoom(room: SharedRoom, creatorId: UserId, memberIds: UserId[] | null, now: string): Promise<UserId[]> {
-    const [, members] = (await this.db.batch([
+    const [, members, orphaned] = (await this.db.batch([
       statement(
         `INSERT INTO rooms (id, kind, name, icon, creator_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         room.id,
@@ -4549,8 +4638,11 @@ export class WorkspaceStore {
         now,
       ),
       memberIds ? statement(GRANT_ROOM_TO_USERS, room.id, now, now, JSON.stringify(memberIds)) : statement(GRANT_ROOM_TO_ACTIVE_USERS, room.id, now, now),
+      // A personal agent goes in only with its person: nobody had the room before, so there's nothing to revoke.
+      statement(REMOVE_ORPHANED_AGENTS, room.id),
     ])) as UserIdRow[][];
-    return userIdsOf(members!);
+    const left = new Set(userIdsOf(orphaned!));
+    return userIdsOf(members!).filter((id) => !left.has(id));
   }
 
   /**

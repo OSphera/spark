@@ -110,4 +110,12 @@ describe("@-mention people", () => {
 `);
     expect(mentionPromptItem({ ...ada, agent: false })).toBe(mentionPromptItem(ada));
   });
+
+  it("says whose a personal agent is after its badge, its person's name escaped", () => {
+    const scout = { id: id(3), name: "Scout", avatarUrl: "/users/s.x/avatar?v=1", agent: true, owner: "Grace <3" };
+    expect(mentionPromptItem(scout)).toContain(
+      `<span class="autocompletable__name">Scout</span> <span class="autocompletable__badge">Agent</span> <span class="autocompletable__owner">Grace &lt;3's agent</span></span></template>`,
+    );
+    expect(mentionPromptItem(scout)).toContain(`<template type="editor">${mentionContent(scout)}</template>`);
+  });
 });

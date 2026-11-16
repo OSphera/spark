@@ -207,10 +207,16 @@ export interface DirectoryUser extends User {
   /** Their avatar, `/users/<token>/avatar?v=<version>`, whose address changes whenever they do, and @ember's with each release too. */
   avatarUrl: string;
   /**
-   * Whether they're an AI agent, @ember or one an administrator made, which the Agent badge shows, even
-   * once it's deleted, as its answers stay. Left out for anyone else.
+   * Whether they're an agent, which the Agent badge shows: @ember, an AI agent an administrator made, or
+   * a personal agent (`ownerId`), even once it's deleted or turned off, as what it said stays. Left out
+   * for anyone else.
    */
   agent?: true;
+  /**
+   * For a personal agent, one a member made for themselves, the person whose it is, which it's shown as
+   * wherever it carries the Agent badge ("Pete's agent"), even once it's turned off. Left out for anyone else.
+   */
+  ownerId?: UserId;
 }
 
 /** What `GET /api/users` answers: everyone in the workspace, deactivated, banned and suspended people too. */

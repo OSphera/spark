@@ -94,6 +94,7 @@ import {
   type YourAssistant,
   type YourAssistantChanges,
 } from "@ember/protocol/assistant";
+import type { BotRoomListed, EveryonesAgents, PersonalAgent, PersonalAgentAnswer, PersonalAgentLimit, YourAgents } from "@ember/protocol/personal-agents";
 import { MAX_AGENTS, type Agent, type AgentChanges, type AgentProfile, type AgentRoom, type AgentSettings, type NewAgent } from "@ember/protocol/agents";
 import {
   MAX_APP_SCOPE_LENGTH,
@@ -117,6 +118,8 @@ import { eachAtMost, ROOMS_AT_ONCE } from "./at-once";
 import { directoryOf, TooSoon, tooSoonAfter, versionOf } from "./avatar-tokens";
 import { banProblem, type BanProblem } from "./bans";
 import { botKeyOf, isBotToken, newBotToken, webhookTokenOf } from "./bots/keys";
+import { agentKeyDigest, KEY_USE_RECORDED_MS, newAgentToken } from "./bots/personal-agent-keys";
+import { PersonalAgentStore, type StoredPersonalAgent } from "./bots/personal-agents-store";
 import { openDb, type Db } from "./db";
 import { alreadyAMemberEmail, emailDomainLinkEmail, invitationEmail, passwordResetCodeEmail, testEmail } from "./emails";
 import { guestSignIn, type Env } from "./env";
@@ -967,6 +970,7 @@ const shownApp = (app: StoredApp, everyPicks: readonly AgentToolPicks[]): App =>
 export class Workspace extends DurableObject<Env> {
   private readonly db: Db;
   private readonly store: WorkspaceStore;
+  private readonly agentStore: PersonalAgentStore;
   private readonly outside: OutsideStore;
   private readonly sessions = new SessionCache<StoredSession>(CACHED_SESSIONS);
   /**
@@ -1026,6 +1030,7 @@ export class Workspace extends DurableObject<Env> {
     this.db = openDb(env, ctx.storage, "workspace");
     this.store = new WorkspaceStore(this.db);
     this.outside = new OutsideStore(this.db);
+    this.agentStore = new PersonalAgentStore(this.db);
     // The outbox can hold revocations with no alarm set for them: the Workspace can stop after saving a
     // change but before setting the alarm, and an alarm that keeps failing is given up. So it looks
     // whenever it starts, before answering anything. A failure is only logged; the next change that
@@ -2593,8 +2598,8 @@ export class Workspace extends DurableObject<Env> {
       if (!(await this.joinableAccount())?.memberfulJoin) return "off";
       if (!member.subscribed) return "membership";
       // Nobody can take an agent's name, which Memberful knows nothing of.
-      const agents = await this.store.agentEntries();
-      const free = (name: string) => !agents.some((agent) => sameName(agent.name, name));
+      const agents = [...(await this.store.agentEntries()).map((agent) => agent.name), ...(await this.agentStore.names(null))];
+      const free = (name: string) => !agents.some((agent) => sameName(agent, name));
       const name = member.names.find(free) ?? namelessMember(free);
       const session: StoredSession = { id: sortableId(), user: { id: sortableId(), name }, administrator: false, guest: false, lastActiveAt: Date.now() };
       const person = { ...session.user, emailAddress: member.emailAddress };
@@ -2851,6 +2856,12 @@ export class Workspace extends DurableObject<Env> {
   private async publishPerson(userId: UserId): Promise<void> {
     const person = await this.store.person(userId);
     if (person) this.broadcast({ type: "user.updated", user: await this.directoryUser(person) });
+  }
+
+  /** Tells everyone's workspace sockets of the people `userIds` names, as the people directory lists them now. */
+  private async publishPeople(userIds: UserId[]): Promise<void> {
+    if (userIds.length === 0) return;
+    for (const user of await directoryOf(await this.store.directoryEntries(userIds), this.env.SESSION_SECRET)) this.broadcast({ type: "user.updated", user });
   }
 
   /** Tells everyone's workspace sockets of every agent, as the people directory lists it. */
@@ -3174,7 +3185,8 @@ export class Workspace extends DurableObject<Env> {
     if (!user) return null;
     if (!(await this.mayCreateRoomsAs(user.id))) return "forbidden";
     const created: SharedRoom = { id: sortableId(), kind: room.kind, name: room.name, icon: room.icon || null };
-    const memberIds = await this.store.createRoom(created, user.id, room.kind === "closed" ? room.memberIds : null, new Date().toISOString());
+    const picked = room.kind === "closed" ? await this.allowedMembers(user.id, null, room.memberIds) : null;
+    const memberIds = await this.store.createRoom(created, user.id, picked, new Date().toISOString());
     this.tell(memberIds, { type: "room.saved", room: created });
     return created;
   }
@@ -3183,12 +3195,14 @@ export class Workspace extends DurableObject<Env> {
    * Starts a DM as the person `credentials` signs in: the DM between them and the people `userIds` names
    * who exist, whatever their status, or their DM with themselves when it names nobody else. A group of
    * people has one DM, so the one they have opens again. Answers it, and whether it's new, or null
-   * without a valid session. Everyone in a new DM sees it in their sidebars at once, and nobody else
-   * hears of it.
+   * without a valid session, or "agent" when it names someone else's personal agent. Everyone in a new
+   * DM sees it in their sidebars at once, and nobody else hears of it.
    */
-  async startDirect(credentials: Credentials, userIds: UserId[]): Promise<{ room: DirectRoom; started: boolean } | null> {
+  async startDirect(credentials: Credentials, userIds: UserId[]): Promise<{ room: DirectRoom; started: boolean } | "agent" | null> {
     const user = await this.authenticate(credentials);
     if (!user) return null;
+    // Someone's agent is only ever in rooms they're in, so only they can message it directly.
+    if (userIds.length > 0 && (await this.agentStore.picked(userIds, null)).some((agent) => agent.ownerId !== user.id)) return "agent";
     const people = userIds.length > 0 ? await this.store.peopleWithIds(userIds) : [];
     const memberIds = [user.id, ...people.map((person) => person.id)];
     const direct = await this.store.startDirect(sortableId(), user.id, memberIds, new Date().toISOString());
@@ -3203,7 +3217,11 @@ export class Workspace extends DurableObject<Env> {
   async newRoomForm(credentials: Credentials): Promise<NewRoomForm | "forbidden" | null> {
     const user = await this.authenticate(credentials);
     if (!user) return null;
-    return (await this.mayCreateRoomsAs(user.id)) ? { people: await this.store.activePeople() } : "forbidden";
+    if (!(await this.mayCreateRoomsAs(user.id))) return "forbidden";
+    // Someone else's personal agent can't go in, so it isn't offered.
+    const people = await this.store.activePeople();
+    const offered = new Set(await this.allowedMembers(user.id, null, people.map((person) => person.id)));
+    return { people: people.filter((person) => offered.has(person.id)) };
   }
 
   /**
@@ -3303,7 +3321,7 @@ export class Workspace extends DurableObject<Env> {
     if (!user) return null;
     return this.closingSockets(async () => {
       if (!(await this.store.isAdministrator(user.id))) return "forbidden";
-      const person = (await this.goesWithEmberAi(userId)) ? null : await this.store.removablePerson(userId);
+      const person = (await this.managedElsewhere(userId)) ? null : await this.store.removablePerson(userId);
       if (!person) return "not found";
       if (userId === user.id) return "yourself";
       return this.deactivate(person);
@@ -3315,24 +3333,35 @@ export class Workspace extends DurableObject<Env> {
    * their sessions end, and their sockets close for good: here at once, and in every room they're in
    * through the outbox. Everyone's workspace sockets hear of it.
    */
-  private async deactivate({ id, name, bio, role, agent }: DirectoryEntry): Promise<DirectoryUser> {
+  private async deactivate({ id, name, bio, role, agent, ownerId }: DirectoryEntry): Promise<DirectoryUser> {
     const now = Date.now();
     const removedAt = new Date(now).toISOString();
-    const removed = await this.directoryUser({ id, name, bio, role, status: "deactivated", updatedAt: removedAt, agent });
+    const removed = await this.directoryUser({ id, name, bio, role, status: "deactivated", updatedAt: removedAt, agent, ownerId });
     // As when resetting a password, until the database says it queued nothing.
     let queued = true;
+    let agentsOff: UserId[] = [];
     try {
-      queued = await this.sessions.change(
+      ({ queued, agentsOff } = await this.sessions.change(
         (session) => session.user.id === id,
         () => this.store.removePerson(id, crypto.randomUUID(), CloseCode.Revoked, now, removedAt),
-      );
+      ));
     } finally {
       // Whether or not it saved: the app connects them again if they're still signed in.
       this.closeSockets(id, CloseCode.Revoked);
       if (queued) await this.revocationsQueued(now);
     }
     this.broadcast({ type: "user.updated", user: removed });
+    await this.publishPeople(agentsOff);
     return removed;
+  }
+
+  /**
+   * Whether `userId` is someone removing, banning or lifting a ban finds nobody as: @ember or an AI agent,
+   * which go with Ember AI (`goesWithEmberAi`), or a personal agent, which its person and administrators
+   * turn off on their own pages, and which lifting a ban would otherwise put in every open room.
+   */
+  private async managedElsewhere(userId: UserId): Promise<boolean> {
+    return (await this.goesWithEmberAi(userId)) || this.agentStore.isPersonalAgent(userId);
   }
 
   /** Whether `userId` is @ember's or an agent's, which go with Ember AI, on the AI assistant tab, so that removing or banning them finds nobody. */
@@ -3414,8 +3443,8 @@ export class Workspace extends DurableObject<Env> {
         if (previous) await this.wakeAt(now);
         const changed = (await this.store.activeBot(botId))!;
         if (changed.name !== bot.name || avatar) {
-          const { id, name, bio, role, status, updatedAt, agent } = changed;
-          this.broadcast({ type: "user.updated", user: await this.directoryUser({ id, name, bio, role, status, updatedAt, agent }) });
+          const { id, name, bio, role, status, updatedAt, agent, ownerId } = changed;
+          this.broadcast({ type: "user.updated", user: await this.directoryUser({ id, name, bio, role, status, updatedAt, agent, ownerId }) });
         }
         return this.shownBotSettings(changed);
       }),
@@ -3471,6 +3500,264 @@ export class Workspace extends DurableObject<Env> {
   private async shownBotSettings(bot: StoredBotSettings): Promise<BotSettings> {
     const [shown] = await this.shownBots([bot]);
     return { ...shown!, webhookUrl: bot.webhookUrl };
+  }
+
+  // Personal agents: the agents people make for themselves on their profile (bots/personal-agents.ts).
+
+  /** The person `credentials` signs in, as having agents of their own takes them: "forbidden" for a guest, or null without a valid session. */
+  private async agentOwner(credentials: Credentials): Promise<StoredSession | "forbidden" | null> {
+    const session = await this.session(credentials);
+    if (!session) return null;
+    return session.guest ? "forbidden" : session;
+  }
+
+  /** The agents of the person `credentials` signs in, by name, with how many they may have: "forbidden" for a guest, or null without a valid session. */
+  async yourAgents(credentials: Credentials): Promise<YourAgents | "forbidden" | null> {
+    const owner = await this.agentOwner(credentials);
+    if (!owner || owner === "forbidden") return owner;
+    const [limit, agents] = await Promise.all([this.agentStore.limit(), this.agentStore.agents(owner.user.id)]);
+    return { limit, agents: await this.shownAgents(agents) };
+  }
+
+  /**
+   * What making an agent, or giving one a new key, checks first, as changing your email address does
+   * (`profileCheck`): the digest of the password of the person `credentials` signs in, which the Worker
+   * checks the one they gave against, counting against sign-in's limit for `ip` ("limited"), or null as
+   * their digest when they have no password. "forbidden" for a guest, or null without a valid session.
+   */
+  async agentPasswordCheck(credentials: Credentials, ip: string): Promise<{ passwordDigest: string | null } | "limited" | "forbidden" | null> {
+    const owner = await this.agentOwner(credentials);
+    if (!owner || owner === "forbidden") return owner;
+    const signIn = await this.store.signInOf(owner.user.id);
+    if (!signIn) return null;
+    if (signIn.passwordDigest === null) return { passwordDigest: null };
+    return this.signInAttempts.attempt(ip) ? { passwordDigest: signIn.passwordDigest } : "limited";
+  }
+
+  /**
+   * Makes an agent called `name` for the person `credentials` signs in, whose password's digest the
+   * Worker checked theirs against, `checked`, answering it with its key, which nothing keeps but its digest:
+   * "off" while the limit is 0, "full" once they have as many as it lets them, "name taken" for a name
+   * someone has, or an agent (`namesInUse`, `takesAgentsName`), "password needed" when their password isn't
+   * the one checked, "forbidden" for a guest, or null without a valid session. It's in no room until they
+   * put it in one. Everyone's workspace sockets hear of it.
+   */
+  async createPersonalAgent(
+    credentials: Credentials,
+    name: string,
+    checked: string | null,
+  ): Promise<PersonalAgentAnswer | "off" | "full" | "name taken" | "password needed" | "forbidden" | null> {
+    const owner = await this.agentOwner(credentials);
+    if (!owner || owner === "forbidden") return owner;
+    return this.oneAtATime(async () => {
+      if ((await this.agentStore.limit()) === 0) return "off";
+      if ((await this.store.signInOf(owner.user.id))?.passwordDigest !== checked) return "password needed";
+      if (await this.takesAnyonesName(null, name)) return "name taken";
+      const id = sortableId();
+      const token = newAgentToken();
+      const digest = await agentKeyDigest(id, token, this.env.SESSION_SECRET);
+      // The count is checked in the same statement, so two at once can't both pass it.
+      if (!(await this.agentStore.createAgent(id, name, owner.user.id, digest, new Date().toISOString()))) {
+        return (await this.agentStore.limit()) === 0 ? "off" : "full";
+      }
+      await this.publishPerson(id);
+      return { agent: (await this.ownAgent(id, owner.user.id))!, key: botKeyOf(id, token) };
+    });
+  }
+
+  /**
+   * Renames agent `agentId` of the person `credentials` signs in, answering it then: "not found" unless
+   * it's an active agent of theirs, "name taken" as for making one, "forbidden" for a guest, or null
+   * without a valid session. Everyone's workspace sockets hear of it.
+   */
+  async renamePersonalAgent(credentials: Credentials, agentId: UserId, name: string): Promise<PersonalAgentAnswer | "not found" | "name taken" | "forbidden" | null> {
+    const owner = await this.agentOwner(credentials);
+    if (!owner || owner === "forbidden") return owner;
+    return this.oneAtATime(async () => {
+      const agent = await this.agentStore.activeAgent(agentId);
+      if (agent?.ownerId !== owner.user.id) return "not found";
+      if (!sameName(agent.name, name) && (await this.takesAnyonesName(agentId, name))) return "name taken";
+      await this.agentStore.renameAgent(agentId, owner.user.id, name, new Date().toISOString());
+      await this.publishPerson(agentId);
+      return { agent: (await this.ownAgent(agentId, owner.user.id))! };
+    });
+  }
+
+  /**
+   * Gives agent `agentId` of the person `credentials` signs in a new key, whose password checks out as
+   * for making one, answering it with the key: the old one stops at once, and whatever it began in a
+   * room is turned away there. "not found" unless it's an active agent of theirs, "password needed",
+   * "forbidden" for a guest, or null without a valid session.
+   */
+  async rekeyPersonalAgent(credentials: Credentials, agentId: UserId, checked: string | null): Promise<PersonalAgentAnswer | "not found" | "password needed" | "forbidden" | null> {
+    const owner = await this.agentOwner(credentials);
+    if (!owner || owner === "forbidden") return owner;
+    return this.closingSockets(async () => {
+      const agent = await this.agentStore.activeAgent(agentId);
+      if (agent?.ownerId !== owner.user.id) return "not found";
+      if ((await this.store.signInOf(owner.user.id))?.passwordDigest !== checked) return "password needed";
+      const token = newAgentToken();
+      const now = Date.now();
+      try {
+        if (!(await this.agentStore.rekeyAgent(agentId, owner.user.id, await agentKeyDigest(agentId, token, this.env.SESSION_SECRET), CloseCode.Revoked, now))) return "not found";
+      } finally {
+        await this.revocationsQueued(now);
+      }
+      return { agent: (await this.ownAgent(agentId, owner.user.id))!, key: botKeyOf(agentId, token) };
+    });
+  }
+
+  /**
+   * Turns off the personal agent `agentId`, as its person deleting it, or an administrator, does: it leaves
+   * every room but its DMs, whatever its key began is turned away, and its key never works again, while its
+   * messages stay, shown as its person's agent's. `as` says who asks: its "owner", the person `credentials`
+   * signs in, or an "administrator". Answers "not found" unless it's an active personal agent, theirs as
+   * its owner, "forbidden" for a guest, or someone who isn't an administrator asking as one, or null
+   * without a valid session. Everyone's workspace sockets hear of it.
+   */
+  async turnOffPersonalAgent(credentials: Credentials, agentId: UserId, as: "owner" | "administrator"): Promise<"off" | "not found" | "forbidden" | null> {
+    const session = await this.agentOwner(credentials);
+    if (!session || session === "forbidden") return session;
+    return this.closingSockets(async () => {
+      if (as === "administrator" && !(await this.store.isAdministrator(session.user.id))) return "forbidden";
+      const agent = await this.agentStore.activeAgent(agentId);
+      if (!agent || (as === "owner" && agent.ownerId !== session.user.id)) return "not found";
+      const now = Date.now();
+      let off = false;
+      try {
+        off = await this.agentStore.turnOff(agentId, CloseCode.Revoked, now, new Date(now).toISOString());
+      } finally {
+        await this.revocationsQueued(now);
+      }
+      if (!off) return "not found";
+      await this.publishPerson(agentId);
+      return "off";
+    });
+  }
+
+  /**
+   * Puts the personal agent `agentId` in room `roomId`, or with `place` false takes it out, as its person
+   * or an administrator asks, the person `credentials` signs in, who has to be in the room, answering the
+   * agent then. It goes only in a room its person is in, but a DM ("not with owner"). "not found" unless
+   * it's an active personal agent theirs or they're an administrator, and the room is one they're in,
+   * "forbidden" for a guest, or null without a valid session.
+   */
+  async placePersonalAgent(
+    credentials: Credentials,
+    agentId: UserId,
+    roomId: RoomId,
+    place: boolean,
+  ): Promise<PersonalAgentAnswer | "not with owner" | "not found" | "forbidden" | null> {
+    const session = await this.agentOwner(credentials);
+    if (!session || session === "forbidden") return session;
+    const { user } = session;
+    return this.closingSockets(async () => {
+      const agent = await this.agentStore.activeAgent(agentId);
+      if (!agent || (agent.ownerId !== user.id && !(await this.store.isAdministrator(user.id)))) return "not found";
+      if (!(await this.store.isMember(roomId, user.id))) return "not found";
+      const now = Date.now();
+      if (place) {
+        if ((await this.agentStore.place(roomId, agentId, new Date(now).toISOString())) === "refused") return "not with owner";
+      } else {
+        try {
+          await this.agentStore.remove(roomId, agentId, CloseCode.Revoked, now);
+        } finally {
+          await this.revocationsQueued(now);
+        }
+      }
+      return { agent: (await this.ownAgent(agentId, agent.ownerId))! };
+    });
+  }
+
+  /** Everyone's active personal agents, by name, with the limit, for the person `credentials` signs in: "forbidden" unless that's an administrator, or null without a valid session. */
+  async everyonesAgents(credentials: Credentials): Promise<EveryonesAgents | "forbidden" | null> {
+    const administrator = await this.canAdminister(credentials);
+    if (administrator === null) return null;
+    if (!administrator) return "forbidden";
+    const [limit, agents] = await Promise.all([this.agentStore.limit(), this.agentStore.agents(null)]);
+    return { limit, agents: await this.shownAgents(agents) };
+  }
+
+  /**
+   * Sets how many personal agents each person may have, as the person `credentials` signs in: "forbidden"
+   * unless that's an administrator, or null without a valid session. Lowering it turns nobody's off; it
+   * only stops them making more.
+   */
+  async setPersonalAgentLimit(credentials: Credentials, limit: number): Promise<PersonalAgentLimit | "forbidden" | null> {
+    const user = await this.authenticate(credentials);
+    if (!user) return null;
+    return this.oneAtATime(async () => {
+      if (!(await this.store.isAdministrator(user.id))) return "forbidden";
+      await this.agentStore.setLimit(limit, new Date().toISOString());
+      return { limit };
+    });
+  }
+
+  /** Whose agents the personal agents among `ids` are, by their names now, for the bot API's messages and a room's download. */
+  async personalAgentOwners(ids: UserId[]): Promise<Map<UserId, User>> {
+    return ids.length === 0 ? new Map() : this.agentStore.ownersOf([...new Set(ids)]);
+  }
+
+  /**
+   * The rooms the bot that a key names by `botId` and `token` is in, DMs too, for `GET /bot/rooms`, or null
+   * unless it's an active bot's own key: a webhook's, which opens one room, doesn't list them.
+   */
+  async botRooms(botId: UserId, token: string): Promise<BotRoomListed[] | null> {
+    const found = await this.store.activeBotKey(botId, "");
+    if (!found || !(await this.isOwnBotKey(token, found))) return null;
+    return this.agentStore.botRooms(botId);
+  }
+
+  /**
+   * Whether `token` is the bot `found`'s own: its token, or for a personal agent, the token whose digest it
+   * keeps, whose use it records, at most once in `KEY_USE_RECORDED_MS`.
+   */
+  private async isOwnBotKey(token: string, { bot, token: own, personal }: BotKey): Promise<boolean> {
+    if (!personal) return isBotToken(token, own);
+    if (!personal.digest || !isBotToken(await agentKeyDigest(bot.id, token, this.env.SESSION_SECRET), personal.digest)) return false;
+    const now = Date.now();
+    if (personal.usedAt === null || Date.parse(personal.usedAt) < now - KEY_USE_RECORDED_MS) {
+      await this.agentStore.touchKey(bot.id, new Date(now).toISOString(), new Date(now - KEY_USE_RECORDED_MS).toISOString());
+    }
+    return true;
+  }
+
+  /** The active agent `agentId` of `ownerId`'s as their profile lists it, or null unless it's one. */
+  private async ownAgent(agentId: UserId, ownerId: UserId): Promise<PersonalAgent | null> {
+    const [shown] = await this.shownAgents((await this.agentStore.agents(ownerId)).filter((agent) => agent.id === agentId));
+    return shown ?? null;
+  }
+
+  /** Personal agents as profiles and workspace settings list them, with their avatars' addresses. */
+  private async shownAgents(agents: StoredPersonalAgent[]): Promise<PersonalAgent[]> {
+    const shown = await directoryOf(agents, this.env.SESSION_SECRET);
+    return shown.map((agent, i) => ({ ...agent, ownerId: agents[i]!.ownerId }));
+  }
+
+  /**
+   * Whether `name` is someone's, or a bot's, or an agent's, but `userId`'s, as nothing a personal agent is
+   * called may be: anyone active, or who can be again, as `namesInUse` reads them, and AI agents and
+   * personal agents, whose names nobody can take (`takesAgentsName`).
+   */
+  private async takesAnyonesName(userId: UserId | null, name: string): Promise<boolean> {
+    if ((await this.store.namesInUse(userId)).some((other) => sameName(other, name))) return true;
+    return this.takesAgentsName(null, name, userId);
+  }
+
+  /**
+   * Of the people `memberIds` names for a room, those who may be put in it by `userId`: everyone but the
+   * personal agents that aren't active, or aren't theirs, unless they're an administrator or it's in room
+   * `roomId` already, or whose person isn't among them, since an agent is only in rooms its person is in.
+   */
+  private async allowedMembers(userId: UserId, roomId: RoomId | null, memberIds: UserId[]): Promise<UserId[]> {
+    const agents = await this.agentStore.picked(memberIds, roomId);
+    if (agents.length === 0) return memberIds;
+    const administrator = await this.store.isAdministrator(userId);
+    const listed = new Set(memberIds);
+    const refused = new Set(
+      agents.filter((agent) => !agent.active || !listed.has(agent.ownerId) || !(agent.member || administrator || agent.ownerId === userId)).map((agent) => agent.id),
+    );
+    return memberIds.filter((id) => !refused.has(id));
   }
 
   /**
@@ -4223,11 +4510,13 @@ export class Workspace extends DurableObject<Env> {
 
   /**
    * Whether someone or a bot called `name`, or someone new, for null, takes an agent's name by being
-   * called `rename`, which nobody can, whether Ember AI is on or off, unless it was theirs already.
+   * called `rename`, which nobody can, whether Ember AI is on or off, unless it was theirs already: an AI
+   * agent's, or an active personal agent's but `except`'s.
    */
-  private async takesAgentsName(name: string | null, rename: string): Promise<boolean> {
+  private async takesAgentsName(name: string | null, rename: string, except: UserId | null = null): Promise<boolean> {
     if (name !== null && sameName(name, rename)) return false;
-    return (await this.store.agentEntries()).some((agent) => sameName(agent.name, rename));
+    const [agents, personal] = await Promise.all([this.store.agentEntries(), this.agentStore.names(except)]);
+    return [...agents.map((agent) => agent.name), ...personal].some((agentName) => sameName(agentName, rename));
   }
 
   /**
@@ -4248,7 +4537,7 @@ export class Workspace extends DurableObject<Env> {
     if (!user) return null;
     return this.closingSockets(async () => {
       if (!(await this.store.isAdministrator(user.id))) return "forbidden";
-      const person = (await this.goesWithEmberAi(userId)) ? null : await this.store.person(userId);
+      const person = (await this.managedElsewhere(userId)) ? null : await this.store.person(userId);
       if (!person) return "not found";
       if (userId === user.id) return "yourself";
       const ipAddresses = await this.store.sessionIpAddresses(userId);
@@ -4264,12 +4553,13 @@ export class Workspace extends DurableObject<Env> {
       const banned = person.status === "banned" ? null : { ...person, status: "banned" as const, updatedAt: bannedAt };
       // As when removing someone, until the database says it queued nothing.
       let queued = true;
+      let agentsOff: UserId[] = [];
       this.banChanges++;
       try {
-        queued = await this.sessions.change(
+        ({ queued, agentsOff } = await this.sessions.change(
           (session) => session.user.id === userId,
           () => this.store.banPerson(userId, ipAddresses, CloseCode.Revoked, CloseCode.Reconnect, now, bannedAt),
-        );
+        ));
       } finally {
         this.banChanges++;
         this.knownBannedAddresses = null;
@@ -4278,6 +4568,7 @@ export class Workspace extends DurableObject<Env> {
       }
       const listed = await this.directoryUser(banned ?? person);
       if (banned) this.broadcast({ type: "user.updated", user: listed });
+      await this.publishPeople(agentsOff);
       return listed;
     });
   }
@@ -4296,7 +4587,7 @@ export class Workspace extends DurableObject<Env> {
       if (!(await this.store.isAdministrator(user.id))) return "forbidden";
       // As when banning, @ember and the agents go with Ember AI, which lifting a ban would otherwise
       // bring back, and an agent kept to the open rooms picked would be put in every one.
-      const person = (await this.goesWithEmberAi(userId)) ? null : await this.store.person(userId);
+      const person = (await this.managedElsewhere(userId)) ? null : await this.store.person(userId);
       if (!person) return "not found";
 
       const now = Date.now();
@@ -4326,8 +4617,8 @@ export class Workspace extends DurableObject<Env> {
    * Someone as the people directory lists them, with their avatar's address, and nothing else known of
    * them, such as their email address, whatever `person` brings.
    */
-  private async directoryUser({ id, name, bio, role, status, updatedAt, agent }: DirectoryEntry): Promise<DirectoryUser> {
-    return (await directoryOf([{ id, name, bio, role, status, updatedAt, agent }], this.env.SESSION_SECRET))[0]!;
+  private async directoryUser({ id, name, bio, role, status, updatedAt, agent, ownerId }: DirectoryEntry): Promise<DirectoryUser> {
+    return (await directoryOf([{ id, name, bio, role, status, updatedAt, agent, ownerId }], this.env.SESSION_SECRET))[0]!;
   }
 
   /** The profile of the person `credentials` signs in, or null without a valid session. */
@@ -4503,7 +4794,11 @@ export class Workspace extends DurableObject<Env> {
   async roomSettings(credentials: Credentials, roomId: RoomId): Promise<RoomSettings | "not found" | null> {
     const user = await this.authenticate(credentials);
     if (!user) return null;
-    return (await this.store.roomSettings(roomId, user.id)) ?? "not found";
+    const settings = await this.store.roomSettings(roomId, user.id);
+    if (!settings) return "not found";
+    const people = await this.allowedMembers(user.id, roomId, settings.people.map((person) => person.id));
+    const offered = new Set(people);
+    return { ...settings, people: settings.people.filter((person) => offered.has(person.id) || person.member) };
   }
 
   /**
@@ -4531,8 +4826,9 @@ export class Workspace extends DurableObject<Env> {
       // As when signing out, until the database says it queued nothing.
       let queued = changes.kind === "closed";
       let saved: SavedRoomChange;
+      const allowed = changes.kind === "closed" ? { ...changes, memberIds: await this.allowedMembers(user.id, roomId, changes.memberIds) } : changes;
       try {
-        saved = await this.store.changeRoom(roomId, changes, CloseCode.Reconnect, now, new Date(now).toISOString());
+        saved = await this.store.changeRoom(roomId, allowed, CloseCode.Reconnect, now, new Date(now).toISOString());
         queued = saved.removedIds.length > 0;
       } finally {
         if (queued) await this.revocationsQueued(now);
@@ -4743,13 +5039,14 @@ export class Workspace extends DurableObject<Env> {
   /**
    * The active bot a bot API key names by `botId` and `token`, if it's in room `roomId`, with when this
    * checked and Ember's custom domain: "not found" when it isn't, as `set_room` answers then, or null
-   * unless `token` is the bot's token now, or the one its webhook's deliveries give it in that room now.
+   * unless `token` is the bot's token now, or the one its webhook's deliveries give it in that room now,
+   * or for a personal agent, whose person has to be active, the one whose digest it keeps (`isOwnBotKey`).
    */
   async botInRoom(botId: UserId, token: string, roomId: RoomId): Promise<BotKeyAccess | "not found" | null> {
     // Before anything is read, as `roomAccess` takes it.
     const authorizedAt = Date.now();
     const [found, account] = await Promise.all([this.store.activeBotKey(botId, roomId), this.joinableAccount()]);
-    if (!found || !(isBotToken(token, found.token) || (await this.isWebhookToken(token, roomId, found)))) return null;
+    if (!found || !((await this.isOwnBotKey(token, found)) || (await this.isWebhookToken(token, roomId, found)))) return null;
     return found.member ? { bot: found.bot, authorizedAt, customDomain: account?.customDomain ?? null, takesClicks: found.webhook !== null } : "not found";
   }
 

@@ -10,6 +10,7 @@ import {
   type Message,
   type RoomId,
   type StoredFile,
+  type User,
   type UserId,
 } from "@ember/protocol";
 import { directoryOf } from "../avatar-tokens";
@@ -26,6 +27,7 @@ import { urlOf } from "../request-url";
 import type { PageCursor } from "../store";
 import { workspace, type BotKeyAccess } from "../workspace";
 import { bearerKey, botKeyParts, isSameKey } from "./keys";
+import { listBotRooms } from "./personal-agents";
 import { railsJson } from "./rails-json";
 import { payloadOf, slackMessage, slackPayloadOf, type SlackError, type SlackPayload } from "./slack";
 
@@ -57,6 +59,8 @@ const KEYLESS_MESSAGES = /^\/bot\/rooms\/([^/.]+)\/messages(?:\.json)?$/;
 const KEYLESS_MESSAGE = /^\/bot\/rooms\/([^/.]+)\/messages\/([^/.]+)(?:\.json)?$/;
 const KEYLESS_BOOSTS = /^\/bot\/rooms\/([^/.]+)\/messages\/([^/.]+)\/boosts(?:\.json)?$/;
 const KEYLESS_BOOST = /^\/bot\/rooms\/([^/.]+)\/messages\/([^/.]+)\/boosts\/([^/.]+)(?:\.json)?$/;
+/** The rooms a bot is in, which only a key in an `Authorization` header lists. */
+const BOT_ROOMS = /^\/bot\/rooms(?:\.json)?$/;
 
 /** A key in a room's address for bots, as Campfire's `LogScrubbingFormatter` finds one, or in its Slack-compatible webhook's. */
 const BOT_KEY_IN_PATH = /(\/rooms\/[^/\s]+\/)[^/\s]+(?=\/(?:messages|slack)\b)/g;
@@ -124,6 +128,7 @@ function keylessAction(request: Request, env: Env, pathname: string): (() => Pro
   if (boosts && method === "POST") return () => createBoost(request, env, boosts[1]!, key(), boosts[2]!);
   const boost = pathname.match(KEYLESS_BOOST);
   if (boost && method === "DELETE") return () => deleteBoost(env, boost[1]!, key(), boost[2]!, boost[3]!);
+  if (BOT_ROOMS.test(pathname) && method === "GET") return () => listBotRooms(request, env);
   return null;
 }
 
@@ -132,6 +137,7 @@ export function isKeylessBotRequest({ method }: Request, pathname: string): bool
   if (KEYLESS_MESSAGES.test(pathname)) return method === "POST" || method === "GET" || method === "HEAD";
   if (KEYLESS_MESSAGE.test(pathname)) return method === "PUT" || method === "PATCH" || method === "DELETE";
   if (KEYLESS_BOOSTS.test(pathname)) return method === "POST";
+  if (BOT_ROOMS.test(pathname)) return method === "GET";
   return KEYLESS_BOOST.test(pathname) && method === "DELETE";
 }
 
@@ -616,10 +622,22 @@ async function boostJson(env: Env, origin: string, roomId: RoomId, boost: Boost)
   };
 }
 
-/** The people `ids` names, by id, as `users/_user.json.jbuilder` writes them, with their avatars' addresses on `origin`. */
+/**
+ * The people `ids` names, by id, as `users/_user.json.jbuilder` writes them, with their avatars' addresses
+ * on `origin`, and for a personal agent, which Campfire doesn't have, the person whose it is, by their name now.
+ */
 async function peopleJson(env: Env, origin: string, ids: UserId[]) {
-  const people = await directoryOf(await workspace(env).directoryEntries([...new Set(ids)]), env.SESSION_SECRET);
-  return new Map(people.map(({ id, name, role, avatarUrl }) => [id, { id, name, role, avatar_url: `${origin}${avatarUrl}` }]));
+  const entries = await workspace(env).directoryEntries([...new Set(ids)]);
+  const agents = entries.flatMap((entry) => (entry.ownerId === null ? [] : [entry.id]));
+  // Most pages have no person's agent on them, and then ask nothing more.
+  const owners = agents.length > 0 ? await workspace(env).personalAgentOwners(agents) : new Map<UserId, User>();
+  const people = await directoryOf(entries, env.SESSION_SECRET);
+  return new Map(
+    people.map(({ id, name, role, avatarUrl }) => {
+      const owner = owners.get(id);
+      return [id, { id, name, role, avatar_url: `${origin}${avatarUrl}`, ...(owner && { owner: { id: owner.id, name: owner.name } }) }];
+    }),
+  );
 }
 
 /** A message's address on `origin`: its permalink, which opens its room at it, or a reply's thread at it. */

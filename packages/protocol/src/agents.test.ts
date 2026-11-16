@@ -128,7 +128,7 @@ describe("An agent's page", () => {
   });
 
   it("says a name is an agent's in the words it was given", () => {
-    expect(agentsName(" Recap ")).toBe("Recap is an AI agent's name. Choose another.");
+    expect(agentsName(" Recap ")).toBe("Recap is an agent's name. Choose another.");
   });
 });
 

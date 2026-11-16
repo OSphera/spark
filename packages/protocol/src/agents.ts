@@ -163,7 +163,7 @@ export const AGENTS_FULL = `Ember can have at most ${MAX_AGENTS} agents. Delete 
 export const NAME_TAKEN = "Someone is called that already. Choose another name.";
 
 /** Why someone or a bot can't be called `name`, which is an agent's. */
-export const agentsName = (name: string) => `${name.trim()} is an AI agent's name. Choose another.`;
+export const agentsName = (name: string) => `${name.trim()} is an agent's name. Choose another.`;
 
 /** Why a change didn't save: the agent was changed while its model took its test question, or since its page read it. */
 export const AGENT_CHANGED = "The agent was changed while its model answered. Try again.";

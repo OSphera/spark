@@ -28,6 +28,15 @@ const problem = (status: number, message: string) => Response.json({ error: mess
 
 const person = ({ id, name }: User) => ({ id, name });
 
+/** Whose agents the personal agents among a page's authors are, by agent, each person by their name now. */
+export type AgentOwners = Map<User["id"], User>;
+
+/** An author as a line names them: by the name they wrote with, and for a personal agent, the person whose it is. */
+const author = (user: User, owners: AgentOwners) => {
+  const owner = owners.get(user.id);
+  return { ...person(user), ...(owner && { owner: person(owner) }) };
+};
+
 /** The first line: the room, and when and by what the export was made. */
 export function headerLine(room: ExportedRoom, exportedAt: string, version: string): string {
   return line({
@@ -41,18 +50,18 @@ export function headerLine(room: ExportedRoom, exportedAt: string, version: stri
 
 /**
  * A message's line: its text as plain text and as the markup the room keeps, its author under the name
- * it was written with, the message it replies to if it's a reply, the AI app that sent it if one did,
- * its boosts and its file's address on
+ * it was written with, and whose agent they are, if they're a personal agent (`owners`), the message it
+ * replies to if it's a reply, the AI app that sent it if one did, its boosts and its file's address on
  * `origin`, which opens the file for whoever has it, as the room's links do.
  */
-export function messageLine(message: Message, origin: string): string {
+export function messageLine(message: Message, origin: string, owners: AgentOwners = new Map()): string {
   const { attachment } = message;
   return line({
     type: "message",
     id: message.id,
     created_at: message.createdAt,
     edited_at: message.editedAt,
-    author: person(message.creator),
+    author: author(message.creator, owners),
     text: message.plainText,
     html: message.body,
     ...(message.parentId !== undefined && { in_reply_to: message.parentId }),
@@ -87,7 +96,9 @@ function exported(env: Env, room: ExportedRoom, exportedAt: string, origin: stri
         return;
       }
       const { messages, last } = await stub.exportPage(room.id, after, EXPORT_PAGE_SIZE);
-      const lines = messages.filter((message) => !message.deleted).map((message) => messageLine(message, origin)).join("");
+      const kept = messages.filter((message) => !message.deleted);
+      const owners = await workspace(env).personalAgentOwners(kept.map((message) => message.creator.id));
+      const lines = kept.map((message) => messageLine(message, origin, owners)).join("");
       if (lines !== "") controller.enqueue(encoder.encode(lines));
       if (last || messages.length === 0) controller.close();
       else after = messages.at(-1)!.id;
