@@ -24,6 +24,8 @@ export interface PersonalAgent extends DirectoryUser {
   rooms: PersonalAgentRoom[];
   /** When its key last opened the bot API, to within a few minutes, or null if it never has. */
   usedAt: string | null;
+  /** Whether its person gave it a picture, which Remove picture takes away: otherwise it has the one chat bots start with. */
+  avatar: boolean;
 }
 
 /** What `GET /api/users/me/agents` answers: how many agents you may have, and yours, by name. */

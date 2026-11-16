@@ -1,16 +1,18 @@
 import { useState, type FormEvent } from "react";
-import { MAX_USER_NAME_LENGTH, type RoomId, type SidebarRoom, type UserId } from "@ember/protocol";
+import { AVATAR_TOO_LARGE, MAX_AVATAR_SIZE, MAX_USER_NAME_LENGTH, type RoomId, type SidebarRoom, type UserId } from "@ember/protocol";
 import { botKeylessMessagesPath } from "@ember/protocol/bots";
 import type { PersonalAgent, YourAgents as Yours } from "@ember/protocol/personal-agents";
 import { useFlash } from "@/components/flash";
 import { useMounted } from "@/hooks/use-mounted";
-import { deleteYourAgent, isSignedOut, makeYourAgent, placePersonalAgent, rekeyYourAgent, renameYourAgent } from "@/lib/api";
+import { changeYourAgentPicture, deleteYourAgent, isSignedOut, makeYourAgent, placePersonalAgent, rekeyYourAgent, removeYourAgentPicture, renameYourAgent } from "@/lib/api";
+import { avatarVariantOf } from "@/lib/previews";
 import { dateTimeLabel } from "@/lib/messages";
 import { BUTTON } from "./email-settings";
+import { PictureField } from "./picture-picker";
 
 // The Your agents section of your profile, while an administrator lets people have agents: the agents
 // you've made, each a bot of yours that speaks under its own name through the bot API, shown everywhere
-// as your agent. Each has its rooms, which are only rooms you're in, Rename, New key and Delete, and a
+// as your agent. Each has its picture, which you can change and remove, as your avatar is, and its rooms, which are only rooms you're in, Rename, New key and Delete, and a
 // form makes another. A key is shown once, as it's made, since Ember keeps only a digest of it. Making
 // one or giving one a new key takes your password, as changing your email address does. Boxed as the AI
 // apps section is.
@@ -21,6 +23,9 @@ export const YOUR_AGENTS_EXPLAINED =
 
 /** What the section says once a key is made: it's shown this once. */
 export const KEY_SHOWN_ONCE = "Copy this key now. Ember keeps only a digest of it, so it can't show it again.";
+
+/** What a row says of an agent's picture: the one chat bots start with, until its person gives it one. */
+export const pictureSaid = (agent: PersonalAgent) => (agent.avatar ? "You gave it this picture." : "It has the picture chat bots start with. Choose another.");
 
 /** What a row says of when an agent's key was last used. */
 export const keyUsed = (usedAt: string | null) =>
@@ -83,6 +88,12 @@ export function YourAgents({ agents: loaded, rooms, hasPassword, onFailed }: Pro
     if (renamed && renamed !== agent.name) run(renameYourAgent(agent.id, renamed));
   };
 
+  /** Gives `agent` the picture `file`, once one is picked. */
+  const choosePicture = (agent: PersonalAgent, file: File) => {
+    if (file.size > MAX_AVATAR_SIZE) return flash("alert", AVATAR_TOO_LARGE);
+    run(avatarVariantOf(file).then((variant) => changeYourAgentPicture(agent.id, { file, variant })));
+  };
+
   const rekey = (agent: PersonalAgent) => {
     if (hasPassword && !password) return flash("alert", "Enter your current password below to give an agent a new key.");
     if (confirm(`Give ${agent.name} a new key? Its key now stops working at once.`)) run(rekeyYourAgent(agent.id, password), () => setPassword(""));
@@ -115,11 +126,30 @@ export function YourAgents({ agents: loaded, rooms, hasPassword, onFailed }: Pro
             return (
               <li key={agent.id} className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                  <div className="flex min-w-0 flex-col">
-                    <span className="font-semibold wrap-anywhere">{agent.name}</span>
-                    <span className="text-sm text-muted-foreground">{keyUsed(agent.usedAt)}</span>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <PictureField
+                      id={`agent-picture-${agent.id}`}
+                      src={agent.avatarUrl}
+                      alt={`${agent.name}'s picture`}
+                      label={`Choose a picture for ${agent.name}`}
+                      size="small"
+                      disabled={busy}
+                      onChoose={(file) => choosePicture(agent, file)}
+                    />
+                    <div className="flex min-w-0 flex-col">
+                      <span className="font-semibold wrap-anywhere">{agent.name}</span>
+                      <span id={`agent-picture-${agent.id}-description`} className="text-sm text-muted-foreground">
+                        {pictureSaid(agent)}
+                      </span>
+                      <span className="text-sm text-muted-foreground">{keyUsed(agent.usedAt)}</span>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    {agent.avatar && (
+                      <button type="button" disabled={busy} onClick={() => run(removeYourAgentPicture(agent.id))} className={BUTTON}>
+                        Remove picture
+                      </button>
+                    )}
                     <button type="button" disabled={busy} onClick={() => rename(agent)} className={BUTTON}>
                       Rename
                     </button>

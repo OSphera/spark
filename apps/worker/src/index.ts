@@ -136,7 +136,7 @@ import { avatarTokenOf, showAvatar, storeAvatar } from "./avatars";
 import type { BanProblem } from "./bans";
 import { BodyTooLarge, jsonBodyOf } from "./bodies";
 import { botPage, changeBot, createBot, deleteBot, listBots, resetBotKey, showBot } from "./bots/accounts";
-import { createYourAgent, deleteYourAgent, listEveryonesAgents, listYourAgents, placeAgent, rekeyYourAgent, renameYourAgent, setAgentLimit, turnOffAgent } from "./bots/personal-agents";
+import { changeYourAgentPicture, createYourAgent, deleteYourAgent, listEveryonesAgents, listYourAgents, placeAgent, removeYourAgentPicture, rekeyYourAgent, renameYourAgent, setAgentLimit, turnOffAgent } from "./bots/personal-agents";
 import { botAction, exception, isBotPath, isKeylessBotRequest, withoutBotKeys } from "./bots/api";
 import { ADDRESS_HEADER, AUTHORIZED_AT_HEADER, BANNED_HEADER, HUDDLE_HEADER, ROOM_HEADER, SESSION_HEADER, USER_HEADER } from "./chat-room";
 import { guestSignIn, type Env } from "./env";
@@ -1198,6 +1198,9 @@ function apiAction(request: Request, env: Env, pathname: string): (() => Respons
   if (yourAgent && request.method === "DELETE") return () => deleteYourAgent(request, env, yourAgent[1]!);
   const yourAgentKey = pathname.match(/^\/api\/users\/me\/agents\/([^/]+)\/key$/);
   if (yourAgentKey && request.method === "PUT") return () => rekeyYourAgent(request, env, yourAgentKey[1]!);
+  const yourAgentPicture = pathname.match(/^\/api\/users\/me\/agents\/([^/]+)\/avatar$/);
+  if (yourAgentPicture && request.method === "PUT") return () => changeYourAgentPicture(request, env, yourAgentPicture[1]!);
+  if (yourAgentPicture && request.method === "DELETE") return () => removeYourAgentPicture(request, env, yourAgentPicture[1]!);
   const agentRoom = pathname.match(/^\/api\/personal_agents\/([^/]+)\/rooms\/([^/]+)$/);
   if (agentRoom && (request.method === "PUT" || request.method === "DELETE")) return () => placeAgent(request, env, agentRoom[1]!, agentRoom[2]!);
   if (pathname === "/api/sidebar" && request.method === "GET") return () => sidebar(request, env);
