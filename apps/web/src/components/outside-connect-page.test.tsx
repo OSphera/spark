@@ -109,7 +109,7 @@ describe("The page that asks whether to connect an AI app", () => {
     const user = open();
 
     const send = await screen.findByRole("checkbox", { name: OUTSIDE_SCOPE_EXPLAINED.write });
-    expect(OUTSIDE_SCOPE_EXPLAINED.write).toBe("Send messages as you, in the rooms you're in");
+    expect(OUTSIDE_SCOPE_EXPLAINED.write).toBe("Send messages as you, in the rooms you're in, marked as sent by it");
     expect(send).toBeChecked();
     expect(screen.getByText("And, if you let it:")).toBeVisible();
     // Reading isn't a choice: it's what connecting an app is.

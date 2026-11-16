@@ -236,6 +236,8 @@ export interface OutsideAccess {
   connectionId: string;
   userId: UserId;
   clientId: string;
+  /** The name the app registered with, cut to what Ember keeps, which marks the messages it sends. */
+  clientName: string;
   scopes: OutsideScope[];
   /** The address the app said it connects to, which is the only one its tokens are good at, or null when it didn't say. */
   resource: string | null;
@@ -1580,7 +1582,7 @@ export class Workspace extends DurableObject<Env> {
     const connection = await this.outside.byAccess(accessDigest, new Date(now).toISOString());
     if (!connection) return null;
     if (connection.usedAt === null || Date.parse(connection.usedAt) <= now - OUTSIDE_USED_EVERY_MS) await this.outside.touch(connection.id, new Date(now).toISOString());
-    return { connectionId: connection.id, userId: connection.userId, clientId: connection.clientId, scopes: outsideScopesOf(connection.scope), resource: connection.resource };
+    return { connectionId: connection.id, userId: connection.userId, clientId: connection.clientId, clientName: connection.clientName, scopes: outsideScopesOf(connection.scope), resource: connection.resource };
   }
 
   /** The AI apps connected as the person `userId`, newest first, as their profile lists them, or null when none can be: while outside AI is off for `account`, or for a `guest`. */

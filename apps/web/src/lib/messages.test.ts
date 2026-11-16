@@ -31,6 +31,18 @@ describe("Group messages by author", () => {
     expect(items.map((i) => i.threaded)).toEqual([false, true, false, true, false, true]);
   });
 
+  it("threads a message an AI app sent as its author only under another the same app sent, so each run says which", () => {
+    const via = (iso: string, sentVia: string): Message => ({ ...at(iso), sentVia });
+    const items = timeline([
+      at("2026-10-12T09:00:00"),
+      via("2026-10-12T09:01:00", "Claude"),
+      via("2026-10-12T09:02:00", "Claude"),
+      via("2026-10-12T09:03:00", "ChatGPT"),
+      at("2026-10-12T09:04:00"),
+    ]);
+    expect(items.map((i) => i.threaded)).toEqual([false, false, true, false, false]);
+  });
+
   it("keeps a follow-up just after midnight threaded, under its day's separator", () => {
     const items = timeline([at("2026-10-12T23:58:00"), at("2026-10-13T00:01:00")]);
     expect(items.map((i) => [i.firstOfDay, i.threaded])).toEqual([

@@ -511,8 +511,9 @@ function nextPage({ messages, hasMore, hasNewer }: BotPage, { after }: PageCurso
 
 /**
  * Messages as `messages/_message.json.jbuilder` writes them, in its order of keys, each with its writer
- * as they are now and its addresses on `origin`, Ember's address (`originFor`), and a file message with
- * its file after its body, which Campfire leaves out.
+ * as they are now and its addresses on `origin`, Ember's address (`originFor`), a file message with
+ * its file after its body, and a message an AI app sent as its creator with the app's name after them,
+ * both of which Campfire leaves out.
  */
 async function messagesJson(env: Env, origin: string, messages: Message[]) {
   const writers = await peopleJson(env, origin, messages.map(({ creator }) => creator.id));
@@ -525,6 +526,7 @@ async function messagesJson(env: Env, origin: string, messages: Message[]) {
     ...(message.attachment && { attachment: attachmentJson(origin, message.attachment) }),
     // Nobody is ever deleted, so everyone who wrote a message is there.
     creator: writers.get(message.creator.id)!,
+    ...(message.sentVia !== undefined && { sent_via: message.sentVia }),
     room: { id: message.roomId },
     url: permalink(origin, message),
   }));

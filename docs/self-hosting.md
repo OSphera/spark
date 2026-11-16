@@ -1101,10 +1101,13 @@ with nothing.
   the last.
 - **It can send messages as them, if they let it.** The page that asks has a box for that, ticked
   unless they clear it, and their profile says which apps can. `send_message` posts Markdown to a room
-  they're in, or as a reply in a thread, and everyone there sees it as theirs: nothing marks it as
-  sent by an app. It mentions nobody and goes to no bot, so it calls neither @ember, an agent nor a
-  bot's webhook, even in a direct message with one, and one person's apps send at most 20 messages
-  a minute between them. An app that asks for nothing by name only
+  they're in, or as a reply in a thread, and everyone there sees it as theirs, marked "via" and the
+  app's name beside theirs, as the page that asks says. The name is what the app registered as, cut
+  to 100 characters, and the message keeps it after the app is disconnected. `read_room`,
+  `read_thread` and `search_messages` give it as `sent_via`, and so does the bot API's message JSON,
+  so one app can tell another's messages from a person's. It mentions nobody and goes to no bot, so
+  it calls neither @ember, an agent nor a bot's webhook, even in a direct message with one, and one
+  person's apps send at most 20 messages a minute between them. An app that asks for nothing by name only
   reads.
 - **Your profile lists the apps connected as you**, under **AI apps**, with when each was connected
   and last asked Ember anything, and **Disconnect**, which ends what that app was given at once. One
@@ -1351,8 +1354,9 @@ What a self-hoster should know, beyond keeping the setup password and link to th
   resetting a password, as above.
 - While [Outside AI](#outside-ai) is on, an AI app someone connects sees what they see, and writes as
   them if they let it send, until they disconnect it on their profile, and whoever runs that app can
-  read it too. The page that asks them
-  names the site their browser goes back to, since anyone can register an app under any name.
+  read it too. What it sends is marked with the app's name, but the name is only the app's own word,
+  since anyone can register an app under any name, so the page that asks them names the site their
+  browser goes back to.
 - `/api/health` tells strangers only whether Ember is up; administrators and whoever sends the
   recovery token hear the rest. QR codes (`/qr_code/<id>`) are drawn for people signed in.
 

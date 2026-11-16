@@ -21,7 +21,7 @@ export const DEFAULT_OUTSIDE_SCOPES: readonly OutsideScope[] = ["read"];
 /** What the page says each scope lets an app do, after "It will be able to". */
 export const OUTSIDE_SCOPE_EXPLAINED: Record<OutsideScope, string> = {
   read: "See the rooms you're in, read their messages and search them, as you can",
-  write: "Send messages as you, in the rooms you're in",
+  write: "Send messages as you, in the rooms you're in, marked as sent by it",
 };
 
 /** The scopes among `asked` that the page lets a person leave out: sending, when the app asks to read too. */

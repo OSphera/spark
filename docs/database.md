@@ -554,6 +554,10 @@ Objects, D1 or speed call for something else.
   last reply goes too. `room_events.in_room` is 0 for a reply sent only to its thread, which marks
   the room unread for nobody and isn't its latest activity, and an upload's row in `blobs` keeps the
   thread it goes to in `parent_id`, and in `also_sent` whether it goes to the room too.
+- **A message an AI app sent names the app.** Campfire has no Outside AI. A message a connected app
+  sent as its person keeps the name the app registered as in `messages.sent_via` (room migration
+  0063), a copy rather than a reference to `outside_connections`, so the mark stays once the app is
+  disconnected. Other messages have null there, and a page of messages reads no other table for it.
 - **@ember's levels and model are columns of the person, and the most of each level, and the models
   people can pick, are settings.** Campfire has no AI assistant. The levels someone picks of @ember's
   Thinking and Answer length are `users.assistant_thinking` and `users.assistant_answer_length`

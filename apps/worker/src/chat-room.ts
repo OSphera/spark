@@ -616,14 +616,14 @@ export class ChatRoom extends DurableObject<Env> {
 
   /**
    * Posts `markup` as a message from the person an AI app is connected as (`outside/tools`), whom the
-   * Workspace found in the room: as their socket's message.create does, in the thread of the message
-   * `threadId` names, only there, if it names one, but as a reply is posted, which goes to no bot. So
-   * an app calls neither a webhook, @ember nor an agent, even in a direct message with one, where a
-   * message needs no mention to. Answers the message, why the room keeps nothing of it, `MESSAGE_GONE`
+   * Workspace found in the room: as their socket's message.create does, marked as sent via the app
+   * `app` names, in the thread of the message `threadId` names, only there, if it names one, but as a
+   * reply is posted, which goes to no bot. So an app calls neither a webhook, @ember nor an agent, even
+   * in a direct message with one, where a message needs no mention to. Answers the message, why the room keeps nothing of it, `MESSAGE_GONE`
    * when it has no such thread, or null once the room has heard that they were taken out of it, or it
    * was deleted, after the Workspace checked, as it turns away a socket then.
    */
-  async createOutsideMessage(roomId: RoomId, { user, authorizedAt }: OutsideSender, markup: string, threadId?: string): Promise<Message | string | null> {
+  async createOutsideMessage(roomId: RoomId, { user, authorizedAt }: OutsideSender, app: string, markup: string, threadId?: string): Promise<Message | string | null> {
     return this.serially(async () => {
       if (await this.revocationsFor(roomId).refuse([user.id], authorizedAt)) return null;
       const store = this.storeFor(roomId);
@@ -631,7 +631,7 @@ export class ChatRoom extends DurableObject<Env> {
       if (inThread === null) return MESSAGE_GONE;
       const body = await this.prepare(markup);
       if (typeof body === "string") return body;
-      return this.create(store, user, crypto.randomUUID(), body, new Date().toISOString(), { kind: "reply", inThread });
+      return this.create(store, user, crypto.randomUUID(), { ...body, sentVia: app }, new Date().toISOString(), { kind: "reply", inThread });
     });
   }
 

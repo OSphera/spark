@@ -60,11 +60,13 @@ interface ShownMessage {
   replies?: number;
   /** For a message deleted while its thread has replies left, which keeps its place with nothing else of it. */
   deleted?: true;
+  /** For a message an AI app sent as `from`, the app's name, as it registered: its words, not theirs. */
+  sent_via?: string;
 }
 
 const cut = (text: string) => (text.length > MAX_SHOWN_LENGTH ? `${text.slice(0, MAX_SHOWN_LENGTH - 1).trimEnd()}…` : text);
 
-function shownMessage({ id, createdAt, creator, body, plainText, cards, attachment, editedAt, parentId, thread, deleted }: Message): ShownMessage {
+function shownMessage({ id, createdAt, creator, body, plainText, cards, attachment, editedAt, parentId, thread, deleted, sentVia }: Message): ShownMessage {
   // A file message's plain text is only its file's name, which `file` says.
   const onlyFile = attachment !== undefined && body === "" && !cards;
   return {
@@ -77,6 +79,7 @@ function shownMessage({ id, createdAt, creator, body, plainText, cards, attachme
     ...(parentId !== undefined && { reply_to: parentId }),
     ...(thread && { replies: thread.count }),
     ...(deleted && { deleted: true as const }),
+    ...(sentVia !== undefined && { sent_via: sentVia }),
   };
 }
 
@@ -148,9 +151,9 @@ async function searchMessages(env: Env, access: OutsideAccess, { words, room_id:
 
 /**
  * Sends `text`, in Markdown, to a room as the person, in the thread under the message `thread_id` names,
- * if it names one. It reads as they wrote it, to everyone in the room. Markdown has no way to mention
- * anyone, and the room posts it as a reply, which goes to no bot, so a message sent this way calls
- * nobody, @ember and the agents included, even in a direct message with one.
+ * if it names one. It reads as theirs, to everyone in the room, marked with the app's name. Markdown
+ * has no way to mention anyone, and the room posts it as a reply, which goes to no bot, so a message
+ * sent this way calls nobody, @ember and the agents included, even in a direct message with one.
  */
 async function sendMessage(env: Env, access: OutsideAccess, { room_id: roomId, text, thread_id: threadId }: Record<string, unknown>): Promise<unknown> {
   if (typeof text !== "string" || text.trim() === "") throw new Refused("Give the message to send, as `text`.");
@@ -159,7 +162,7 @@ async function sendMessage(env: Env, access: OutsideAccess, { room_id: roomId, t
   const room = await roomOf(env, access, roomId);
   const sender = await workspace(env).outsideSender(access.userId, room.id);
   if (sender === "limited") throw new Refused(SENDING_TOO_FAST);
-  const sent = sender && (await env.CHAT_ROOM.getByName(room.id).createOutsideMessage(room.id, sender, markdownHtml(text), threadId));
+  const sent = sender && (await env.CHAT_ROOM.getByName(room.id).createOutsideMessage(room.id, sender, access.clientName, markdownHtml(text), threadId));
   if (!sent) throw new Refused(NO_ROOM);
   if (typeof sent === "string") throw new Refused(sent);
   return { room: shownRoom(room, access.userId), message: shownMessage(sent) };
@@ -228,7 +231,7 @@ const SENDING: Tool[] = [
     name: "send_message",
     title: "Send a message",
     description:
-      "Sends a message to a room as the connected person: everyone in the room sees it as theirs, so send only what they asked for, worded as they'd want. `text` is Markdown. With `thread_id`, it's a reply in the thread under that message. No bot or AI assistant in Ember is sent it or answers it, even in a direct message with one. Answers the message as sent.",
+      "Sends a message to a room as the connected person: everyone in the room sees it as theirs, marked as sent by this app, so send only what they asked for, worded as they'd want. `text` is Markdown. With `thread_id`, it's a reply in the thread under that message. No bot or AI assistant in Ember is sent it or answers it, even in a direct message with one. Answers the message as sent.",
     takes: {
       room_id: ROOM_ID,
       text: { type: "string", description: "The message, in Markdown." },
