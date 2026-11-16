@@ -46,6 +46,12 @@ describe("AI agents someone can ask", () => {
     expect(agentsToAsk([], administrator)).toBe(0);
   });
 
+  it("leaves out people's own agents, which carry the Agent badge but aren't AI agents Available Agents lists", () => {
+    const helper = listed("helper", { role: "bot", agent: true, ownerId: "u1" });
+    expect(agentsToAsk([ember, recap, helper], member)).toBe(2);
+    expect(agentsToAsk([helper], administrator)).toBe(0);
+  });
+
   it("counts the agents kept for administrators only for an administrator", () => {
     const people = new Map([ember, recap, herald].map((person) => [person.id, person]));
     expect(agentsToAsk(people.values(), member)).toBe(2);

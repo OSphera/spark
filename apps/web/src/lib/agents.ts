@@ -22,10 +22,11 @@ export const asListed = <P extends DirectoryUser>(person: P, listed: DirectoryUs
 /**
  * How many AI agents `me` can ask, of the `people` the directory lists, which the sidebar's Available
  * Agents says: @ember and the agents administrators made, while they're active, which none is while
- * Ember AI is off.
+ * Ember AI is off. People's own agents carry the Agent badge too, but they aren't AI agents and
+ * Available Agents doesn't list them, so they don't count.
  */
 export function agentsToAsk(people: Iterable<DirectoryUser>, me: Me): number {
   let count = 0;
-  for (const person of people) if (person.agent && person.status === "active" && canAsk(person, me)) count++;
+  for (const person of people) if (person.agent && person.ownerId === undefined && person.status === "active" && canAsk(person, me)) count++;
   return count;
 }
