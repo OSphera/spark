@@ -17,12 +17,18 @@ curl -H 'Authorization: Bearer <bot key>' -F "attachment=@/path/to/file" https:/
 | `DELETE /bot/rooms/<room id>/messages/<message id>` | Deletes the bot's own message. |
 | `POST /bot/rooms/<room id>/messages/<message id>/boosts` | Boosts a message with the body. |
 | `DELETE /bot/rooms/<room id>/messages/<message id>/boosts/<boost id>` | Removes the bot's own boost. |
+| `GET /bot/rooms` | Lists the rooms the bot is in, DMs too, as a JSON array of `{ "id", "name", "kind" }`, `kind` being `open`, `closed` or `direct`, and a DM's `name` null. |
 
 The addresses are under `/bot` because `/rooms/<room id>/messages` is the app's. The key can also be in the address, as Campfire's bot API takes it, and that keeps working for bots
 already written that way: `/rooms/<room id>/<bot key>/messages`, and the same under it for the rest. A
 request with a key in the address and an `Authorization` header that name different keys is refused
 with 400. A missing or wrong key answers 401 `Unknown bot key` either way, and an empty 404 when the bot
 isn't in the room.
+
+`GET /bot/rooms` takes the key only in the `Authorization` header, and only the bot's own: the key a
+webhook's delivery gives the bot opens one room, so it lists none. The JSON of a message's `creator`,
+and of a boost's `booster`, carries an `owner`, `{ "id", "name" }`, when they're a person's own agent
+([People's agents](self-hosting.md#peoples-agents)), by that person's name now.
 
 The [Slack-compatible webhook](slack-webhooks.md), `/rooms/<room id>/<bot key>/slack`, keeps its key in the
 address, since the tools that post to Slack are only given an address. Ember's logs show a key in an

@@ -604,7 +604,8 @@ line, and it's named for the room and the day, such as `ember-design-2026-11-15.
 The first line describes the room and the export: `type` is `room`, `format` is the file's format
 number (1), and `exported_at`, `ember_version` and `room` (its `id`, `kind` and `name`, and for a DM, no
 name and its `members`) say the rest. Each line after it is a message, oldest first, with `type`
-`message`, `id`, `created_at`, `edited_at`, `author` (`id` and `name`, as written), `text` (plain
+`message`, `id`, `created_at`, `edited_at`, `author` (`id` and `name`, as written, and for a
+[person's agent](#peoples-agents), `owner`, the `id` and `name` now of the person whose it is), `text` (plain
 text) and `html` (the markup the room keeps), `in_reply_to` (the id of the message a reply is under,
 for a reply in a thread, whether or not it was also sent to the room), `sent_via` (the name of the AI
 app that sent it as its author, if one did), `boosts` (each with its `id`,
@@ -905,6 +906,48 @@ before `{{cards}}` came along doesn't tell its model how to show a card until `{
 it, though a card the model writes anyway still shows, while one with `{{cards}}` in it gets what Ember
 says of cards in the release it runs. While it's modified, What Ember adds around them is marked
 Modified.
+
+### People's agents
+
+Members can have agents of their own: each a bot with its own name, shown wherever its name is as
+that person's, such as "Pete's agent", which posts and reads through the [bot API](bot-api.md) with
+its key. It's for a member whose AI works for them, outside Ember, to take part under its own name
+rather than theirs. It's off until an administrator turns it on: People's agents, at the bottom of the
+Chat bots page in workspace settings, sets how many agents each person may have, from 0, as every
+Ember starts, to 10. Lowering it turns nobody's agents off; it stops them making more.
+
+- **Making one.** Your agents, on a person's profile, makes, renames, gives a new key to and deletes
+  their agents, for anyone but a guest. Making one, and giving one a new key, take the person's current
+  password, as changing their email address does, so holding their session isn't enough to make a key
+  that speaks in their rooms. Its name is unique among everyone, in any capitals, as an AI agent's is,
+  and nobody can take it while the agent is on. Its avatar is the one chat bots start with.
+- **Its key** is shown once, as it's made or given anew, and never again: Ember keeps only a digest of
+  it, an HMAC under `SESSION_SECRET`, so changing that secret stops every person's agent's key, as it
+  signs everyone out. A new key stops the old one at once. The key goes in `Authorization: Bearer`, as
+  the bot API says, or in the address, as Campfire's takes it. Your agents says when each key was
+  last used, to within 10 minutes.
+- **Its rooms.** An agent is in no room until its person puts it in one, and only ever in rooms its
+  person is in, never added to open rooms by itself, old or new. Its person, or an administrator, who
+  has to be in the room too, puts it in or takes it out; nobody else can, nor list it among a closed
+  room's members. When its person leaves a room, or is taken out of it, so is the agent. Only its person
+  can start a DM with it. `GET /bot/rooms` tells it which rooms it's in.
+- **Its person answers for it.** Removing or banning a person turns their agents off at once: whatever
+  their keys began is turned away, they leave every room, and their keys never work again, even if the
+  ban is lifted. While a person is suspended for their Memberful membership's lapsing, their agents'
+  keys don't work either. An administrator sees everyone's agents, with whose each is and its rooms,
+  under People's agents, and can turn any off. An agent turned off, or deleted, keeps its messages,
+  still shown as its person's agent's; it can't be turned on again, but its person can make another.
+- **Mentions and replies.** Anyone in a room with an agent can mention it, as anyone. @ember and the
+  AI agents never answer a bot, so they don't answer a person's agent either. A person's agent has no
+  webhook: deliveries to chat bots' webhooks refuse only addresses that aren't https, or http on
+  localhost, and don't check that a webhook's host resolves only to public addresses, as link previews
+  and apps do, so they stay for administrators' chat bots, whose addresses an administrator chose. An
+  agent reads what's new with `GET /bot/rooms/<room id>/messages?after=<message id>` instead.
+
+The badge that follows an AI agent's name follows a person's agent's too, with whose it is after it,
+in the same places: its messages, a DM with it alone in the sidebar and the room's header, the mention
+prompt, New direct message, and its profile. The bot API's messages and a room's download say whose it
+is too ([bot API](bot-api.md), [Downloading a room's messages](#downloading-a-rooms-messages)).
 
 ### Apps
 
@@ -1318,6 +1361,12 @@ What a self-hoster should know, beyond keeping the setup password and link to th
   the bot. Point bots only at servers you trust all the same. Webhooks go only to https, or to http
   on localhost, so nobody on the way reads the key; a bot saved with an http URL elsewhere before
   gets no deliveries until its URL is changed, and the Worker's log says why.
+- A [person's agent](#peoples-agents) speaks in its rooms with its key alone, so whoever holds the key
+  holds the agent. Ember keeps only its digest, shows it once, and stops it at once when its person is
+  removed or banned, gives it a new key or deletes it, or an administrator turns it off. Making one or
+  giving one a new key takes the person's password. It goes only into rooms its person is in, by their
+  hand or an administrator's, so it reads nothing its person can't, and it's a bot, never an
+  administrator, whatever its person is. Changing `SESSION_SECRET` stops every person's agent's key.
 - Anyone in a room can click a [button that acts](slack-webhooks.md#buttons-that-act) on a bot's
   card there, and the bot is told who clicked, so a bot that should act only for some people has to
   check that itself. The room sends the button as the bot posted it, never what a browser says of it.
