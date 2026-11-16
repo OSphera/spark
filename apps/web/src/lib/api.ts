@@ -115,6 +115,7 @@ import type {
   YourAppSignedOut,
 } from "@ember/protocol/apps";
 import type { MemberfulKeysChange, MemberfulSaved } from "@ember/protocol/memberful";
+import type { EveryonesAgents, PersonalAgentAnswer, PersonalAgentLimit, YourAgents } from "@ember/protocol/personal-agents";
 import type { OutsideAiSettings, OutsideAnswer, OutsideAnswered, OutsideAsk, OutsideAsked, OutsideScope, YourOutsideAi } from "@ember/protocol/outside";
 import type { LogoVariants } from "@/lib/previews";
 
@@ -512,6 +513,54 @@ export async function deleteBot(botId: UserId): Promise<void> {
 /** Gives the bot `botId` a new key, so its old one stops working. Fails as `fetchBot` does. */
 export async function resetBotKey(botId: UserId): Promise<void> {
   await request(`/api/account/bots/${encodeURIComponent(botId)}/key`, { method: "PUT" });
+}
+
+/** Your personal agents, and how many you may have. Fails with a 403 ApiError for a guest. */
+export async function fetchYourAgents(): Promise<YourAgents> {
+  return request<YourAgents>("/api/users/me/agents");
+}
+
+/** Makes an agent of your own, answering it with its key, which is shown this once. Takes your current password while you have one. */
+export async function makeYourAgent(name: string, currentPassword: string): Promise<Required<PersonalAgentAnswer>> {
+  return request<Required<PersonalAgentAnswer>>("/api/users/me/agents", { method: "POST", body: JSON.stringify({ name, ...(currentPassword && { currentPassword }) }) });
+}
+
+/** Renames an agent of yours, answering it. */
+export async function renameYourAgent(agentId: UserId, name: string): Promise<PersonalAgentAnswer> {
+  return request<PersonalAgentAnswer>(`/api/users/me/agents/${encodeURIComponent(agentId)}`, { method: "PATCH", body: JSON.stringify({ name }) });
+}
+
+/** Gives an agent of yours a new key, answering it with the key; the old one stops at once. */
+export async function rekeyYourAgent(agentId: UserId, currentPassword: string): Promise<Required<PersonalAgentAnswer>> {
+  return request<Required<PersonalAgentAnswer>>(`/api/users/me/agents/${encodeURIComponent(agentId)}/key`, {
+    method: "PUT",
+    body: JSON.stringify(currentPassword ? { currentPassword } : {}),
+  });
+}
+
+/** Deletes an agent of yours, which turns it off for good. */
+export async function deleteYourAgent(agentId: UserId): Promise<void> {
+  await request(`/api/users/me/agents/${encodeURIComponent(agentId)}`, { method: "DELETE" });
+}
+
+/** Puts a personal agent in a room its person is in, or with `place` false takes it out, answering it. */
+export async function placePersonalAgent(agentId: UserId, roomId: RoomId, place: boolean): Promise<PersonalAgentAnswer> {
+  return request<PersonalAgentAnswer>(`/api/personal_agents/${encodeURIComponent(agentId)}/rooms/${encodeURIComponent(roomId)}`, { method: place ? "PUT" : "DELETE" });
+}
+
+/** Everyone's personal agents and the limit. Fails with a 403 ApiError for anyone but an administrator. */
+export async function fetchEveryonesAgents(): Promise<EveryonesAgents> {
+  return request<EveryonesAgents>("/api/account/personal_agents");
+}
+
+/** Sets how many personal agents each person may have, 0 for none. */
+export async function setPersonalAgentLimit(limit: number): Promise<PersonalAgentLimit> {
+  return request<PersonalAgentLimit>("/api/account/personal_agents", { method: "PATCH", body: JSON.stringify({ limit }) });
+}
+
+/** Turns off anyone's personal agent, as an administrator. */
+export async function turnOffPersonalAgent(agentId: UserId): Promise<void> {
+  await request(`/api/account/personal_agents/${encodeURIComponent(agentId)}`, { method: "DELETE" });
 }
 
 /** Gives the join link a new code, answering it. Fails with a 403 ApiError for anyone but an administrator. */

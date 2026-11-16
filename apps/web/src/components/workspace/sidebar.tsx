@@ -10,7 +10,7 @@ import { membersShown } from "@/lib/directs";
 import { inItsHuddle } from "@/lib/huddle-people";
 import { apart, inDirectOrder, inSidebarOrder, markedUnread, type DirectSidebarRoom } from "@/lib/room-list";
 import { cn } from "@/lib/utils";
-import { AgentBadge, useIsWithAgent } from "./agent-badge";
+import { AgentBadge, useAgentWith } from "./agent-badge";
 import { opensNewDirect } from "./new-direct-dialog";
 import { UserAvatar } from "./user-avatar";
 
@@ -247,7 +247,8 @@ interface DirectRowProps {
  */
 function DirectRow({ room, meId, current, unreadId, onClick }: DirectRowProps) {
   const nameOf = useNameOf();
-  const isWithAgent = useIsWithAgent();
+  const agentWith = useAgentWith();
+  const agent = agentWith(room);
   const members = membersShown(room, meId);
   return (
     <a
@@ -270,7 +271,7 @@ function DirectRow({ room, meId, current, unreadId, onClick }: DirectRowProps) {
       {/* The space after the hidden words starts the visible line, where it doesn't show. */}
       <span className="min-w-0 flex-1 truncate">
         <span className="sr-only">Direct message with</span> {members.map((member) => `${nameOf(member)}${member.id === meId ? " (you)" : ""}`).join(", ")}
-        {isWithAgent(room) && <AgentBadge className="ms-0.5" />}
+        {agent && <AgentBadge agent={agent} className="ms-0.5" />}
       </span>
       {unreadId && <span aria-hidden="true" className="size-[7px] shrink-0 rounded-full bg-foreground" />}
     </a>

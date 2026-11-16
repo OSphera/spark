@@ -199,7 +199,7 @@ function Author({ user }: { user: User }) {
       <strong title={userTitle(listed)} className="truncate font-bold text-message-ink">
         {listed.name}
       </strong>
-      {isAgent(listed) && <AgentBadge />}
+      {isAgent(listed) && <AgentBadge agent={listed} />}
     </>
   );
 }

@@ -303,7 +303,7 @@ export function NewDirectDialog({ opener, meId, reloadPeople, askForRoom, onClos
                   <UserAvatar user={person} />
                   <span className="min-w-0 wrap-anywhere">
                     {nameOf(person)}
-                    {isAgent(person) && <AgentBadge className="ms-0.5" />}
+                    {isAgent(person) && <AgentBadge agent={person} className="ms-0.5" />}
                   </span>
                 </button>
               ))}

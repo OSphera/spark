@@ -324,6 +324,14 @@ action-text-attachment[content-type~="application/vnd.actiontext.opengraph-embed
   white-space: nowrap;
 }
 
+/* Whose a personal agent is, after its badge, as AgentBadge writes it (agent-badge.tsx). */
+.autocompletable__owner {
+  color: var(--message-muted);
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
 :is(.mention, .autocomplete__item) .avatar {
   aspect-ratio: 1;
   background-color: var(--background);
