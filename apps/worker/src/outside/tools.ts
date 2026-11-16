@@ -91,13 +91,34 @@ async function listRooms(env: Env, { userId }: OutsideAccess): Promise<unknown> 
   return { rooms: (await workspace(env).outsideRooms(userId)).map((room) => listedRoom(room, userId)) };
 }
 
-/** A page of a room's messages, oldest first: its newest, or those before the message `before` names, with the id to read further back from, if there's more. */
-async function readRoom(env: Env, access: OutsideAccess, { room_id: roomId, before }: Record<string, unknown>): Promise<unknown> {
+/**
+ * A page of a room's messages, oldest first: its newest, or those before the message `before` names, or
+ * those after the one `after` names, with the id to read further back from, or on from, if there's more.
+ * A message that isn't in the room, or was deleted, can't be read from, since an id alone doesn't say
+ * whether it's another room's or a mistake, and reading on from the wrong place would miss messages
+ * without saying so.
+ */
+async function readRoom(env: Env, access: OutsideAccess, { room_id: roomId, before, after }: Record<string, unknown>): Promise<unknown> {
   const room = await roomOf(env, access, roomId);
   if (before !== undefined && typeof before !== "string") throw new Refused("Give `before` as a message's id.");
-  const page = await env.CHAT_ROOM.getByName(room.id).outsidePage(room.id, before === undefined ? {} : { before });
-  if (!page) throw new Refused("The room has no message with the id given as `before`.");
-  return { room: shownRoom(room, access.userId), messages: page.messages.map(shownMessage), older: page.hasMore && page.messages.length > 0 ? page.messages[0]!.id : null };
+  if (after !== undefined && typeof after !== "string") throw new Refused("Give `after` as a message's id.");
+  if (before !== undefined && after !== undefined) throw new Refused("Give `before` or `after`, not both: `before` reads back from a message, and `after` reads on from one.");
+  const cursor = before !== undefined ? { before } : after !== undefined ? { after } : {};
+  const page = await env.CHAT_ROOM.getByName(room.id).outsidePage(room.id, cursor);
+  if (!page) {
+    throw new Refused(
+      before !== undefined
+        ? "The room has no message with the id given as `before`."
+        : "The room has no message with the id given as `after`: it may have been deleted, or be in another room. Read the room without `after` for its newest messages, then give the id of the last as `after` to read on.",
+    );
+  }
+  const { messages } = page;
+  return {
+    room: shownRoom(room, access.userId),
+    messages: messages.map(shownMessage),
+    older: page.hasMore && messages.length > 0 ? messages[0]!.id : null,
+    newer: page.hasNewer && messages.length > 0 ? messages.at(-1)!.id : null,
+  };
 }
 
 /** A thread: the message it's under, then its newest replies, oldest first. */
@@ -170,8 +191,12 @@ const READING: Tool[] = [
   {
     name: "read_room",
     title: "Read a room",
-    description: `Reads a room's messages, oldest first: its newest ${HISTORY_PAGE_SIZE}, or the ${HISTORY_PAGE_SIZE} before the message \`before\` names. Each has its id, when it was written, who wrote it and its text. \`older\` is the id to give as \`before\` to read further back, or null at the room's start. A message with \`replies\` has a thread, which read_thread reads.`,
-    takes: { room_id: ROOM_ID, before: { type: "string", description: "A message's id, to read the messages before it: the `older` an earlier read answered." } },
+    description: `Reads a room's messages, oldest first: its newest ${HISTORY_PAGE_SIZE}, or the ${HISTORY_PAGE_SIZE} before the message \`before\` names, or the ${HISTORY_PAGE_SIZE} after the message \`after\` names. Each has its id, when it was written, who wrote it and its text. \`older\` is the id to give as \`before\` to read further back, or null at the room's start. \`newer\` is the id to give as \`after\` to read what came next, or null when there is nothing newer. To catch up, see which rooms list_rooms says have unread messages, then read each with \`after\` set to the id of the last message you saw there, and again with the \`newer\` each read answers until it's null. Give \`before\` or \`after\`, not both. A message with \`replies\` has a thread, which read_thread reads.`,
+    takes: {
+      room_id: ROOM_ID,
+      before: { type: "string", description: "A message's id, to read the messages before it: the `older` an earlier read answered." },
+      after: { type: "string", description: "A message's id, to read the messages after it: the id of the last message you saw, or the `newer` an earlier read answered." },
+    },
     required: ["room_id"],
     run: readRoom,
   },

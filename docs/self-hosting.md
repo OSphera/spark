@@ -1088,6 +1088,17 @@ with nothing.
   rooms, the ones they've hidden and their direct messages too, as their own search does. It sees
   nothing they don't. Its tools are `list_rooms`, `read_room`, `read_thread` and `search_messages`,
   each marked as only reading.
+- **It can catch up on what's new.** `list_rooms` says which rooms have messages the person hasn't
+  read. `read_room` reads a room's newest 40 messages, the 40 before a message (`before`), or the 40
+  after one (`after`), oldest first. Each answer gives `older` and `newer`, the ids to pass as `before`
+  and `after` to read on in either direction, or null at the room's start or when nothing is newer. An
+  app that remembers the last message it saw in a room reads only what's new by passing its id as
+  `after`, and again with each `newer` until it's null. `before` and `after` can't be given together.
+  A message sent only to a thread isn't in the room, so reading forwards skips it as reading backwards
+  does. If the message named as `after` isn't in the room, because it was deleted or is another room's,
+  `read_room` refuses and says so, rather than guess where to read on from and miss messages without
+  telling the app. The app then reads the room's newest messages without `after` and carries on from
+  the last.
 - **It can send messages as them, if they let it.** The page that asks has a box for that, ticked
   unless they clear it, and their profile says which apps can. `send_message` posts Markdown to a room
   they're in, or as a reply in a thread, and everyone there sees it as theirs: nothing marks it as
