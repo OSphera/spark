@@ -1299,8 +1299,11 @@ What a self-hoster should know, beyond keeping the setup password and link to th
 - Anyone in a room can click a [button that acts](slack-webhooks.md#buttons-that-act) on a bot's
   card there, and the bot is told who clicked, so a bot that should act only for some people has to
   check that itself. The room sends the button as the bot posted it, never what a browser says of it.
-- Workers Logs record each request's address, which for Campfire's bot API and the Slack-compatible
-  webhooks holds the bot's key and for the join link its code; Reset key and Regenerate join link are
+- Workers Logs record each request's address, which for Campfire's bot API, when the key is in the
+  address, and for the Slack-compatible webhooks holds the bot's key, and for the join link its code.
+  A bot that sends its key as `Authorization: Bearer <bot key>` to `/bot/rooms/<room id>/messages`, as the
+  Chat bots page's commands do, leaves none in a log ([the bot API](bot-api.md)); only the
+  Slack-compatible webhook has to keep its key in its address. Reset key and Regenerate join link are
   the remedies if a log is shared, and
   `"logs": { "invocation_logs": false }` under `observability` in `wrangler.jsonc` drops the
   per-request record.

@@ -66,6 +66,8 @@ person who clicked and the bot's message, with the button as Slack's `block_acti
 }
 ```
 
+The key in `room.path` is the webhook's own, and works as `Authorization: Bearer <key>` at `/bot/rooms/<room id>/messages` too, as [the bot API](bot-api.md) says; `response_path` keeps its key in the address.
+
 A delivery for a message has no `type`, so that tells the two apart. The bot has 30 seconds to
 answer, and the button waits until it does:
 

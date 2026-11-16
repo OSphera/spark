@@ -270,6 +270,7 @@ pnpm seed       # in a second terminal: the made-up Fernwood team sets Ember up 
 
 - [Self-hosting guide](docs/self-hosting.md): deploying, what it costs, custom domains, who can join,
   email, push notifications, files and security.
+- [Bot API](docs/bot-api.md): how a bot posts, reads, edits and boosts with its key in a header.
 - [Slack-compatible webhooks](docs/slack-webhooks.md): what bots can post, and how it looks.
 - [The models file](docs/models.md): the models every copy of Ember offers, and how to change them.
 - [Development](docs/development.md): the code's layout, running Ember locally, tests and performance.

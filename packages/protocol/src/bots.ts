@@ -11,6 +11,12 @@ import { isReservedName, MAX_USER_NAME_LENGTH, NAME_RESERVED, type DirectoryUser
 export const botMessagesPath = (roomId: RoomId, key: string, threadId?: string) =>
   `/rooms/${encodeURIComponent(roomId)}/${key}/messages` + (threadId === undefined ? "" : `?thread=${encodeURIComponent(threadId)}`);
 
+/**
+ * Where a bot posts messages to a room and reads them with its key in an `Authorization: Bearer` header,
+ * which a request log doesn't record as it does an address: `/bot/rooms/<room id>/messages`.
+ */
+export const botKeylessMessagesPath = (roomId: RoomId) => `/bot/rooms/${encodeURIComponent(roomId)}/messages`;
+
 /** Where a bot posts what a Slack incoming webhook is sent to a room, with the bot's key: `/rooms/<room id>/<bot key>/slack`. */
 export const botSlackPath = (roomId: RoomId, key: string) => `/rooms/${encodeURIComponent(roomId)}/${key}/slack`;
 

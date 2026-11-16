@@ -247,8 +247,12 @@ describe("Add and edit a bot", () => {
     const commandsFor = ({ id, name }: { id: string; name: string }) => {
       const room = within(incoming()).getByRole("group", { name });
       const url = `http://localhost:3000/rooms/${id}/${BOT.key}`;
-      expect(within(room).getByRole("textbox", { name: "curl command for posting messages" })).toHaveValue(`curl -d 'Hello!' ${url}/messages`);
-      expect(within(room).getByRole("textbox", { name: "curl command for posting attachments" })).toHaveValue(`curl -F "attachment=@/path/to/file" ${url}/messages`);
+      expect(within(room).getByRole("textbox", { name: "curl command for posting messages" })).toHaveValue(
+        `curl -H 'Authorization: Bearer ${BOT.key}' -d 'Hello!' http://localhost:3000/bot/rooms/${id}/messages`,
+      );
+      expect(within(room).getByRole("textbox", { name: "curl command for posting attachments" })).toHaveValue(
+        `curl -H 'Authorization: Bearer ${BOT.key}' -F "attachment=@/path/to/file" http://localhost:3000/bot/rooms/${id}/messages`,
+      );
       expect(within(room).getByRole("textbox", { name: "Slack-compatible webhook URL" })).toHaveValue(`${url}/slack`);
       return room;
     };
