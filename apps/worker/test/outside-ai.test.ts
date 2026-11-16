@@ -687,6 +687,77 @@ describe("What a connected AI app reads", () => {
     hopper.close();
   });
 
+  it("reads a room forwards from a message, a page at a time, until it has caught up", async () => {
+    const { administrator, token, general } = await reading();
+    const ada = await connect(general, administrator);
+    const written: Message[] = [];
+    for (let n = 1; n <= HISTORY_PAGE_SIZE * 2 + 3; n++) written.push(await post(ada, `<p>Message ${n}</p>`));
+    type Read = { messages: Array<{ id: string; text: string }>; older: string | null; newer: string | null };
+
+    // The newest page has nothing newer, and a page back from it has the message after its last.
+    const newest = await found<Read>(token, "read_room", { room_id: general });
+    expect(newest.newer).toBeNull();
+    const back = await found<Read>(token, "read_room", { room_id: general, before: newest.older });
+    expect(back.newer).toBe(back.messages.at(-1)!.id);
+
+    const first = await found<Read>(token, "read_room", { room_id: general, after: written[0]!.id });
+    expect(first.messages.map(({ id }) => id)).toEqual(written.slice(1, 1 + HISTORY_PAGE_SIZE).map(({ id }) => id));
+    expect(first.newer).toBe(written[HISTORY_PAGE_SIZE]!.id);
+    expect(first.older).toBe(written[1]!.id);
+
+    const second = await found<Read>(token, "read_room", { room_id: general, after: first.newer });
+    expect(second.messages.map(({ id }) => id)).toEqual(written.slice(1 + HISTORY_PAGE_SIZE, 1 + HISTORY_PAGE_SIZE * 2).map(({ id }) => id));
+    expect(second.newer).toBe(written[HISTORY_PAGE_SIZE * 2]!.id);
+
+    const last = await found<Read>(token, "read_room", { room_id: general, after: second.newer });
+    expect(last.messages.map(({ text }) => text)).toEqual(written.slice(HISTORY_PAGE_SIZE * 2 + 1).map(({ plainText }) => plainText));
+    expect(last.newer).toBeNull();
+
+    // Caught up: nothing after the newest message, and a message sent since turns up.
+    const none = await found<Read>(token, "read_room", { room_id: general, after: written.at(-1)!.id });
+    expect(none).toEqual({ room: { id: general, kind: "open", name: "general" }, messages: [], older: null, newer: null });
+    // A reply sent only to its thread isn't in the room, forwards as it isn't backwards.
+    await reply(ada, written.at(-1)!, "<p>Only in the thread</p>");
+    expect((await found<Read>(token, "read_room", { room_id: general, after: written.at(-1)!.id })).messages).toEqual([]);
+    const more = await post(ada, "<p>One more</p>");
+    expect((await found<Read>(token, "read_room", { room_id: general, after: written.at(-1)!.id })).messages.map(({ id }) => id)).toEqual([more.id]);
+    ada.close();
+  });
+
+  it("refuses to read both ways at once, or on from a message the room doesn't have", async () => {
+    const { administrator, token, general } = await reading();
+    const [ada, elsewhere] = [await connect(general, administrator), await createRoom("Elsewhere", { as: administrator })];
+    const [kept, doomed] = [await post(ada, "<p>Kept</p>"), await post(ada, "<p>Doomed</p>")];
+    const inElsewhere = await connect(elsewhere.id, administrator);
+    const strange = await post(inElsewhere, "<p>In another room</p>");
+    await post(ada, "<p>Later</p>");
+
+    expect(await refusal(token, "read_room", { room_id: general, before: doomed.id, after: kept.id })).toBe(
+      "Give `before` or `after`, not both: `before` reads back from a message, and `after` reads on from one.",
+    );
+    const MISSING = /^The room has no message with the id given as `after`: it may have been deleted, or be in another room\./;
+    expect(await refusal(token, "read_room", { room_id: general, after: "no-such-message" })).toMatch(MISSING);
+    expect(await refusal(token, "read_room", { room_id: general, after: strange.id })).toMatch(MISSING);
+
+    // A deleted message is refused rather than read on from, so an app never misses messages by a wrong guess.
+    ada.send({ type: "message.delete", messageId: doomed.id });
+    await ada.next("message.deleted");
+    expect(await refusal(token, "read_room", { room_id: general, after: doomed.id })).toMatch(MISSING);
+    expect((await found<{ messages: unknown[] }>(token, "read_room", { room_id: general, after: kept.id })).messages).toHaveLength(1);
+    ada.close();
+    inElsewhere.close();
+  });
+
+  it("doesn't read forwards in a room its person isn't in", async () => {
+    const { administrator, token, general } = await reading();
+    const secret = await createRoom("Secret plans", { closedTo: [administrator.user.id], as: administrator });
+    const inSecret = await connect(secret.id, administrator);
+    const message = await post(inSecret, "<p>The launch is in March</p>");
+    expect(await refusal(token, "read_room", { room_id: secret.id, after: message.id })).toBe("No room of theirs has that id. list_rooms lists the rooms they're in.");
+    expect(await refusal(token, "read_room", { room_id: general, after: message.id })).toMatch(/^The room has no message/);
+    inSecret.close();
+  });
+
   it("reads only the rooms its person is in, their direct messages too", async () => {
     const { administrator, member, token } = await reading();
     const secret = await createRoom("Secret plans", { closedTo: [administrator.user.id], as: administrator });
@@ -703,6 +774,7 @@ describe("What a connected AI app reads", () => {
       room: { id: dm.id, kind: "direct", name: "Ada Lovelace" },
       messages: [{ id: hello.id, at: hello.createdAt, from: "Ada Lovelace", text: "Hello, Grace" }],
       older: null,
+      newer: null,
     });
     inSecret.close();
     inDm.close();
