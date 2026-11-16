@@ -285,6 +285,8 @@ const account = (memberful: Partial<Pick<Account, "memberfulJoin" | "memberfulSi
   emailDomains: [],
   navigationIcons: {},
   huddles: false,
+  huddleCameras: true,
+  huddleScreens: true,
   ...memberful,
 });
 

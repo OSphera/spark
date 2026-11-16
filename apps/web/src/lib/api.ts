@@ -33,6 +33,7 @@ import {
   type EmailLinkSignUp,
   type EmailSettings,
   type Favorites,
+  type HuddleRelaySetup,
   type HuddlesForgotten,
   type HuddlesSaved,
   type HuddlesSettings,
@@ -92,7 +93,7 @@ import {
   type YourAssistantChanged,
   type YourAssistantChanges,
 } from "@ember/protocol";
-import type { Agent, AgentAnswer, AgentChanges, Agents, AgentSettings, AgentTrial, AgentTrialAnswer, NewAgent } from "@ember/protocol/agents";
+import type { Agent, AgentAnswer, AgentChanges, Agents, AgentSettings, AgentTrial, AgentTrialAnswer, AvailableAgent, AvailableAgents, NewAgent } from "@ember/protocol/agents";
 import type {
   AgentToolPicks,
   AgentTools,
@@ -647,6 +648,24 @@ export async function forgetHuddles(): Promise<null> {
 }
 
 /**
+ * Gives Ember a TURN key's ID and API token for huddles' relay to go by, answering huddles as they are
+ * then. Fails with a 422 ApiError on the field Ember or Cloudflare refuses, a 502 one when Ember couldn't
+ * ask Cloudflare, a 409 one while huddles are off, and a 403 one for anyone but an administrator.
+ */
+export async function saveHuddleRelay(setup: HuddleRelaySetup): Promise<HuddlesSettings> {
+  return (await request<HuddlesSaved>("/api/account/huddles/relay", { method: "PUT", body: JSON.stringify(setup) })).huddles;
+}
+
+/**
+ * Takes huddles' relay away, forgetting the TURN key Ember was given, answering huddles as they are
+ * then, which is null where they've been turned off since. Fails with a 403 ApiError for anyone but an
+ * administrator.
+ */
+export async function forgetHuddleRelay(): Promise<HuddlesSettings | null> {
+  return (await request<HuddlesSaved | HuddlesForgotten>("/api/account/huddles/relay", { method: "DELETE" })).huddles;
+}
+
+/**
  * The models Ember offers, as Set up Ember AI, Add a model and the agents' pages list them: those the
  * models file lists, then Workers AI's, as Cloudflare's model search lists them for the account `keys`
  * names, with its API token, as Set up Ember AI has them typed, or else Ember AI's, or why they aren't
@@ -729,6 +748,11 @@ export async function changeWebSearch(on: boolean): Promise<WebSearchChanged> {
 /** The agents, by name. Fails with a 409 ApiError while Ember AI is off, and a 403 one for anyone but an administrator. */
 export async function fetchAgents(): Promise<Agent[]> {
   return (await request<Agents>("/api/account/agents")).agents;
+}
+
+/** The AI agents this person can ask, @ember first, then by name, with what each does and the rooms it shares with them: none while Ember AI is off. */
+export async function fetchAvailableAgents(): Promise<AvailableAgent[]> {
+  return (await request<AvailableAgents>("/api/agents")).agents;
 }
 
 /** Agent `agentId`, as its page shows it. Fails as `fetchAgents` does, and with a 404 ApiError for an id that isn't an agent's. */

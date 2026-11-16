@@ -60,6 +60,7 @@ import appSignInClients from "../migrations/0059_app_sign_in_clients.sql";
 import appScopeWanted from "../migrations/0060_app_scope_wanted.sql";
 import ownAppSignIns from "../migrations/0061_own_app_sign_ins.sql";
 import outsideAi from "../migrations/0062_outside_ai.sql";
+import agentAccess from "../migrations/0063_agent_access.sql";
 import sentVia from "../migrations/0063_sent_via.sql";
 import personalAgents from "../migrations/0064_personal_agents.sql";
 import searchIndex from "../search-migrations/0001_search_index.sql";
@@ -148,6 +149,7 @@ export const MIGRATIONS: Migration[] = [
   { name: "0060_app_scope_wanted.sql", scope: "workspace", sql: appScopeWanted },
   { name: "0061_own_app_sign_ins.sql", scope: "workspace", sql: ownAppSignIns },
   { name: "0062_outside_ai.sql", scope: "workspace", sql: outsideAi },
+  { name: "0063_agent_access.sql", scope: "workspace", sql: agentAccess },
   { name: "0063_sent_via.sql", scope: "room", sql: sentVia },
   { name: "0064_personal_agents.sql", scope: "workspace", sql: personalAgents },
 ];
