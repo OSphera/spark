@@ -7,7 +7,7 @@ import { useTitle } from "@/hooks/use-title";
 import { deleteRoom, isSignedOut } from "@/lib/api";
 import { membersShown, roomName } from "@/lib/directs";
 import type { RoomAnswer } from "@/lib/room-list";
-import { DeleteButton, isMissing } from "./room-settings-page";
+import { DeleteButton, DownloadMessages, isMissing } from "./room-settings-page";
 import { Panel, SettingsPage } from "./settings-page";
 import { AvatarLink } from "./user-avatar";
 
@@ -28,9 +28,9 @@ interface Props {
 }
 
 /**
- * DM settings: a card for each of the others in the DM, or for you in your DM with yourself, then Delete
- * Ping, which any of its members can press, and which goes home once the DM is deleted. Its members
- * never change, so there's nothing to save.
+ * DM settings: a card for each of the others in the DM, or for you in your DM with yourself, then Download
+ * messages and Delete Ping, which any of its members can press, and which goes home once the DM is
+ * deleted. Its members never change, so there's nothing to save.
  */
 export function DirectSettingsPage({ room, me, back, askForRoom, onMissing, onFailed }: Props) {
   const nameOf = useNameOf();
@@ -70,7 +70,10 @@ export function DirectSettingsPage({ room, me, back, askForRoom, onMissing, onFa
             <MemberCard key={member.id} member={member} name={nameOf(member)} />
           ))}
         </section>
-        <DeleteButton label="Delete Ping" text="Ping" disabled={busy} onClick={remove} />
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <DownloadMessages roomId={room.id} />
+          <DeleteButton label="Delete Ping" text="Ping" disabled={busy} onClick={remove} />
+        </div>
       </Panel>
     </SettingsPage>
   );

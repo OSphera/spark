@@ -172,7 +172,7 @@ it's yours. Slack's plans are as [slack.com/pricing](https://slack.com/pricing) 
 | **Channels shared with other companies** | — | ✅ Slack Connect |
 | **Scheduled messages and reminders** | — | ✅ |
 | **Guest accounts** | — | ✅ on paid plans |
-| **Exports of every message, DMs included** | — not yet | ✅ on Business+ and up |
+| **Exports of every message, DMs included** | members download the rooms and DMs they're in; an administrator's export of everything — not yet | ✅ on Business+ and up |
 | **Support** | GitHub issues | ✅ 24/7 on Business+ |
 
 If your team lives in huddles, workflows and a hundred integrations, Slack earns its price. If you

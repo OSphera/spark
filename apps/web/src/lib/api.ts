@@ -1037,6 +1037,9 @@ export function socketUrl(path: string): string {
 }
 
 /** The address of a room's socket, which tells the room what `params` says about the tab. */
+/** Where a member downloads a room's messages, as JSON Lines. */
+export const roomExportPath = (roomId: string) => `/api/rooms/${encodeURIComponent(roomId)}/export`;
+
 export const roomSocketUrl = (roomId: string, params: RoomSocketParams) => socketUrl(`/api/rooms/${encodeURIComponent(roomId)}/socket${roomSocketQuery(params)}`);
 
 /** The address of a tab's workspace socket, which carries what changes outside the room it shows. */

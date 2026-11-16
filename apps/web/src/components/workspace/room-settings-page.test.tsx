@@ -463,6 +463,16 @@ describe("Delete a room", () => {
   });
 });
 
+describe("Download a room's messages", () => {
+  it("offers a link to the room's export, with the download icon", async () => {
+    serve(closedSettings);
+    showPage(leads);
+    const link = await screen.findByRole("link", { name: "Download messages" });
+    expect(link).toHaveAttribute("href", "/api/rooms/leads/export");
+    expect(link.querySelector("svg")).toHaveClass("iconoir-download");
+  });
+});
+
 describe("Leave a private room", () => {
   const leaveButton = () => screen.findByRole("button", { name: "Leave Leads" });
   const confirmed = (answer: boolean) => vi.spyOn(window, "confirm").mockReturnValue(answer);
