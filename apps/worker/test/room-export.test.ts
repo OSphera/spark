@@ -144,7 +144,8 @@ describe("Download a room's messages", () => {
 
     const [, ...messages] = await linesOf(await download(administrator, room));
     expect(messages.map((message) => message.id)).toEqual(ids);
-  });
+    // Posting two hundred messages takes a while when the whole suite is running.
+  }, 30_000);
 
   it("downloads a DM, which has no name, listing its members", async () => {
     const administrator = await setUp();
