@@ -32,6 +32,7 @@ import {
   type UserStatus,
   type WorkspaceSettings,
 } from "@ember/protocol";
+import { NAME_TAKEN } from "@ember/protocol/agents";
 import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -788,6 +789,28 @@ describe("Sign in with Memberful", () => {
       await agentCalled("1agent", "MEMBER");
       site.member = { ...katherine, id: "4244", email: null };
       expect((await signedInAs(await signInWithMemberful())).name).toBe("Member 2");
+    });
+
+    it("passes over a person's agent's name, even one being given it at that moment", async () => {
+      const administrator = await setUpWithMemberful({ membersOnly: false });
+      const member = await joinAsGrace();
+      const rounds = 4;
+      expect((await api("/api/account/personal_agents", { method: "PATCH", headers: as(administrator), body: JSON.stringify({ limit: rounds }) })).status).toBe(200);
+      const site = fakeMemberful();
+      for (let round = 0; round < rounds; round++) {
+        const fullName = `Katherine Johnson ${round}`;
+        site.member = { ...katherine, id: `${4300 + round}`, fullName, email: `katherine.${round}@example.com` };
+        const making = api("/api/users/me/agents", {
+          method: "POST",
+          headers: { ...as(member), "CF-Connecting-IP": `198.51.100.${round + 1}` },
+          body: JSON.stringify({ name: fullName.toUpperCase(), currentPassword: grace.password }),
+        });
+        const [signedIn, made] = await Promise.all([signInWithMemberful(), making]);
+        const { name } = await signedInAs(signedIn);
+        // Whichever came first has it, and the other passes over it or is refused it.
+        if (made.status === 201) expect(name).toBe(`katherine.${round}`);
+        else expect([made.status, name, await made.json()]).toEqual([422, fullName, { error: NAME_TAKEN }]);
+      }
     });
 
     it("signs nobody in with a state this browser didn't start with, or without a code, and asks Memberful nothing", async () => {

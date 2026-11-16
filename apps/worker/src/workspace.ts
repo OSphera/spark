@@ -3561,9 +3561,11 @@ export class Workspace extends DurableObject<Env> {
       const id = sortableId();
       const token = newAgentToken();
       const digest = await agentKeyDigest(id, token, this.env.SESSION_SECRET);
-      // The count is checked in the same statement, so two at once can't both pass it.
+      // The count, and the name, are checked again in the same statement, so two at once can't both pass
+      // either: the one refused hears what it would have, had the other been first.
       if (!(await this.agentStore.createAgent(id, name, owner.user.id, digest, new Date().toISOString()))) {
-        return (await this.agentStore.limit()) === 0 ? "off" : "full";
+        if ((await this.agentStore.limit()) === 0) return "off";
+        return (await this.takesAnyonesName(null, name)) ? "name taken" : "full";
       }
       await this.publishPerson(id);
       return { agent: (await this.ownAgent(id, owner.user.id))!, key: botKeyOf(id, token) };
@@ -3582,7 +3584,9 @@ export class Workspace extends DurableObject<Env> {
       const agent = await this.agentStore.activeAgent(agentId);
       if (agent?.ownerId !== owner.user.id) return "not found";
       if (!sameName(agent.name, name) && (await this.takesAnyonesName(agentId, name))) return "name taken";
-      await this.agentStore.renameAgent(agentId, owner.user.id, name, new Date().toISOString());
+      // The name's checked again in the same statement, as making one checks it.
+      const renamed = await this.agentStore.renameAgent(agentId, owner.user.id, name, new Date().toISOString());
+      if (!renamed && (await this.takesAnyonesName(agentId, name))) return "name taken";
       await this.publishPerson(agentId);
       return { agent: (await this.ownAgent(agentId, owner.user.id))! };
     });

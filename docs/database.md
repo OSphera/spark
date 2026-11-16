@@ -564,7 +564,11 @@ Objects, D1 or speed call for something else.
   is made and finds them as their person is removed or banned. Its token isn't in `bot_token`, which
   stays null, but in `bot_key_digest`, an HMAC under `SESSION_SECRET`, so the row opens nothing, and
   `bot_key_used_at` records the key's last use, written at most once in 10 minutes. How many each
-  person may have is `accounts.personal_agents`, 0 until an administrator sets it.
+  person may have is `accounts.personal_agents`, 0 until an administrator sets it. The statements
+  that make and rename one refuse a name someone has, as the Workspace checked it beforehand, so a
+  name saved in between can't be shared. SQL compares names as `sameName` does only in ASCII, where
+  NFKC changes nothing and `lower` lowers what JavaScript does; the Workspace making one change at a
+  time keeps the others apart.
 - **@ember's levels and model are columns of the person, and the most of each level, and the models
   people can pick, are settings.** Campfire has no AI assistant. The levels someone picks of @ember's
   Thinking and Answer length are `users.assistant_thinking` and `users.assistant_answer_length`

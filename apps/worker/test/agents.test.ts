@@ -838,6 +838,41 @@ describe("AI agents", () => {
       expect(await inDirectory(administrator, member.user.id)).toMatchObject({ name: "Grace Hopper" });
       expect(await inDirectory(administrator, bot.id)).toMatchObject({ name: "Build Bot" });
     });
+
+    it("go to one of an agent and a person's agent asked for them at once, made or renamed", async () => {
+      const administrator = await setUp();
+      const member = await joinAsGrace();
+      const rounds = 4;
+      expect((await api("/api/account/personal_agents", { method: "PATCH", headers: as(administrator), body: JSON.stringify({ limit: rounds + 1 }) })).status).toBe(200);
+      // From an address of its own each, so that the passwords checked don't reach sign-in's limit.
+      let addresses = 0;
+      const makePersonal = (name: string) =>
+        api("/api/users/me/agents", { method: "POST", headers: { ...as(member), "CF-Connecting-IP": `198.51.100.${++addresses}` }, body: JSON.stringify({ name, currentPassword: grace.password }) });
+      const renamePersonal = (id: UserId, name: string) => api(`/api/users/me/agents/${id}`, { method: "PATCH", headers: as(member), body: JSON.stringify({ name }) });
+      const personal = await makePersonal("Scout");
+      expect(personal.status).toBe(201);
+      const { id: personalId } = ((await personal.json()) as { agent: { id: UserId } }).agent;
+      const recap = await made(administrator);
+      const holders = async (name: string) => (await workspaceSql("SELECT count(*) AS n FROM users WHERE status = 0 AND lower(name) = lower(?)", name)) as Array<{ n: number }>;
+      /** That one of `answers` is `won` and the other refused with `refused`, whichever came first. */
+      const oneWon = async (answers: Response[], won: number[], refused: unknown[]) => {
+        const winner = answers.findIndex((response, i) => response.status === won[i]);
+        expect(winner, answers.map((response) => response.status).join()).toBeGreaterThanOrEqual(0);
+        expect(await refusalOf(answers[1 - winner]!)).toEqual(refused[1 - winner]);
+      };
+      const refused = [
+        [422, { error: NAME_TAKEN, field: "name" }],
+        [422, { error: NAME_TAKEN }],
+      ];
+      for (let round = 0; round < rounds; round++) {
+        const name = `Herald ${round}`;
+        await oneWon(await Promise.all([makeAgent(administrator, { ...RECAP, name }), makePersonal(name.toUpperCase())]), [201, 201], refused);
+        expect(await holders(name)).toEqual([{ n: 1 }]);
+        const renamed = `Courier ${round}`;
+        await oneWon(await Promise.all([changeAgent(administrator, recap.id, { name: renamed }), renamePersonal(personalId, renamed.toLowerCase())]), [200, 200], refused);
+        expect(await holders(renamed)).toEqual([{ n: 1 }]);
+      }
+    });
   });
 
   describe("beside bots and people", () => {
