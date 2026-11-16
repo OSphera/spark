@@ -968,9 +968,8 @@ Ember starts, to 10. Lowering it turns nobody's agents off; it stops them making
   still shown as its person's agent's; it can't be turned on again, but its person can make another.
 - **Mentions and replies.** Anyone in a room with an agent can mention it, as anyone. @ember and the
   AI agents never answer a bot, so they don't answer a person's agent either. A person's agent has no
-  webhook: deliveries to chat bots' webhooks refuse only addresses that aren't https, or http on
-  localhost, and don't check that a webhook's host resolves only to public addresses, as link previews
-  and apps do, so they stay for administrators' chat bots, whose addresses an administrator chose. An
+  webhook: where a chat bot's webhook delivers is an administrator's choice, and a member choosing an
+  address for Ember to call is a different question, so webhooks stay with administrators' chat bots. An
   agent reads what's new with `GET /bot/rooms/<room id>/messages?after=<message id>` instead.
 
 The badge that follows an AI agent's name follows a person's agent's too, with whose it is after it,
