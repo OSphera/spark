@@ -2,7 +2,7 @@ import type { CloseCode, RoomId, User, UserId } from "@ember/protocol";
 import type { BotRoomListed, PersonalAgentRoom } from "@ember/protocol/personal-agents";
 import { statement, type Db } from "../db";
 import type { StoredPicture } from "../files/pictures";
-import { ACTIVE, BOT, DEACTIVATED, DIRECTORY_COLUMNS, directoryEntry, LEAVE_SHARED_ROOMS, type DirectoryEntry, type DirectoryRow } from "../workspace-store";
+import { ACTIVE, BANNED, BOT, DEACTIVATED, DIRECTORY_COLUMNS, SUSPENDED, directoryEntry, LEAVE_SHARED_ROOMS, type DirectoryEntry, type DirectoryRow } from "../workspace-store";
 
 // Personal agents as the Workspace keeps them (migrations/0064_personal_agents.sql): bot users whose
 // owner_id names the person whose they are, each with the digest of its key's token. What turns them off
@@ -60,21 +60,48 @@ const EVERYONES_AGENTS_ROOMS = `SELECT memberships.user_id, rooms.id, rooms.name
 /** The active personal agent ?1, whoever's it is. */
 const ACTIVE_AGENT = `SELECT id, name, owner_id FROM users WHERE id = ?1 AND owner_id IS NOT NULL AND status = ${ACTIVE}`;
 
+/** Whether the text `value` is ASCII alone: UTF-8 spends a byte on each character only then. */
+const ascii = (value: string) => `length(CAST(${value} AS BLOB)) = length(${value})`;
+
+/** The whitespace `\s` matches in ASCII. */
+const ASCII_SPACE = `' ' || char(9, 10, 11, 12, 13)`;
+
+/**
+ * An ASCII name `value` as `sameName` compares it, which SQL can mirror only in ASCII: there NFKC changes
+ * nothing, there are no format characters, and `lower` lowers what `toLowerCase` does. Elsewhere it can't,
+ * since neither backend's `lower` lowers anything but ASCII, and neither normalizes.
+ */
+const asciiFolded = (value: string) => `lower(rtrim(ltrim(${value}, '@' || ${ASCII_SPACE}), ${ASCII_SPACE}))`;
+
+/**
+ * Whether the name `name` is one nothing a personal agent is called may be, but `except`'s, as
+ * `takesAnyonesName` reads them (anyone active, banned or suspended, and AI agents whatever their status),
+ * for names in ASCII alone, which is as far as SQL can compare them as `sameName` does. It's in the
+ * statements that make and rename an agent, so that a name saved since the Worker checked it is refused
+ * by the write itself, whatever ran in between, on either backend.
+ */
+const takenName = (name: string, except: string) => `(${ascii(name)} AND EXISTS (SELECT 1 FROM users AS named
+    WHERE named.id IS NOT ${except} AND (named.status IN (${ACTIVE}, ${BANNED}, ${SUSPENDED}) OR named.id IN (SELECT user_id FROM agents))
+      AND ${ascii("named.name")} AND ${asciiFolded("named.name")} = ${asciiFolded(name)}))`;
+
 /**
  * Adds personal agent ?1, called ?2, of ?3, with the digest ?4 of its key's token, at ?5: a bot, never more,
  * whatever anyone asks. Only while ?3 is an active person, neither a guest nor a bot, with fewer active
  * agents than the account lets each person have, so that two requests at once can't make one too many:
- * each is one statement, which both backends run one at a time. Answers its id once it's added.
+ * each is one statement, which both backends run one at a time. Nor while ?2 is taken (`takenName`), for
+ * the same reason. Answers its id once it's added.
  */
 const INSERT_AGENT = `INSERT INTO users (id, name, role, owner_id, bot_key_digest, created_at, updated_at)
   SELECT ?1, ?2, ${BOT}, owners.id, ?4, ?5, ?5 FROM users AS owners
   WHERE owners.id = ?3 AND owners.status = ${ACTIVE} AND owners.guest = 0 AND owners.role <> ${BOT}
     AND (SELECT count(*) FROM users AS theirs WHERE theirs.owner_id = ?3 AND theirs.status = ${ACTIVE})
       < coalesce((SELECT personal_agents FROM accounts LIMIT 1), 0)
+    AND NOT ${takenName("?2", "NULL")}
   RETURNING id`;
 
-/** Renames ?3, an active agent of ?4's, at ?2, unless that's its name already. */
-const RENAME_AGENT = `UPDATE users SET name = ?1, updated_at = ?2 WHERE id = ?3 AND owner_id = ?4 AND status = ${ACTIVE} AND name <> ?1`;
+/** Renames ?3, an active agent of ?4's, at ?2, unless that's its name already, or anyone else's (`takenName`). Answers it, if it did. */
+const RENAME_AGENT = `UPDATE users SET name = ?1, updated_at = ?2 WHERE id = ?3 AND owner_id = ?4 AND status = ${ACTIVE} AND name <> ?1
+  AND NOT ${takenName("?1", "?3")} RETURNING id`;
 
 /** Gives ?2, an active agent of ?3's, the digest ?1 of a new key's token, forgetting the old one's. Answers it, if it did. */
 const REKEY_AGENT = `UPDATE users SET bot_key_digest = ?1 WHERE id = ?2 AND owner_id = ?3 AND status = ${ACTIVE} RETURNING id`;
@@ -195,9 +222,9 @@ export class PersonalAgentStore {
     return (await this.db.all(INSERT_AGENT, id, name, ownerId, keyDigest, now)).length > 0;
   }
 
-  /** Renames `ownerId`'s active agent `agentId`. */
-  async renameAgent(agentId: UserId, ownerId: UserId, name: string, now: string): Promise<void> {
-    await this.db.run(RENAME_AGENT, name, now, agentId, ownerId);
+  /** Renames `ownerId`'s active agent `agentId`, as `RENAME_AGENT` lets it, answering whether it did. */
+  async renameAgent(agentId: UserId, ownerId: UserId, name: string, now: string): Promise<boolean> {
+    return (await this.db.all(RENAME_AGENT, name, now, agentId, ownerId)).length > 0;
   }
 
   /** The picture of `ownerId`'s active agent `agentId`, with when it last changed, or null unless it's theirs and on. */

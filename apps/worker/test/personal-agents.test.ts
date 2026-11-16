@@ -1,5 +1,6 @@
-import type { Directory, Me, NewWorkspace, RoomId, RoomSettings, UserId } from "@ember/protocol";
+import { sameName, type Directory, type Me, type NewWorkspace, type RoomId, type RoomSettings, type UserId } from "@ember/protocol";
 import { NAME_TAKEN, agentsName } from "@ember/protocol/agents";
+import type { BotAnswer } from "@ember/protocol/bots";
 import {
   AGENT_DIRECT_REFUSED,
   AGENT_NOT_WITH_OWNER,
@@ -14,8 +15,11 @@ import {
   type PersonalAgentAnswer,
   type YourAgents,
 } from "@ember/protocol/personal-agents";
+import { runInDurableObject } from "cloudflare:test";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { api, cookieOf, createRoom, freshDeploy, shown, signIn, startDirect, workspaceSql, type Session } from "./support";
+import type { Db, Value } from "../src/db";
+import type { Workspace } from "../src/workspace";
+import { api, cookieOf, createRoom, freshDeploy, shown, signIn, startDirect, workspaceSql, workspaceStub, type Session } from "./support";
 
 const ada = { name: "Ada Lovelace", emailAddress: "ada@example.com", password: "analytical engine" };
 const grace = { name: "Grace Hopper", emailAddress: "grace@example.com", password: "compiler design" };
@@ -199,6 +203,183 @@ describe("making one", () => {
     expect(await errorOf(await makeAgent(other, { name: "SCOUT", currentPassword: alan.password }), 422)).toBe(NAME_TAKEN);
     const renamed = await api("/api/users/me/profile", as(other, { method: "PATCH", body: json({ name: "Scout" }) }));
     expect(await errorOf(renamed, 422)).toBe(agentsName("Scout"));
+  });
+});
+
+describe("one name, asked for at once", () => {
+  /** How many times each race is run, since one run can happen to come out right. */
+  const ROUNDS = 4;
+
+  // Each request comes from an address of its own, so that the passwords checked don't reach sign-in's limit.
+  let addresses = 0;
+  const fromAnywhere = () => ({ "CF-Connecting-IP": `198.51.100.${++addresses % 250}` });
+  const makeAgentFrom = (session: Session, name: string, password: string) =>
+    api("/api/users/me/agents", as(session, { method: "POST", headers: fromAnywhere(), body: json({ name, currentPassword: password }) }));
+  const madeFrom = async (owner: Session, name: string, password: string) => {
+    const response = await makeAgentFrom(owner, name, password);
+    expect(response.status, await response.clone().text()).toBe(201);
+    return ((await response.json()) as PersonalAgentAnswer).agent;
+  };
+
+  /** How many who are active have `name`, as `sameName` compares names. */
+  const holders = async (name: string) => ((await workspaceSql("SELECT name FROM users WHERE status = 0")) as Array<{ name: string }>).filter((row) => sameName(row.name, name)).length;
+
+  /** Checks that of `answers`, the one that's `won` succeeded and the other was refused with `refused`, whichever came first. */
+  async function oneWon(answers: Response[], won: number[], refused: Array<{ status: number; error: string }>): Promise<void> {
+    const statuses = answers.map((response) => response.status);
+    const winner = statuses.findIndex((status, i) => status === won[i]);
+    expect(winner, JSON.stringify(statuses)).toBeGreaterThanOrEqual(0);
+    const loser = 1 - winner;
+    expect(statuses[loser], JSON.stringify(statuses)).toBe(refused[loser]!.status);
+    expect(((await answers[loser]!.json()) as { error: string }).error).toBe(refused[loser]!.error);
+  }
+
+  beforeEach(() => {
+    addresses = 0;
+  });
+
+  it("lets only one of two people make an agent of it", async () => {
+    const administrator = await setUp();
+    const [member, other] = [await join(grace), await join(alan)];
+    await setLimit(administrator, ROUNDS);
+    for (let round = 0; round < ROUNDS; round++) {
+      const answers = await Promise.all([makeAgentFrom(member, `Scout ${round}`, grace.password), makeAgentFrom(other, `SCOUT ${round}`, alan.password)]);
+      expect(answers.map((response) => response.status).sort()).toEqual([201, 422]);
+      expect(await errorOf(answers.find((response) => response.status === 422)!, 422)).toBe(NAME_TAKEN);
+      expect(await holders(`scout ${round}`)).toBe(1);
+    }
+  });
+
+  it("lets only one of two agents be renamed to it", async () => {
+    const administrator = await setUp();
+    const [member, other] = [await join(grace), await join(alan)];
+    await setLimit(administrator, 1);
+    const [mine, theirs] = [await madeFrom(member, "Scout", grace.password), await madeFrom(other, "Herald", alan.password)];
+    for (let round = 0; round < ROUNDS; round++) {
+      const answers = await Promise.all([renameAgent(member, mine.id, `Courier ${round}`), renameAgent(other, theirs.id, `courier ${round}`)]);
+      expect(answers.map((response) => response.status).sort()).toEqual([200, 422]);
+      expect(await errorOf(answers.find((response) => response.status === 422)!, 422)).toBe(NAME_TAKEN);
+      expect(await holders(`Courier ${round}`)).toBe(1);
+    }
+  });
+
+  it("lets only one agent have it of one being made and one being renamed", async () => {
+    const administrator = await setUp();
+    const [member, other] = [await join(grace), await join(alan)];
+    await setLimit(administrator, ROUNDS);
+    const mine = await madeFrom(member, "Scout", grace.password);
+    for (let round = 0; round < ROUNDS; round++) {
+      const answers = await Promise.all([renameAgent(member, mine.id, `Herald ${round}`), makeAgentFrom(other, `HERALD ${round}`, alan.password)]);
+      await oneWon(answers, [200, 201], [
+        { status: 422, error: NAME_TAKEN },
+        { status: 422, error: NAME_TAKEN },
+      ]);
+      expect(await holders(`Herald ${round}`)).toBe(1);
+    }
+  });
+
+  it("lets only one have it of someone renaming themselves and an agent being made", async () => {
+    const administrator = await setUp();
+    const [member, other] = [await join(grace), await join(alan)];
+    await setLimit(administrator, ROUNDS);
+    for (let round = 0; round < ROUNDS; round++) {
+      const name = `Scout ${round}`;
+      const answers = await Promise.all([api("/api/users/me/profile", as(other, { method: "PATCH", body: json({ name }) })), makeAgentFrom(member, name.toUpperCase(), grace.password)]);
+      await oneWon(answers, [200, 201], [
+        { status: 422, error: agentsName(name) },
+        { status: 422, error: NAME_TAKEN },
+      ]);
+      expect(await holders(name)).toBe(1);
+    }
+  });
+
+  it("lets only one have it of someone joining and an agent being made", async () => {
+    const administrator = await setUp();
+    const member = await join(grace);
+    await setLimit(administrator, ROUNDS);
+    const [{ join_code: joinCode }] = (await workspaceSql("SELECT join_code FROM accounts")) as [{ join_code: string }];
+    for (let round = 0; round < ROUNDS; round++) {
+      const name = `Scout ${round}`;
+      const joining = api(`/api/join/${joinCode}`, { method: "POST", body: json({ ...alan, name, emailAddress: `alan.${round}@example.com` }) });
+      const answers = await Promise.all([joining, makeAgentFrom(member, name.toLowerCase(), grace.password)]);
+      await oneWon(answers, [201, 201], [
+        { status: 422, error: agentsName(name) },
+        { status: 422, error: NAME_TAKEN },
+      ]);
+      expect(await holders(name)).toBe(1);
+    }
+  });
+
+  it("lets only one have it of a chat bot being made or renamed and an agent", async () => {
+    const administrator = await setUp();
+    const member = await join(grace);
+    await setLimit(administrator, ROUNDS + 1);
+    const mine = await madeFrom(member, "Scout", grace.password);
+    const bot = await api("/api/account/bots", as(administrator, { method: "POST", body: json({ name: "Build Bot" }) }));
+    expect(bot.status).toBe(201);
+    const { id: botId } = ((await bot.json()) as BotAnswer).bot;
+    for (let round = 0; round < ROUNDS; round++) {
+      const made = `Herald ${round}`;
+      const making = await Promise.all([api("/api/account/bots", as(administrator, { method: "POST", body: json({ name: made }) })), makeAgentFrom(member, made, grace.password)]);
+      await oneWon(making, [201, 201], [
+        { status: 422, error: agentsName(made) },
+        { status: 422, error: NAME_TAKEN },
+      ]);
+      expect(await holders(made)).toBe(1);
+      const renamed = `Courier ${round}`;
+      const renaming = await Promise.all([api(`/api/account/bots/${botId}`, as(administrator, { method: "PATCH", body: json({ name: renamed }) })), renameAgent(member, mine.id, renamed)]);
+      await oneWon(renaming, [200, 200], [
+        { status: 422, error: agentsName(renamed) },
+        { status: 422, error: NAME_TAKEN },
+      ]);
+      expect(await holders(renamed)).toBe(1);
+    }
+  });
+
+  /**
+   * Has `sneaked`, someone's write, land just before the Workspace next runs a statement that `matches`,
+   * as a write from elsewhere could between the Worker's check of a name and its own write.
+   */
+  async function writeFirst(matches: RegExp, sneaked: string, ...params: Value[]): Promise<void> {
+    await runInDurableObject(workspaceStub(), (workspace: Workspace) => {
+      const db = (workspace as unknown as { db: Db }).db;
+      const { all } = db;
+      db.all = async <T>(query: string, ...values: Value[]) => {
+        if (matches.test(query)) {
+          db.all = all;
+          await db.run(sneaked, ...params);
+        }
+        return all.call(db, query, ...values) as Promise<T[]>;
+      };
+    });
+  }
+
+  const now = new Date().toISOString();
+
+  it("is refused by the statement that makes the agent, once someone has it since the Worker checked", async () => {
+    const administrator = await setUp();
+    const member = await join(grace);
+    await setLimit(administrator, 2);
+    // Compared as `sameName` compares names in ASCII: in any capitals, with spaces and @s before and spaces after.
+    await writeFirst(/^INSERT INTO users \(id, name, role, owner_id/, "INSERT INTO users (id, name, created_at, updated_at) VALUES ('0someone', ?, ?, ?)", " @SCOUT\t ", now, now);
+    expect(await errorOf(await makeAgentFrom(member, "Scout", grace.password), 422)).toBe(NAME_TAKEN);
+    expect(await workspaceSql("SELECT count(*) AS n FROM users WHERE owner_id IS NOT NULL")).toEqual([{ n: 0 }]);
+    // A name it isn't takes nothing.
+    await writeFirst(/^INSERT INTO users \(id, name, role, owner_id/, "INSERT INTO users (id, name, created_at, updated_at) VALUES ('1someone', ?, ?, ?)", "Heralds", now, now);
+    await madeFrom(member, "Herald", grace.password);
+  });
+
+  it("is refused by the statement that renames the agent, once someone has it since the Worker checked", async () => {
+    const administrator = await setUp();
+    const member = await join(grace);
+    await setLimit(administrator, 1);
+    const mine = await madeFrom(member, "Scout", grace.password);
+    await writeFirst(/^UPDATE users SET name = \?1, updated_at = \?2 WHERE id = \?3 AND owner_id/, "INSERT INTO users (id, name, role, created_at, updated_at) VALUES ('0bot', ?, 2, ?, ?)", "herald", now, now);
+    expect(await errorOf(await renameAgent(member, mine.id, "Herald"), 422)).toBe(NAME_TAKEN);
+    expect(await workspaceSql("SELECT name FROM users WHERE id = ?", mine.id)).toEqual([{ name: "Scout" }]);
+    // Its own name, in other capitals, it can still take.
+    expect((await renameAgent(member, mine.id, "SCOUT")).status).toBe(200);
+    expect(await workspaceSql("SELECT name FROM users WHERE id = ?", mine.id)).toEqual([{ name: "SCOUT" }]);
   });
 });
 
