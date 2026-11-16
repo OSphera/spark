@@ -4,6 +4,7 @@
 
 import type { AgentProfile } from "./agents.ts";
 import type { YourApp } from "./apps.ts";
+import type { YourAgents } from "./personal-agents.ts";
 import type { AssistantSettings, YourAssistant } from "./assistant.ts";
 import { isActionId, isActionValue, type Card } from "./cards.ts";
 import type { StoredFile } from "./files.ts";
@@ -936,6 +937,11 @@ export interface Profile {
   apps: YourApp[];
   /** The AI apps connected to Ember as you, newest first, or null when none can be: while an administrator hasn't let AI apps connect, or for a guest. */
   outsideAi: OutsideConnection[] | null;
+  /**
+   * Your personal agents and how many you may have, which `/api/users/me/agents` changes: left out while
+   * you may have none and have none, as every Ember starts, and for a guest.
+   */
+  agents?: YourAgents;
 }
 
 /** What `GET /api/users/me/profile` answers, and `PATCH` once it has saved. */

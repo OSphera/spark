@@ -115,7 +115,7 @@ import type {
   YourAppSignedOut,
 } from "@ember/protocol/apps";
 import type { MemberfulKeysChange, MemberfulSaved } from "@ember/protocol/memberful";
-import type { EveryonesAgents, PersonalAgentAnswer, PersonalAgentLimit, YourAgents } from "@ember/protocol/personal-agents";
+import type { EveryonesAgents, PersonalAgentAnswer, PersonalAgentLimit } from "@ember/protocol/personal-agents";
 import type { OutsideAiSettings, OutsideAnswer, OutsideAnswered, OutsideAsk, OutsideAsked, OutsideScope, YourOutsideAi } from "@ember/protocol/outside";
 import type { LogoVariants } from "@/lib/previews";
 
@@ -513,11 +513,6 @@ export async function deleteBot(botId: UserId): Promise<void> {
 /** Gives the bot `botId` a new key, so its old one stops working. Fails as `fetchBot` does. */
 export async function resetBotKey(botId: UserId): Promise<void> {
   await request(`/api/account/bots/${encodeURIComponent(botId)}/key`, { method: "PUT" });
-}
-
-/** Your personal agents, and how many you may have. Fails with a 403 ApiError for a guest. */
-export async function fetchYourAgents(): Promise<YourAgents> {
-  return request<YourAgents>("/api/users/me/agents");
 }
 
 /** Makes an agent of your own, answering it with its key, which is shown this once. Takes your current password while you have one. */

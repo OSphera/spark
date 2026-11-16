@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PersonalAgent, YourAgents as Yours } from "@ember/protocol/personal-agents";
@@ -34,11 +34,11 @@ function serve(answers: (method: string, path: string, body: unknown) => unknown
   return requests;
 }
 
-function show(hasPassword = true) {
+function show(agents: Yours, hasPassword = true) {
   const onFailed = vi.fn();
   render(
     <FlashProvider workspace>
-      <YourAgents rooms={ROOMS} hasPassword={hasPassword} onFailed={onFailed} />
+      <YourAgents agents={agents} rooms={ROOMS} hasPassword={hasPassword} onFailed={onFailed} />
     </FlashProvider>,
   );
   return { user: userEvent.setup(), onFailed };
@@ -47,24 +47,13 @@ function show(hasPassword = true) {
 afterEach(() => vi.restoreAllMocks());
 
 describe("The Your agents section of your profile", () => {
-  it("doesn't show while you may have none", async () => {
-    const requests = serve(() => ({ limit: 0, agents: [] }) satisfies Yours);
-    const { container } = render(
-      <FlashProvider workspace>
-        <YourAgents rooms={ROOMS} hasPassword onFailed={vi.fn()} />
-      </FlashProvider>,
-    );
-    await waitFor(() => expect(requests).toEqual(["GET /api/users/me/agents"]));
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("lists your agents with their rooms, and shows a new one's key once", async () => {
+  it("lists your agents with their rooms, as your profile loaded them, and shows a new one's key once", async () => {
     const requests = serve((method) =>
       method === "POST"
         ? { agent: { ...SCOUT, id: "0mgk3x2a9b4c70ac", name: "Herald", rooms: [] }, key: "0mgk3x2a9b4c70ac-abc" }
-        : { limit: 2, agents: [SCOUT] },
+        : null,
     );
-    const { user } = show();
+    const { user } = show({ limit: 2, agents: [SCOUT] });
     const section = await screen.findByRole("region", { name: "Your agents" });
     expect(within(section).getByText(YOUR_AGENTS_EXPLAINED)).toBeVisible();
     expect(within(section).getByRole("list", { name: "Scout's rooms" })).toHaveTextContent("general");
@@ -81,6 +70,6 @@ describe("The Your agents section of your profile", () => {
 
     expect(await within(section).findByRole("textbox", { name: "Herald's key" })).toHaveValue("0mgk3x2a9b4c70ac-abc");
     expect(within(section).getByText(KEY_SHOWN_ONCE, { exact: false })).toBeVisible();
-    expect(requests).toContain("POST /api/users/me/agents");
+    expect(requests).toEqual(["POST /api/users/me/agents"]);
   });
 });

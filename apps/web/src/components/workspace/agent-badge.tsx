@@ -24,12 +24,6 @@ export function useAgentWith(): (room: Room) => User | undefined {
   return useCallback((room: Room) => (room.kind === "direct" && room.members.length === 2 ? room.members.find(isAgentNow) : undefined), [isAgentNow]);
 }
 
-/** Whether a room is someone's DM with an agent alone (`useAgentWith`). */
-export function useIsWithAgent(): (room: Room) => boolean {
-  const agentWith = useAgentWith();
-  return useCallback((room: Room) => agentWith(room) !== undefined, [agentWith]);
-}
-
 /**
  * The badge after an agent's name, so nobody takes it for a person: "Agent" in capitals at 10px on a
  * pill of the ink at 8%, which stays in sight on a hovered or picked row too. It's written as a word

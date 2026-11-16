@@ -1,10 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { MAX_USER_NAME_LENGTH, type RoomId, type SidebarRoom, type UserId } from "@ember/protocol";
 import { botKeylessMessagesPath } from "@ember/protocol/bots";
 import type { PersonalAgent, YourAgents as Yours } from "@ember/protocol/personal-agents";
 import { useFlash } from "@/components/flash";
 import { useMounted } from "@/hooks/use-mounted";
-import { ApiError, deleteYourAgent, fetchYourAgents, isSignedOut, makeYourAgent, placePersonalAgent, rekeyYourAgent, renameYourAgent } from "@/lib/api";
+import { deleteYourAgent, isSignedOut, makeYourAgent, placePersonalAgent, rekeyYourAgent, renameYourAgent } from "@/lib/api";
 import { dateTimeLabel } from "@/lib/messages";
 import { BUTTON } from "./email-settings";
 
@@ -27,6 +27,8 @@ export const keyUsed = (usedAt: string | null) =>
   usedAt === null ? "Its key hasn't been used yet." : `Its key was last used ${dateTimeLabel(new Date(usedAt))}.`;
 
 interface Props {
+  /** Your agents and how many you may have, as your profile loaded them. */
+  agents: Yours;
   /** Your rooms and DMs, as the sidebar's list has them, or null until it has loaded. */
   rooms: SidebarRoom[] | null;
   /** Whether you have a password, which making an agent and giving one a new key then ask for. */
@@ -36,8 +38,8 @@ interface Props {
 }
 
 /** Your agents, with what makes, renames, re-keys, deletes and places them, or nothing while you may have none. */
-export function YourAgents({ rooms, hasPassword, onFailed }: Props) {
-  const [yours, setYours] = useState<Yours | null>(null);
+export function YourAgents({ agents: loaded, rooms, hasPassword, onFailed }: Props) {
+  const [yours, setYours] = useState<Yours | null>(loaded);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   /** The key just made, for whose agent, until the page is left. */
@@ -46,19 +48,7 @@ export function YourAgents({ rooms, hasPassword, onFailed }: Props) {
   const mounted = useMounted();
   const flash = useFlash();
 
-  useEffect(() => {
-    let stopped = false;
-    fetchYourAgents().then(
-      (answer) => void (!stopped && setYours(answer)),
-      // A guest has none, which the section says by not showing.
-      (error: unknown) => {
-        if (!(error instanceof ApiError && error.status === 403) && (!stopped || isSignedOut(error))) onFailed(error);
-      },
-    );
-    return () => void (stopped = true);
-  }, [onFailed]);
-
-  if (!yours || (yours.limit === 0 && yours.agents.length === 0)) return null;
+  if (!yours) return null;
 
   /** Runs `change`, then shows the agent it answers in place of the one it had. */
   function run<T extends { agent?: PersonalAgent; key?: string }>(change: Promise<T>, then?: (answer: T) => void) {

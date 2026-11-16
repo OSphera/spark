@@ -94,6 +94,12 @@ describe("the limit", () => {
     expect(await yourAgents(member).then((response) => response.json())).toEqual({ limit: 0, agents: [] } satisfies YourAgents);
     expect(await errorOf(await makeAgent(member, { name: "Scout", currentPassword: grace.password }), 403)).toBe(PERSONAL_AGENTS_OFF);
     expect(await errorOf(await makeAgent(administrator, { name: "Scout", currentPassword: ada.password }), 403)).toBe(PERSONAL_AGENTS_OFF);
+    // The profile says nothing of them meanwhile, and once they're on, lists yours.
+    const profile = async () => ((await (await api("/api/users/me/profile", as(member))).json()) as { profile: { agents?: YourAgents } }).profile;
+    expect(await profile()).not.toHaveProperty("agents");
+    await setLimit(administrator, 1);
+    const { agent } = await made(member, "Scout", grace.password);
+    expect((await profile()).agents).toMatchObject({ limit: 1, agents: [{ id: agent.id, name: "Scout" }] });
   });
 
   it("is an administrator's to set, from 0 to 10", async () => {

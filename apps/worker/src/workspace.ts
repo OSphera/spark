@@ -3515,7 +3515,12 @@ export class Workspace extends DurableObject<Env> {
   async yourAgents(credentials: Credentials): Promise<YourAgents | "forbidden" | null> {
     const owner = await this.agentOwner(credentials);
     if (!owner || owner === "forbidden") return owner;
-    const [limit, agents] = await Promise.all([this.agentStore.limit(), this.agentStore.agents(owner.user.id)]);
+    return this.agentsOf(owner.user.id);
+  }
+
+  /** The agents of `ownerId`, by name, with how many they may have. */
+  private async agentsOf(ownerId: UserId): Promise<YourAgents> {
+    const [limit, agents] = await Promise.all([this.agentStore.limit(), this.agentStore.agents(ownerId)]);
     return { limit, agents: await this.shownAgents(agents) };
   }
 
@@ -4634,10 +4639,15 @@ export class Workspace extends DurableObject<Env> {
     const { name, emailAddress, bio, avatar, password, membershipNeeded } = person;
     const [{ avatarUrl }, account] = await Promise.all([this.directoryUser(person), this.joinableAccount()]);
     const memberful = session.guest ? null : { membersOnly: account?.memberfulSignIn ?? false, accounts: person.accounts };
-    const [apps, outsideAi] = await Promise.all([this.yourApps(person.id, session.guest, account), this.yourOutsideAi(person.id, session.guest, account)]);
+    const [apps, outsideAi, agents] = await Promise.all([
+      this.yourApps(person.id, session.guest, account),
+      this.yourOutsideAi(person.id, session.guest, account),
+      session.guest ? null : this.agentsOf(person.id),
+    ]);
+    const shown = agents && (agents.limit > 0 || agents.agents.length > 0) ? { agents } : {};
     return {
       transfer: { userId: person.id, sessionId: session.id },
-      profile: { name, emailAddress, bio, avatarUrl, avatar: avatar !== null, password, membershipNeeded, assistant: yourAssistantOf(account, person.picks), apps, outsideAi },
+      profile: { name, emailAddress, bio, avatarUrl, avatar: avatar !== null, password, membershipNeeded, assistant: yourAssistantOf(account, person.picks), apps, outsideAi, ...shown },
       memberful,
     };
   }
