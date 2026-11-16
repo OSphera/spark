@@ -66,6 +66,7 @@ import { statement, type Db, type Statement } from "./db";
 import type { StoredPicture } from "./files/pictures";
 import { messagePayload, type PushPayload } from "./push/payload";
 import { ADDRESS_TAG_PREFIX, EVERYONE, SESSION_TAG_PREFIX, type Revocation } from "./revocations";
+import type { ExportedRoom } from "./room-export";
 import type { RoomEvent } from "./room-log";
 
 // The account, its people, their sessions and their rooms, kept by the Workspace in its own SQLite
@@ -2325,6 +2326,15 @@ export const ROOM_TO_CHANGE = `SELECT rooms.id, rooms.kind, rooms.name, rooms.ic
   FROM memberships JOIN rooms ON rooms.id = memberships.room_id JOIN users ON users.id = memberships.user_id
   WHERE memberships.room_id = ? AND memberships.user_id = ? AND rooms.kind <> 'direct'`;
 
+/** A room someone is in, DMs included, as its export describes it. */
+export const ROOM_TO_EXPORT = `SELECT rooms.id, rooms.kind, rooms.name
+  FROM memberships JOIN rooms ON rooms.id = memberships.room_id WHERE memberships.room_id = ? AND memberships.user_id = ?`;
+
+/** Everyone in a DM, by id, as its export lists them. A room that isn't one has no rows. */
+export const DIRECT_MEMBERS_TO_EXPORT = `SELECT users.id, users.name
+  FROM memberships JOIN rooms ON rooms.id = memberships.room_id JOIN users ON users.id = memberships.user_id
+  WHERE memberships.room_id = ? AND rooms.kind = 'direct' ORDER BY users.id`;
+
 /**
  * Whether anyone but ?2 who could open room ?1 is in it: no bot can, nor can someone banned, whose
  * membership stays, and someone suspended can again once their membership is renewed.
@@ -4424,6 +4434,19 @@ export class WorkspaceStore {
       Array<User & { member: number }>,
     ];
     return row ? { ...roomToChange(row), people: people.map((person) => ({ ...person, member: person.member === 1 })) } : null;
+  }
+
+  /**
+   * Room `roomId` as its export describes it to someone in it, whether it's a DM or not, or null when
+   * they aren't in it or it doesn't exist. A DM has no name, so it lists its members instead.
+   */
+  async roomToExport(roomId: RoomId, userId: UserId): Promise<ExportedRoom | null> {
+    const [[row], members] = (await this.db.batch([statement(ROOM_TO_EXPORT, roomId, userId), statement(DIRECT_MEMBERS_TO_EXPORT, roomId)])) as [
+      Array<{ id: RoomId; kind: RoomKind; name: string | null }>,
+      User[],
+    ];
+    if (!row) return null;
+    return row.kind === "direct" ? { id: row.id, kind: "direct", name: null, members } : { id: row.id, kind: row.kind, name: row.name ?? "" };
   }
 
   /**

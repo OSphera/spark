@@ -139,6 +139,7 @@ import {
 import { webPush } from "./push/keys";
 import { FixedWindowLimit } from "./rate-limit";
 import { sessionTag } from "./revocations";
+import type { ExportedRoom } from "./room-export";
 import type { RoomEvent } from "./room-log";
 import { appConnector } from "./apps/connector";
 import { ACCESS_TTL_SECONDS, CODE_TTL_MS, provesChallenge, REFRESH_TTL_MS } from "./outside/oauth";
@@ -286,6 +287,9 @@ const PASSWORD_RESET_CODE_MS = PASSWORD_RESET_CODE_MINUTES * 60 * 1000;
  */
 const UNFURLS = 30;
 const UNFURL_WINDOW_MS = 60 * 1000;
+/** Room exports someone may start in an hour, since each reads every message the room has. */
+const ROOM_EXPORTS = 6;
+const ROOM_EXPORT_WINDOW_MS = 60 * 60 * 1000;
 /** How long the Workspace waits for a custom domain check's probe, longer than the check waits for an answer. */
 const PROBE_WAIT_MS = 30 * 1000;
 /** How many probes the Workspace waits for at once, of the latest checks. */
@@ -983,6 +987,7 @@ export class Workspace extends DurableObject<Env> {
   private readonly emailLinkAsks = new FixedWindowLimit(EMAIL_LINKS_PER_NETWORK, EMAIL_ASK_WINDOW_MS);
   private readonly passwordResetAsks = new FixedWindowLimit(PASSWORD_RESETS_PER_NETWORK, EMAIL_ASK_WINDOW_MS);
   private readonly unfurls = new FixedWindowLimit(UNFURLS, UNFURL_WINDOW_MS);
+  private readonly roomExports = new FixedWindowLimit(ROOM_EXPORTS, ROOM_EXPORT_WINDOW_MS);
   private readonly outsideRegistrations = new FixedWindowLimit(OUTSIDE_REGISTRATIONS_PER_ADDRESS, OUTSIDE_REGISTRATION_WINDOW_MS);
   private readonly outsideSends = new FixedWindowLimit(OUTSIDE_SENDS_PER_MINUTE, 60_000);
   /** The probes custom domain checks send, each with its answer and when it's no longer waited for (see `expectProbe`). */
@@ -2484,6 +2489,21 @@ export class Workspace extends DurableObject<Env> {
     const user = await this.authenticate(credentials);
     if (!user) return null;
     return this.unfurls.attempt(user.id) ? "allowed" : "limited";
+  }
+
+  /**
+   * Counts an export of room `roomId` against the limit of the person `credentials` signs in, and
+   * answers the room as its export describes it: "forbidden" for a guest, "not found" unless they're in
+   * the room, an administrator no more than anyone else, "limited" past the limit, or null without a
+   * valid session. Someone who isn't in the room doesn't use up their limit.
+   */
+  async beginRoomExport(credentials: Credentials, roomId: RoomId): Promise<ExportedRoom | "forbidden" | "not found" | "limited" | null> {
+    const session = await this.session(credentials);
+    if (!session) return null;
+    if (session.guest) return "forbidden";
+    const room = await this.store.roomToExport(roomId, session.user.id);
+    if (!room) return "not found";
+    return this.roomExports.attempt(session.user.id) ? room : "limited";
   }
 
   /**
