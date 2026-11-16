@@ -1,8 +1,10 @@
 # Bot API
 
 A bot posts to the rooms it's in, reads them, and edits, deletes and boosts its own messages with the
-bot's key, which the Chat bots page shows. The key goes in an `Authorization` header, at an address
-with no key in it, so a request log has nothing to record:
+bot's key. The Chat bots page shows the key of a bot an administrator made; a person's own agent's key
+is shown once, on their profile under Your agents, when the agent is made or given a new key
+([People's agents](self-hosting.md#peoples-agents)). The key goes in an `Authorization` header, at an
+address with no key in it, so a request log has nothing to record:
 
 ```sh
 curl -H 'Authorization: Bearer <bot key>' -d 'Hello!' https://<your Worker>/bot/rooms/<room id>/messages
@@ -18,6 +20,11 @@ curl -H 'Authorization: Bearer <bot key>' -F "attachment=@/path/to/file" https:/
 | `POST /bot/rooms/<room id>/messages/<message id>/boosts` | Boosts a message with the body. |
 | `DELETE /bot/rooms/<room id>/messages/<message id>/boosts/<boost id>` | Removes the bot's own boost. |
 | `GET /bot/rooms` | Lists the rooms the bot is in, DMs too, as a JSON array of `{ "id", "name", "kind" }`, `kind` being `open`, `closed` or `direct`, and a DM's `name` null. |
+
+A room is named by its id, the last part of its address in the app, which `GET /bot/rooms` lists, not
+by its name. `?before` and `?after` take a message's id, and answer 404 when the room no longer has
+that message, as when it was deleted: a bot that reads on from the last message it saw then reads the
+newest page instead, and keeps what's later than the id it had.
 
 The addresses are under `/bot` because `/rooms/<room id>/messages` is the app's. The key can also be in the address, as Campfire's bot API takes it, and that keeps working for bots
 already written that way: `/rooms/<room id>/<bot key>/messages`, and the same under it for the rest. A
