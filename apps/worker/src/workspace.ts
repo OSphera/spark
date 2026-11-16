@@ -3613,6 +3613,50 @@ export class Workspace extends DurableObject<Env> {
   }
 
   /**
+   * Whether the person `credentials` signs in may change the picture of agent `agentId`, which is asked
+   * before the picture is read: "ok" for an active agent of theirs, "not found" for anything else, an
+   * administrator's agent or someone else's, or one that's off, "forbidden" for a guest, or null without
+   * a valid session. Changing it checks again, in the statement that writes.
+   */
+  async mayPicturePersonalAgent(credentials: Credentials, agentId: UserId): Promise<"ok" | "not found" | "forbidden" | null> {
+    const owner = await this.agentOwner(credentials);
+    if (!owner || owner === "forbidden") return owner;
+    return (await this.agentStore.picture(agentId, owner.user.id)) ? "ok" : "not found";
+  }
+
+  /**
+   * Gives agent `agentId` of the person `credentials` signs in `picture`, which R2 has stored under a key
+   * `reservePicture` reserved, or takes the one it was given away with null, which brings back the picture
+   * chat bots start with, answering it then. As changing your own avatar does, it waits for a later second
+   * than the last change to the agent, R2 deletes the picture it had, and everyone's workspace sockets hear
+   * of it, which gives it a new address. "not found" and "forbidden" as for `mayPicturePersonalAgent`.
+   */
+  async changePersonalAgentPicture(
+    credentials: Credentials,
+    agentId: UserId,
+    picture: StoredPicture | null,
+  ): Promise<PersonalAgentAnswer | "not found" | "forbidden" | null> {
+    const owner = await this.agentOwner(credentials);
+    if (!owner || owner === "forbidden") return owner;
+    return this.inALaterSecond(() =>
+      this.oneAtATime(async () => {
+        const agent = await this.agentStore.picture(agentId, owner.user.id);
+        if (!agent) return "not found";
+        // Taking away a picture that isn't there changes nothing.
+        if (picture !== null || agent.key !== null) {
+          const now = Date.now();
+          const tooSoon = tooSoonAfter(agent.updatedAt, now);
+          if (tooSoon) return tooSoon;
+          if (!(await this.agentStore.changePicture(agentId, owner.user.id, picture, agent.key, new Date(now).toISOString(), now))) return "not found";
+          if (agent.key) await this.wakeAt(now);
+          await this.publishPerson(agentId);
+        }
+        return { agent: (await this.ownAgent(agentId, owner.user.id))! };
+      }),
+    );
+  }
+
+  /**
    * Turns off the personal agent `agentId`, as its person deleting it, or an administrator, does: it leaves
    * every room but its DMs, whatever its key began is turned away, and its key never works again, while its
    * messages stay, shown as its person's agent's. `as` says who asks: its "owner", the person `credentials`

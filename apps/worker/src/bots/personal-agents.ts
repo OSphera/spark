@@ -17,8 +17,11 @@ import {
   type YourAgents,
 } from "@ember/protocol/personal-agents";
 import { credentialsOf } from "../auth";
+import { storeAvatar } from "../avatars";
 import { jsonBodyOf } from "../bodies";
 import type { Env } from "../env";
+import { pictureFormOf } from "../files/pictures";
+import { NO_STORAGE } from "../files/uploads";
 import { passwordHasher } from "../passwords";
 import { workspace, type Credentials } from "../workspace";
 import { bearerKey, botKeyParts } from "./keys";
@@ -127,6 +130,36 @@ export async function deleteYourAgent(request: Request, env: Env, agentId: UserI
   const credentials = await credentialsOf(request, env);
   const off = credentials && (await workspace(env).turnOffPersonalAgent(credentials, agentId, "owner"));
   return off === "off" ? new Response(null, { status: 204 }) : refusal(off)!;
+}
+
+/**
+ * `PUT /api/users/me/agents/:id/avatar` gives an agent of yours the picture the form brings, as your own
+ * avatar's does (`avatar` and `variant`), answering the agent. It takes no password, as renaming doesn't.
+ * Who's asking is checked before the picture is read: 404 for an agent that isn't yours, or is off,
+ * administrators' too, and 403 for a guest.
+ */
+export async function changeYourAgentPicture(request: Request, env: Env, agentId: UserId): Promise<Response> {
+  const credentials = await credentialsOf(request, env);
+  if (!credentials) return problem(401, NOT_SIGNED_IN);
+  const may = await workspace(env).mayPicturePersonalAgent(credentials, agentId);
+  if (may !== "ok") return refusal(may)!;
+  if (!env.FILES) return problem(503, NO_STORAGE);
+  const form = await pictureFormOf(request);
+  if (!(form instanceof FormData)) return problem(form.status, form.error);
+  const picture = await storeAvatar(env, env.FILES, form);
+  if ("error" in picture) return problem(picture.status, picture.error);
+  return pictureAnswer(await workspace(env).changePersonalAgentPicture(credentials, agentId, picture));
+}
+
+/** `DELETE /api/users/me/agents/:id/avatar` takes away the picture of an agent of yours, which brings back the one chat bots start with, answering the agent. */
+export async function removeYourAgentPicture(request: Request, env: Env, agentId: UserId): Promise<Response> {
+  const credentials = await credentialsOf(request, env);
+  return pictureAnswer(credentials && (await workspace(env).changePersonalAgentPicture(credentials, agentId, null)));
+}
+
+function pictureAnswer(changed: PersonalAgentAnswer | "not found" | "forbidden" | null): Response {
+  if (!changed || typeof changed === "string") return refusal(changed)!;
+  return Response.json(changed satisfies PersonalAgentAnswer, { headers: PRIVATE });
 }
 
 /**

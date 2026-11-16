@@ -1,6 +1,7 @@
 import type { CloseCode, RoomId, User, UserId } from "@ember/protocol";
 import type { BotRoomListed, PersonalAgentRoom } from "@ember/protocol/personal-agents";
 import { statement, type Db } from "../db";
+import type { StoredPicture } from "../files/pictures";
 import { ACTIVE, BOT, DEACTIVATED, DIRECTORY_COLUMNS, directoryEntry, LEAVE_SHARED_ROOMS, type DirectoryEntry, type DirectoryRow } from "../workspace-store";
 
 // Personal agents as the Workspace keeps them (migrations/0064_personal_agents.sql): bot users whose
@@ -13,6 +14,8 @@ export interface StoredPersonalAgent extends DirectoryEntry {
   ownerId: UserId;
   rooms: PersonalAgentRoom[];
   usedAt: string | null;
+  /** Whether its person gave it a picture. */
+  avatar: boolean;
 }
 
 /** A personal agent found by its id, as changing it finds it, whoever's it is. */
@@ -33,9 +36,10 @@ export interface PickedAgent {
 interface AgentRow extends DirectoryRow {
   owner_id: UserId;
   bot_key_used_at: string | null;
+  avatar_key: string | null;
 }
 
-const AGENT_COLUMNS = `${DIRECTORY_COLUMNS}, users.bot_key_used_at`;
+const AGENT_COLUMNS = `${DIRECTORY_COLUMNS}, users.bot_key_used_at, users.avatar_key`;
 
 /** The active personal agents of ?1, by name. */
 const OWNERS_AGENTS = `SELECT ${AGENT_COLUMNS} FROM users WHERE owner_id = ?1 AND status = ${ACTIVE} ORDER BY lower(name), id`;
@@ -74,6 +78,23 @@ const RENAME_AGENT = `UPDATE users SET name = ?1, updated_at = ?2 WHERE id = ?3 
 
 /** Gives ?2, an active agent of ?3's, the digest ?1 of a new key's token, forgetting the old one's. Answers it, if it did. */
 const REKEY_AGENT = `UPDATE users SET bot_key_digest = ?1 WHERE id = ?2 AND owner_id = ?3 AND status = ${ACTIVE} RETURNING id`;
+
+/** The picture of the active personal agent ?1 of ?2's, and when it last changed. */
+const AGENT_PICTURE = `SELECT updated_at, avatar_key FROM users WHERE id = ?1 AND owner_id = ?2 AND status = ${ACTIVE}`;
+
+/**
+ * Gives ?3, an active agent of ?4's, the picture ?1 with the variant ?2 (or none, for nulls), at ?5. Only its
+ * person, in the statement that writes, as for renaming it. Answers it, if it did.
+ */
+const CHANGE_AGENT_PICTURE = `UPDATE users SET avatar_key = ?1, avatar_variant = ?2, updated_at = ?5
+  WHERE id = ?3 AND owner_id = ?4 AND status = ${ACTIVE} RETURNING id`;
+
+/** Takes the reservation of picture ?1, now that an agent has it, so R2 keeps it. Without that, the change didn't happen, and R2 deletes it. */
+const KEEP_AGENT_PICTURE = `DELETE FROM pending_picture_deletions WHERE object_key = ?1 AND EXISTS (SELECT 1 FROM users WHERE avatar_key = ?1)`;
+
+/** Queues R2 deleting picture ?1 at ?2, unless somebody has it still, which it checks after the change. */
+const QUEUE_UNUSED_PICTURE = `INSERT INTO pending_picture_deletions (object_key, due_at)
+  SELECT ?1, ?2 WHERE NOT EXISTS (SELECT 1 FROM users WHERE avatar_key = ?1)`;
 
 /** Queues revoking, with ?1 due at ?2, every room agent ?3 is in, DMs too, so what its key began there is turned away. */
 const QUEUE_AGENT_REVOCATIONS = `INSERT INTO pending_revocations (room_id, tag, code, due_at)
@@ -147,6 +168,7 @@ export class PersonalAgentStore {
       ...directoryEntry(row),
       ownerId: row.owner_id,
       usedAt: row.bot_key_used_at,
+      avatar: row.avatar_key !== null,
       rooms: rooms.filter((room) => room.user_id === row.id).map(({ id, name }) => ({ id, name })),
     }));
   }
@@ -176,6 +198,26 @@ export class PersonalAgentStore {
   /** Renames `ownerId`'s active agent `agentId`. */
   async renameAgent(agentId: UserId, ownerId: UserId, name: string, now: string): Promise<void> {
     await this.db.run(RENAME_AGENT, name, now, agentId, ownerId);
+  }
+
+  /** The picture of `ownerId`'s active agent `agentId`, with when it last changed, or null unless it's theirs and on. */
+  async picture(agentId: UserId, ownerId: UserId): Promise<{ updatedAt: string; key: string | null } | null> {
+    const [row] = await this.db.all<{ updated_at: string; avatar_key: string | null }>(AGENT_PICTURE, agentId, ownerId);
+    return row ? { updatedAt: row.updated_at, key: row.avatar_key } : null;
+  }
+
+  /**
+   * Gives `ownerId`'s active agent `agentId` `picture`, which R2 has stored under a key that was reserved
+   * for it, or takes its picture away with null, and queues R2 deleting the one it had, `previous`, at
+   * `dueAt`, once nothing has it. Answers whether it did.
+   */
+  async changePicture(agentId: UserId, ownerId: UserId, picture: StoredPicture | null, previous: string | null, now: string, dueAt: number): Promise<boolean> {
+    const [changed] = await this.db.batch([
+      statement(CHANGE_AGENT_PICTURE, picture?.key ?? null, picture?.variant ?? null, agentId, ownerId, now),
+      ...(picture ? [statement(KEEP_AGENT_PICTURE, picture.key)] : []),
+      ...(previous ? [statement(QUEUE_UNUSED_PICTURE, previous, dueAt)] : []),
+    ]);
+    return changed!.length > 0;
   }
 
   /**

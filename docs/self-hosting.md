@@ -920,7 +920,14 @@ Ember starts, to 10. Lowering it turns nobody's agents off; it stops them making
   their agents, for anyone but a guest. Making one, and giving one a new key, take the person's current
   password, as changing their email address does, so holding their session isn't enough to make a key
   that speaks in their rooms. Its name is unique among everyone, in any capitals, as an AI agent's is,
-  and nobody can take it while the agent is on. Its avatar is the one chat bots start with.
+  and nobody can take it while the agent is on.
+- **Its picture** is the one chat bots start with until its person gives it one. In Your agents, the
+  picture beside each agent changes it, and Remove picture brings the first one back. It takes what a
+  profile picture takes, the same types, size limit and checks, and no password, as renaming doesn't.
+  Only its person can change it: an administrator can't, as they can't rename or give a new key to
+  someone's agent, though they can turn it off. The picture shows wherever the agent does, and the
+  badge with whose agent it is still follows its name. An agent that's turned off, or deleted, keeps its
+  picture on what it said.
 - **Its key** is shown once, as it's made or given anew, and never again: Ember keeps only a digest of
   it, an HMAC under `SESSION_SECRET`, so changing that secret stops every person's agent's key, as it
   signs everyone out. A new key stops the old one at once. The key goes in `Authorization: Bearer`, as

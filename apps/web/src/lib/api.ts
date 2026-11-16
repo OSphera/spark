@@ -538,6 +538,19 @@ export async function deleteYourAgent(agentId: UserId): Promise<void> {
   await request(`/api/users/me/agents/${encodeURIComponent(agentId)}`, { method: "DELETE" });
 }
 
+/**
+ * Gives an agent of yours the avatar `photo` is, answering it. Fails with a 404 ApiError unless it's an
+ * agent of yours that's on, a 413 one for a photo over 16 MB, and a 503 where Ember isn't set up to store files.
+ */
+export async function changeYourAgentPicture(agentId: UserId, photo: ChosenPhoto): Promise<PersonalAgentAnswer> {
+  return request<PersonalAgentAnswer>(`/api/users/me/agents/${encodeURIComponent(agentId)}/avatar`, { method: "PUT", body: photoForm(photo) });
+}
+
+/** Takes away the picture of an agent of yours, bringing back the one chat bots start with, answering it. */
+export async function removeYourAgentPicture(agentId: UserId): Promise<PersonalAgentAnswer> {
+  return request<PersonalAgentAnswer>(`/api/users/me/agents/${encodeURIComponent(agentId)}/avatar`, { method: "DELETE" });
+}
+
 /** Puts a personal agent in a room its person is in, or with `place` false takes it out, answering it. */
 export async function placePersonalAgent(agentId: UserId, roomId: RoomId, place: boolean): Promise<PersonalAgentAnswer> {
   return request<PersonalAgentAnswer>(`/api/personal_agents/${encodeURIComponent(agentId)}/rooms/${encodeURIComponent(roomId)}`, { method: place ? "PUT" : "DELETE" });
