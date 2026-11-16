@@ -4,7 +4,7 @@ import { statement, type Db } from "../db";
 import type { StoredPicture } from "../files/pictures";
 import { ACTIVE, BANNED, BOT, DEACTIVATED, DIRECTORY_COLUMNS, SUSPENDED, directoryEntry, LEAVE_SHARED_ROOMS, type DirectoryEntry, type DirectoryRow } from "../workspace-store";
 
-// Personal agents as the Workspace keeps them (migrations/0064_personal_agents.sql): bot users whose
+// Personal agents as the Workspace keeps them (migrations/pk-0002_personal_agents.sql): bot users whose
 // owner_id names the person whose they are, each with the digest of its key's token. What turns them off
 // with their person, and keeps them to the rooms their person is in, is in the batches that remove, ban
 // or move that person (workspace-store.ts), so that it's one transaction with them.

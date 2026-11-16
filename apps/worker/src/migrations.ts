@@ -1,3 +1,4 @@
+import { FORK_MIGRATIONS } from "./fork-migrations";
 import messages from "../migrations/0001_messages.sql";
 import clientMessageIds from "../migrations/0002_client_message_ids.sql";
 import usersAndSessions from "../migrations/0003_users_and_sessions.sql";
@@ -61,8 +62,6 @@ import appScopeWanted from "../migrations/0060_app_scope_wanted.sql";
 import ownAppSignIns from "../migrations/0061_own_app_sign_ins.sql";
 import outsideAi from "../migrations/0062_outside_ai.sql";
 import agentAccess from "../migrations/0063_agent_access.sql";
-import sentVia from "../migrations/0063_sent_via.sql";
-import personalAgents from "../migrations/0064_personal_agents.sql";
 import searchIndex from "../search-migrations/0001_search_index.sql";
 import searchResults from "../search-migrations/0002_search_results.sql";
 import searchFilters from "../search-migrations/0003_search_filters.sql";
@@ -150,8 +149,6 @@ export const MIGRATIONS: Migration[] = [
   { name: "0061_own_app_sign_ins.sql", scope: "workspace", sql: ownAppSignIns },
   { name: "0062_outside_ai.sql", scope: "workspace", sql: outsideAi },
   { name: "0063_agent_access.sql", scope: "workspace", sql: agentAccess },
-  { name: "0063_sent_via.sql", scope: "room", sql: sentVia },
-  { name: "0064_personal_agents.sql", scope: "workspace", sql: personalAgents },
 ];
 
 /**
@@ -165,6 +162,11 @@ export const SEARCH_MIGRATIONS: Migration[] = [
   { name: "0002_search_results.sql", scope: "search", sql: searchResults },
   { name: "0003_search_filters.sql", scope: "search", sql: searchFilters },
 ];
+
+// This fork's own migrations, after all of Ember's, as wrangler sorts their files (fork-migrations.ts,
+// docs/fork-migrations.md). They're added here, away from the list above, so that a migration Ember
+// adds to the end of that list never meets one of ours in a merge.
+MIGRATIONS.push(...FORK_MIGRATIONS);
 
 /**
  * Applies the migrations for `scope` that a Durable Object's storage is missing, recording each in
