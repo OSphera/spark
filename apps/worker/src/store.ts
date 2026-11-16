@@ -232,6 +232,13 @@ export interface PostedFile {
   finished: (messageId: string) => Statement;
 }
 
+/** A message's boosts as a JSON array of `BoostRow`s, gathered by a subquery. */
+const BOOSTS_OF_MESSAGE = `(
+    SELECT json_group_array(json_object('id', boosts.id, 'message_id', boosts.message_id, 'booster_id', boosts.booster_id,
+      'booster_name', boosts.booster_name, 'content', boosts.content, 'created_at', boosts.created_at))
+    FROM boosts WHERE boosts.message_id = messages.id
+  )`;
+
 /**
  * Messages with their boosts, their threads' summaries and a reply's parent's text gathered by subqueries,
  * so a page is one statement: one round trip to D1, and no list of message ids to bind (both backends bind
@@ -239,11 +246,7 @@ export interface PostedFile {
  * each under the name they wrote the latest with: the replies with none later by their writers, newest
  * first, which the thread's index reads in order, so nothing is sorted.
  */
-const SELECT_MESSAGES = `SELECT messages.*, (
-    SELECT json_group_array(json_object('id', boosts.id, 'message_id', boosts.message_id, 'booster_id', boosts.booster_id,
-      'booster_name', boosts.booster_name, 'content', boosts.content, 'created_at', boosts.created_at))
-    FROM boosts WHERE boosts.message_id = messages.id
-  ) AS boosts, CASE WHEN messages.parent_id IS NULL THEN (
+const SELECT_MESSAGES = `SELECT messages.*, ${BOOSTS_OF_MESSAGE} AS boosts, CASE WHEN messages.parent_id IS NULL THEN (
     SELECT json_object('count', count(*), 'latest_at', (
       SELECT latest.created_at FROM messages AS latest WHERE latest.parent_id = messages.id ORDER BY latest.id DESC LIMIT 1
     )) FROM messages AS replies WHERE replies.parent_id = messages.id
@@ -266,6 +269,13 @@ const SELECT_MESSAGES = `SELECT messages.*, (
 export const NEWEST_MESSAGES = `${SELECT_MESSAGES} WHERE room_id = ? AND in_room = 1 ORDER BY id DESC LIMIT ?`;
 export const MESSAGES_BEFORE = `${SELECT_MESSAGES} WHERE room_id = ? AND in_room = 1 AND id < ? ORDER BY id DESC LIMIT ?`;
 export const MESSAGES_AFTER = `${SELECT_MESSAGES} WHERE room_id = ? AND in_room = 1 AND id > ? ORDER BY id LIMIT ?`;
+
+/**
+ * The messages after one, oldest first, whether the timeline shows them or only their thread does, for a
+ * room's export. It reads no threads' summaries, which the export leaves out, so it costs the page's rows
+ * and their boosts.
+ */
+export const EXPORT_MESSAGES_AFTER = `SELECT messages.*, ${BOOSTS_OF_MESSAGE} AS boosts FROM messages WHERE room_id = ? AND id > ? ORDER BY id LIMIT ?`;
 
 /** How many messages the room's timeline shows, which reads every one. */
 export const COUNT_MESSAGES = `SELECT COUNT(*) AS count FROM messages WHERE room_id = ? AND in_room = 1`;
@@ -411,6 +421,16 @@ export class MessageStore {
       return cursor && { messages, hasMore: messages.length > 0, hasNewer };
     }
     return { ...(await this.page(limit)), hasNewer: false };
+  }
+
+  /**
+   * Up to `limit` of the room's messages after the one `after` names, or from its first when that's empty,
+   * oldest first, replies sent only to their threads and messages kept for their threads included, and
+   * whether there may be more.
+   */
+  async exportAfter(after: string, limit: number): Promise<{ messages: Message[]; last: boolean }> {
+    const rows = await this.db.all<MessageRow>(EXPORT_MESSAGES_AFTER, this.roomId, after, limit);
+    return { messages: await this.messagesOf(rows), last: rows.length < limit };
   }
 
   /** How many messages the room has. */

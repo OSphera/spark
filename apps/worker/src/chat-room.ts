@@ -648,6 +648,15 @@ export class ChatRoom extends DurableObject<Env> {
   }
 
   /**
+   * A page of the room's messages for its export: up to `limit` after the one `after` names, or from the
+   * first when it's empty, oldest first, with whether it's the last. The Worker has checked that the
+   * person exporting is in the room.
+   */
+  async exportPage(roomId: RoomId, after: string, limit: number): Promise<{ messages: Message[]; last: boolean }> {
+    return this.serially(() => this.storeFor(roomId).exportAfter(after, limit));
+  }
+
+  /**
    * A page of the room's messages for an AI app that reads it as someone in it (`outside/tools`): the
    * page `cursor` names, or null when the cursor isn't one of them. The room isn't counted, as it is for
    * a bot, since on D1 counting reads a row for every message.

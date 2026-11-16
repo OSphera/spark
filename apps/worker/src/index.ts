@@ -172,6 +172,7 @@ import { RECOVERY_PATH, resetPassword } from "./recovery";
 import { releaseCheck } from "./releases";
 import { urlOf } from "./request-url";
 import { MAX_ADDRESS_LENGTH } from "./revocations";
+import { exportRoom } from "./room-export";
 import { clearSearches, recordSearch, searchMessages } from "./searches";
 import { isOnboardedToEmailSending } from "./sending-domain";
 import { checkSetup, firstRun, isSetupPath, setupAccessOf, setupPage, setupPlaceholdersOf } from "./setup";
@@ -1242,6 +1243,8 @@ function apiAction(request: Request, env: Env, pathname: string): (() => Respons
   if (huddle) return () => (isRoomId(huddle[1]!) ? connectToRoom(request, env, huddle[1]!, true) : problem(404, ROOM_NOT_FOUND));
   const settings = pathname.match(/^\/api\/rooms\/([^/]+)\/settings$/);
   if (settings && request.method === "GET") return () => (isRoomId(settings[1]!) ? roomSettings(request, env, settings[1]!) : problem(404, ROOM_NOT_FOUND));
+  const roomExport = pathname.match(/^\/api\/rooms\/([^/]+)\/export$/);
+  if (roomExport && request.method === "GET") return () => (isRoomId(roomExport[1]!) ? exportRoom(request, env, roomExport[1]!) : problem(404, ROOM_NOT_FOUND));
   const favorite = pathname.match(/^\/api\/rooms\/([^/]+)\/favorite$/);
   if (favorite && request.method === "PUT") return () => setFavorite(request, env, favorite[1]!);
   const involvement = pathname.match(/^\/api\/rooms\/([^/]+)\/involvement$/);

@@ -594,6 +594,27 @@ does a picture over 20 MB, 100 megapixels or 12,000 pixels a side. An account st
 legacy Image Resizing subscription has to move to the Images one first. `wrangler dev` makes previews
 on your machine.
 
+### Downloading a room's messages
+
+Someone in a room or a DM can download its messages with "Download messages" on the room's
+settings page, which the three dots in its header open. The file is JSON Lines, one JSON object to a
+line, and it's named for the room and the day, such as `ember-design-2026-11-15.jsonl`. It comes from
+`GET /api/rooms/<room id>/export`, for the signed-in person's session.
+
+The first line describes the room and the export: `type` is `room`, `format` is the file's format
+number (1), and `exported_at`, `ember_version` and `room` (its `id`, `kind` and `name`, and for a DM, no
+name and its `members`) say the rest. Each line after it is a message, oldest first, with `type`
+`message`, `id`, `created_at`, `edited_at`, `author` (`id` and `name`, as written), `text` (plain
+text) and `html` (the markup the room keeps), `in_reply_to` (the id of the message a reply is under,
+for a reply in a thread, whether or not it was also sent to the room), `boosts` (each with its `id`,
+`content`, `by` and `created_at`) and `attachment` (`name`, `content_type`, `byte_size` and `url`, for
+a file message). Deleted messages aren't in it, nor is a message kept only for its thread's replies.
+A file's `url` opens the file for whoever has it, as a file's links in the room do.
+
+Only a member of the room can download it. An administrator who isn't in a room gets what anyone
+outside it does, a 404, and a guest is refused. Each person can start 6 downloads an hour. An
+export of everything in the workspace, for an administrator, isn't there yet.
+
 ### Ember AI
 
 An administrator adds @ember, an AI assistant, on the AI assistant tab of community settings. Turning

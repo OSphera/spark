@@ -60,6 +60,15 @@ describe("Group DMs and DM names", () => {
   });
 });
 
+describe("Download a direct message's messages", () => {
+  it("offers a link to the DM's export, with the download icon, to anyone in it", () => {
+    showPage(withGraceAndLinus);
+    const link = screen.getByRole("link", { name: "Download messages" });
+    expect(link).toHaveAttribute("href", "/api/rooms/d1/export");
+    expect(link.querySelector("svg")).toHaveClass("iconoir-download");
+  });
+});
+
 describe("Delete a direct message", () => {
   const deleteButton = () => screen.getByRole("button", { name: "Delete Ping" });
   const confirmed = (answer: boolean) => vi.spyOn(window, "confirm").mockReturnValue(answer);

@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { useMounted } from "@/hooks/use-mounted";
 import { navigate, roomPath, roomSettingsPath, type Access } from "@/hooks/use-route";
 import { useTitle } from "@/hooks/use-title";
-import { LogOut, Trash } from "@/components/icons/iconoir";
-import { ApiError, changeRoom, deleteRoom, fetchRoomSettings, isSignedOut, leaveRoom } from "@/lib/api";
+import { Download, LogOut, Trash } from "@/components/icons/iconoir";
+import { ApiError, changeRoom, deleteRoom, fetchRoomSettings, isSignedOut, leaveRoom, roomExportPath } from "@/lib/api";
 import type { RoomAnswer } from "@/lib/room-list";
 import { AccessSwitch, CheckMark, RoomForm, withChoice } from "./room-form";
 import { workspaceSectionPath } from "./settings-navigation";
@@ -180,6 +180,11 @@ export function RoomSettingsPage({ roomId, access, me, askForRoom, onMissing, on
           />
         )}
       </Panel>
+      {settings && (
+        <Panel>
+          <DownloadMessages roomId={roomId} />
+        </Panel>
+      )}
       {settings && !settings.canAdminister && settings.room.kind === "closed" && (
         <Panel>
           <Button type="button" variant="outline" disabled={busy} onClick={() => goOnceConfirmed(CONFIRM_LEAVE, leaveRoom)} className="max-w-full touch:h-11">
@@ -195,6 +200,21 @@ export function RoomSettingsPage({ roomId, access, me, askForRoom, onMissing, on
       )}
       <UnsavedChanges changed={changed} stays={stays} onSave={send} form={roomForm} />
     </SettingsPage>
+  );
+}
+
+/**
+ * A room's or a DM's Download messages, a link to its export, which the browser saves as a file. It has
+ * no `download` attribute, so whoever the export refuses reads why, rather than saving the refusal.
+ */
+export function DownloadMessages({ roomId }: { roomId: RoomId }) {
+  return (
+    <Button variant="outline" asChild className="max-w-full touch:h-11">
+      <a href={roomExportPath(roomId)}>
+        <Download className="size-[1.3em] shrink-0" />
+        <span className="truncate">Download messages</span>
+      </a>
+    </Button>
   );
 }
 
