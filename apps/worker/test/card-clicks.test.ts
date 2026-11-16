@@ -403,6 +403,12 @@ describe("Buttons that act", () => {
     const path = sentIn(delivered[0]!).response_path as string;
     vi.restoreAllMocks();
 
+    // The webhook's own key works as `Authorization: Bearer` at an address without it, as it does in the path.
+    const webhookKey = path.split("/")[3]!;
+    const viaHeader = await api(`/bot/rooms/${general}/messages`, { headers: { Authorization: `Bearer ${webhookKey}` } });
+    expect([viaHeader.status, ((await viaHeader.json()) as Array<{ id: string }>).map(({ id }) => id)]).toEqual([200, [message.id]]);
+    expect((await api(`/bot/rooms/${general}/messages`, { headers: { Authorization: `Bearer ${webhookKey}x` } })).status).toBe(401);
+
     const replace = (payload: unknown, method = "POST", at = path) =>
       api(at, { method, body: typeof payload === "string" ? payload : JSON.stringify(payload), headers: { "Content-Type": "application/json" } });
     const deployed = await replace({ blocks: [{ type: "header", text: { type: "plain_text", text: "v42 is live" } }, APPROVAL.blocks[1]] });

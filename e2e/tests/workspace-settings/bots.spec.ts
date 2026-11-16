@@ -7,8 +7,8 @@ import { ADMINISTRATOR, drawnPicture, editorField, nextSecond, shownPicture, sig
 import { auditScreen } from "../mobile/audits";
 import { join } from "./fixtures";
 
-/** A command that posts to a room as a bot: its room's address on this server, then the bot's key. */
-const COMMAND = /^curl -d 'Hello!' https:\/\/127\.0\.0\.1:\d+\/rooms\/[^/]+\/[^/]+-[A-Za-z0-9]{12}\/messages$/;
+/** A command that posts to a room as a bot: the bot's key in a header, then the room's address on this server. */
+const COMMAND = /^curl -H 'Authorization: Bearer [^/' ]+-[A-Za-z0-9]{12}' -d 'Hello!' https:\/\/127\.0\.0\.1:\d+\/bot\/rooms\/[^/]+\/messages$/;
 
 /** A bot's entry on the bots page. */
 const botNamed = (page: Page, name: string) => page.getByRole("listitem").filter({ has: page.getByText(name, { exact: true }) });
@@ -45,11 +45,16 @@ async function openGeneralFor(page: Page, name: string, webhookUrl?: string): Pr
   await openBots(page);
   await addBot(page, name, webhookUrl);
   const command = botNamed(page, name).getByRole("group", { name: "general", exact: true }).getByRole("textbox", { name: "curl command for posting messages" });
-  const url = (await command.inputValue()).split(" ").at(-1)!;
+  // The command carries the key in a header, and posts to the room's address without it.
+  const text = await command.inputValue();
+  const key = text.match(/Bearer ([^' ]+)'/)![1]!;
+  const room = new URL(text.split(" ").at(-1)!);
   // The room the command posts to, open in the administrator's browser.
-  await page.goto(new URL(url).pathname.replace(/\/[^/]+\/messages$/, ""));
+  const roomPath = room.pathname.replace(/^\/bot/, "").replace(/\/messages$/, "");
+  await page.goto(roomPath);
   await expect(page.getByRole("textbox", { name: "Write a message" })).toBeVisible();
-  return url;
+  // The address with the key in it, which the rest of these tests post to.
+  return `${room.origin}${roomPath}/${key}/messages`;
 }
 
 /** A request a webhook got. */
@@ -110,7 +115,7 @@ test.describe("Add and edit a bot", () => {
     // A new bot joins every open room, as someone new does, first run's general among them.
     const general = botNamed(page, name).getByRole("group", { name: "general", exact: true });
     await expect(general.getByRole("textbox", { name: "curl command for posting messages" })).toHaveValue(COMMAND);
-    await expect(general.getByRole("textbox", { name: "curl command for posting attachments" })).toHaveValue(/^curl -F "attachment=@\/path\/to\/file" https:/);
+    await expect(general.getByRole("textbox", { name: "curl command for posting attachments" })).toHaveValue(/^curl -H 'Authorization: Bearer [^' ]+' -F "attachment=@\/path\/to\/file" https:/);
     const command = await general.getByRole("textbox", { name: "curl command for posting messages" }).inputValue();
 
     await botNamed(page, name).getByRole("link", { name: `Edit ${name}` }).click();

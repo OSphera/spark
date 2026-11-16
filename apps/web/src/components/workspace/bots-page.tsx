@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { botMessagesPath, botSlackPath, type Bot, type BotRoom } from "@ember/protocol/bots";
+import { botKeylessMessagesPath, botSlackPath, type Bot, type BotRoom } from "@ember/protocol/bots";
 import { useFlash } from "@/components/flash";
 import { Attachment, ChatBubbleEmpty, EditPencil, Internet, Plus } from "@/components/icons/iconoir";
 import { PageLink } from "@/components/page-link";
@@ -14,11 +14,14 @@ import { CopyButton, ROUND_BUTTON } from "./link-buttons";
 import { Panel, SECTION_HEADING, SettingsPage, TITLE, TITLE_LINK } from "./settings-page";
 import { AvatarLink } from "./user-avatar";
 
-/** The command the bots page gives for posting a message as a bot to `url`. */
-export const curlTextLine = (url: string) => `curl -d 'Hello!' ${url}`;
+/** The header that brings a bot's key, which a request log doesn't record as it does an address. */
+const keyHeader = (botKey: string) => `-H 'Authorization: Bearer ${botKey}'`;
+
+/** The command the bots page gives for posting a message as the bot whose key is `botKey` to `url`. */
+export const curlTextLine = (botKey: string, url: string) => `curl ${keyHeader(botKey)} -d 'Hello!' ${url}`;
 
 /** And for posting a file (`curl_upload_line`). */
-export const curlUploadLine = (url: string) => `curl -F "attachment=@/path/to/file" ${url}`;
+export const curlUploadLine = (botKey: string, url: string) => `curl ${keyHeader(botKey)} -F "attachment=@/path/to/file" ${url}`;
 
 /** Campfire's `.input.fill-white` in a panel: 42px tall, or 44px for fingers. */
 const INPUT = "min-h-[42px] w-full min-w-0 rounded-[9px] border bg-background px-[0.8em] py-[0.5em] text-base focus:border-muted-foreground touch:min-h-11";
@@ -149,18 +152,18 @@ function RoomCommands({ room, botKey }: { room: BotRoom; botKey: string }) {
 
 /** The commands that post to `room` as the bot whose key is `botKey`, and its Slack-compatible webhook, each with a button that copies it. */
 export function PostingCommands({ room, botKey }: { room: BotRoom; botKey: string }) {
-  const url = new URL(botMessagesPath(room.id, botKey), location.origin).href;
+  const url = new URL(botKeylessMessagesPath(room.id), location.origin).href;
   return (
     <>
       <Command
         icon={<ChatBubbleEmpty className="size-6 flex-none" />}
-        command={curlTextLine(url)}
+        command={curlTextLine(botKey, url)}
         label="curl command for posting messages"
         copyLabel="Copy message command"
       />
       <Command
         icon={<Attachment className="size-6 flex-none" />}
-        command={curlUploadLine(url)}
+        command={curlUploadLine(botKey, url)}
         label="curl command for posting attachments"
         copyLabel="Copy attachment command"
       />

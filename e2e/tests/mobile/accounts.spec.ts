@@ -240,7 +240,7 @@ test("the Chat bots page, with a bot's commands, fits the phone", async ({ page,
   await showTheBot(page);
   await page.goto("/account/bots");
   await signInAsAdministrator(page);
-  await expect(page.getByRole("textbox", { name: "curl command for posting messages" })).toHaveValue(/^curl -d 'Hello!' /);
+  await expect(page.getByRole("textbox", { name: "curl command for posting messages" })).toHaveValue(/^curl -H 'Authorization: Bearer [^']+' -d 'Hello!' /);
   await screenIsFine();
 });
 

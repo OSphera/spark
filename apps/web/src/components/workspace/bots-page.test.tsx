@@ -118,12 +118,13 @@ describe("Chat bots page", () => {
       [rooms[0]!, BUILD_BOT.rooms[0]!],
       [rooms[1]!, BUILD_BOT.rooms[1]!],
     ] as const) {
-      const url = `http://localhost:3000/rooms/${id}/${BUILD_BOT.key}/messages`;
+      const url = `http://localhost:3000/bot/rooms/${id}/messages`;
+      const header = `-H 'Authorization: Bearer ${BUILD_BOT.key}'`;
       const message = within(room).getByRole("textbox", { name: "curl command for posting messages" });
-      expect(message).toHaveValue(`curl -d 'Hello!' ${url}`);
+      expect(message).toHaveValue(`curl ${header} -d 'Hello!' ${url}`);
       expect(message).toHaveAttribute("readonly");
       const attachment = within(room).getByRole("textbox", { name: "curl command for posting attachments" });
-      expect(attachment).toHaveValue(`curl -F "attachment=@/path/to/file" ${url}`);
+      expect(attachment).toHaveValue(`curl ${header} -F "attachment=@/path/to/file" ${url}`);
       expect(attachment).toHaveAttribute("readonly");
     }
     // A bot in no rooms has nothing to post with.
@@ -138,8 +139,9 @@ describe("Chat bots page", () => {
     const [general] = within(build!).getAllByRole("group");
     await userEvent.click(within(general!).getByRole("button", { name: "Copy message command" }));
     await userEvent.click(within(general!).getByRole("button", { name: "Copy attachment command" }));
-    const url = `http://localhost:3000/rooms/${BUILD_BOT.rooms[0]!.id}/${BUILD_BOT.key}/messages`;
-    expect(writeText.mock.calls).toEqual([[`curl -d 'Hello!' ${url}`], [`curl -F "attachment=@/path/to/file" ${url}`]]);
+    const url = `http://localhost:3000/bot/rooms/${BUILD_BOT.rooms[0]!.id}/messages`;
+    const header = `-H 'Authorization: Bearer ${BUILD_BOT.key}'`;
+    expect(writeText.mock.calls).toEqual([[`curl ${header} -d 'Hello!' ${url}`], [`curl ${header} -F "attachment=@/path/to/file" ${url}`]]);
   });
 
   it("follows a rename elsewhere, keeping the bots in order, and drops a bot deleted elsewhere, as the people directory hears of them", async () => {

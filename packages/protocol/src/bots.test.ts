@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { botMessagesPath, botSlackPath, MAX_WEBHOOK_URL_LENGTH, parseBotChanges, parseNewBot } from "./bots";
+import { botKeylessMessagesPath, botMessagesPath, botSlackPath, MAX_WEBHOOK_URL_LENGTH, parseBotChanges, parseNewBot } from "./bots";
 import { MAX_USER_NAME_LENGTH, NAME_RESERVED } from "./index";
 
 describe("Add and edit a bot", () => {
@@ -48,6 +48,8 @@ describe("Chat bots page", () => {
   it("puts where a bot posts to a room at the room's address, then the bot's key", () => {
     expect(botMessagesPath("0mgk3x2a9b4c5a", "0mgk3x2a9b4c5e-Ab3dEf5hiJ7k")).toBe("/rooms/0mgk3x2a9b4c5a/0mgk3x2a9b4c5e-Ab3dEf5hiJ7k/messages");
     expect(botMessagesPath("café", "1-a")).toBe("/rooms/caf%C3%A9/1-a/messages");
+    expect(botKeylessMessagesPath("0mgk3x2a9b4c5a")).toBe("/bot/rooms/0mgk3x2a9b4c5a/messages");
+    expect(botKeylessMessagesPath("café")).toBe("/bot/rooms/caf%C3%A9/messages");
     expect(botMessagesPath("0mgk3x2a9b4c5a", "1-a", "0mgk3x2a9b4c5f")).toBe("/rooms/0mgk3x2a9b4c5a/1-a/messages?thread=0mgk3x2a9b4c5f");
   });
 });
