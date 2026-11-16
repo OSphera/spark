@@ -606,7 +606,8 @@ number (1), and `exported_at`, `ember_version` and `room` (its `id`, `kind` and 
 name and its `members`) say the rest. Each line after it is a message, oldest first, with `type`
 `message`, `id`, `created_at`, `edited_at`, `author` (`id` and `name`, as written), `text` (plain
 text) and `html` (the markup the room keeps), `in_reply_to` (the id of the message a reply is under,
-for a reply in a thread, whether or not it was also sent to the room), `boosts` (each with its `id`,
+for a reply in a thread, whether or not it was also sent to the room), `sent_via` (the name of the AI
+app that sent it as its author, if one did), `boosts` (each with its `id`,
 `content`, `by` and `created_at`) and `attachment` (`name`, `content_type`, `byte_size` and `url`, for
 a file message). Deleted messages aren't in it, nor is a message kept only for its thread's replies.
 A file's `url` opens the file for whoever has it, as a file's links in the room do.

@@ -41,7 +41,8 @@ export function headerLine(room: ExportedRoom, exportedAt: string, version: stri
 
 /**
  * A message's line: its text as plain text and as the markup the room keeps, its author under the name
- * it was written with, the message it replies to if it's a reply, its boosts and its file's address on
+ * it was written with, the message it replies to if it's a reply, the AI app that sent it if one did,
+ * its boosts and its file's address on
  * `origin`, which opens the file for whoever has it, as the room's links do.
  */
 export function messageLine(message: Message, origin: string): string {
@@ -55,6 +56,7 @@ export function messageLine(message: Message, origin: string): string {
     text: message.plainText,
     html: message.body,
     ...(message.parentId !== undefined && { in_reply_to: message.parentId }),
+    ...(message.sentVia !== undefined && { sent_via: message.sentVia }),
     boosts: message.boosts.map((boost) => ({ id: boost.id, content: boost.content, by: person(boost.booster), created_at: boost.createdAt })),
     ...(attachment && { attachment: { name: attachment.name, content_type: attachment.contentType, byte_size: attachment.byteSize, url: `${origin}${attachment.downloadUrl}` } }),
   });
