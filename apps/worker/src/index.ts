@@ -75,10 +75,12 @@ import {
   type Sidebar,
   type StartedDirect,
   type TurnstileSettings,
+  type User,
   type UserId,
   type WorkspaceSettings,
 } from "@ember/protocol";
 import { agentsName } from "@ember/protocol/agents";
+import { AGENT_DIRECT_REFUSED } from "@ember/protocol/personal-agents";
 import { OUTSIDE_AUTHORIZE_PATH } from "@ember/protocol/outside";
 import { mentionPromptItem } from "@ember/richtext";
 import { isAccountLogoPath, showAccountLogo, storeLogo } from "./account-logo";
@@ -134,6 +136,7 @@ import { avatarTokenOf, showAvatar, storeAvatar } from "./avatars";
 import type { BanProblem } from "./bans";
 import { BodyTooLarge, jsonBodyOf } from "./bodies";
 import { botPage, changeBot, createBot, deleteBot, listBots, resetBotKey, showBot } from "./bots/accounts";
+import { createYourAgent, deleteYourAgent, listEveryonesAgents, listYourAgents, placeAgent, rekeyYourAgent, renameYourAgent, setAgentLimit, turnOffAgent } from "./bots/personal-agents";
 import { botAction, exception, isBotPath, isKeylessBotRequest, withoutBotKeys } from "./bots/api";
 import { ADDRESS_HEADER, AUTHORIZED_AT_HEADER, BANNED_HEADER, HUDDLE_HEADER, ROOM_HEADER, SESSION_HEADER, USER_HEADER } from "./chat-room";
 import { guestSignIn, type Env } from "./env";
@@ -871,8 +874,8 @@ async function personPage(request: Request, env: Env, pathname: string, userId: 
 
 /**
  * Whom the mentions prompt offers: the first 20 by name of the active people in `room_id`, or anywhere
- * without one, whose names contain `filter` (or `query`), as `<lexxy-prompt-item>`s, with the AI agents'
- * badged, @ember's among them. A room someone isn't in is 404.
+ * without one, whose names contain `filter` (or `query`), as `<lexxy-prompt-item>`s, with the agents'
+ * badged, @ember's among them, and personal agents' saying whose they are. A room someone isn't in is 404.
  */
 async function mentionable(request: Request, env: Env): Promise<Response> {
   const credentials = await credentialsOf(request, env);
@@ -884,7 +887,9 @@ async function mentionable(request: Request, env: Env): Promise<Response> {
   const people = await workspace(env).mentionable(credentials, roomId ?? null, query);
   if (!people) return problem(401, "Not signed in");
   if (people === "not found") return problem(404, ROOM_NOT_FOUND);
-  const items = (await directoryOf(people, env.SESSION_SECRET)).map((person) => mentionPromptItem(person));
+  const agents = people.flatMap((person) => (person.ownerId === null ? [] : [person.id]));
+  const owners = agents.length > 0 ? await workspace(env).personalAgentOwners(agents) : new Map<UserId, User>();
+  const items = (await directoryOf(people, env.SESSION_SECRET)).map((person) => mentionPromptItem({ ...person, owner: owners.get(person.id)?.name }));
   return new Response(items.join(""), { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
@@ -914,7 +919,7 @@ async function createRoom(request: Request, env: Env): Promise<Response> {
 
 /**
  * Starts a DM with the people it names, or opens the one they have, as New direct message does: 201 for
- * a new DM and 200 for one they had.
+ * a new DM and 200 for one they had, and 403 when it names someone else's personal agent.
  */
 async function startDirect(request: Request, env: Env): Promise<Response> {
   const credentials = await credentialsOf(request, env);
@@ -922,7 +927,9 @@ async function startDirect(request: Request, env: Env): Promise<Response> {
   const direct = parseNewDirect(await jsonBodyOf(request));
   if (typeof direct === "string") return problem(422, direct);
   const started = await workspace(env).startDirect(credentials, direct.userIds);
-  return started ? json({ room: started.room } satisfies StartedDirect, { status: started.started ? 201 : 200 }) : problem(401, "Not signed in");
+  if (!started) return problem(401, "Not signed in");
+  if (started === "agent") return problem(403, AGENT_DIRECT_REFUSED);
+  return json({ room: started.room } satisfies StartedDirect, { status: started.started ? 201 : 200 });
 }
 
 /** Who New room's forms list: everyone active, by name, for anyone who may create rooms. */
@@ -1179,6 +1186,20 @@ function apiAction(request: Request, env: Env, pathname: string): (() => Respons
   if (bot && request.method === "DELETE") return () => deleteBot(request, env, bot[1]!);
   const botKey = pathname.match(/^\/api\/account\/bots\/([^/]+)\/key$/);
   if (botKey && request.method === "PUT") return () => resetBotKey(request, env, botKey[1]!);
+  if (pathname === "/api/account/personal_agents" && request.method === "GET") return () => listEveryonesAgents(request, env);
+  if (pathname === "/api/account/personal_agents" && request.method === "PATCH") return () => setAgentLimit(request, env);
+  // As with bots, personal agents' and rooms' ids never need percent-encoding, so an encoded segment names none.
+  const everyonesAgent = pathname.match(/^\/api\/account\/personal_agents\/([^/]+)$/);
+  if (everyonesAgent && request.method === "DELETE") return () => turnOffAgent(request, env, everyonesAgent[1]!);
+  if (pathname === "/api/users/me/agents" && request.method === "GET") return () => listYourAgents(request, env);
+  if (pathname === "/api/users/me/agents" && request.method === "POST") return () => createYourAgent(request, env);
+  const yourAgent = pathname.match(/^\/api\/users\/me\/agents\/([^/]+)$/);
+  if (yourAgent && request.method === "PATCH") return () => renameYourAgent(request, env, yourAgent[1]!);
+  if (yourAgent && request.method === "DELETE") return () => deleteYourAgent(request, env, yourAgent[1]!);
+  const yourAgentKey = pathname.match(/^\/api\/users\/me\/agents\/([^/]+)\/key$/);
+  if (yourAgentKey && request.method === "PUT") return () => rekeyYourAgent(request, env, yourAgentKey[1]!);
+  const agentRoom = pathname.match(/^\/api\/personal_agents\/([^/]+)\/rooms\/([^/]+)$/);
+  if (agentRoom && (request.method === "PUT" || request.method === "DELETE")) return () => placeAgent(request, env, agentRoom[1]!, agentRoom[2]!);
   if (pathname === "/api/sidebar" && request.method === "GET") return () => sidebar(request, env);
   if (pathname === "/api/sidebar/invitation" && request.method === "DELETE") return () => dismissInvitation(request, env);
   if (pathname === "/api/users" && request.method === "GET") return () => directory(request, env);

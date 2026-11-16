@@ -39,6 +39,7 @@ import { PicturePicker } from "./picture-picker";
 import { PageHeading, Panel, SettingsPage } from "./settings-page";
 import { SignInLink } from "./sign-in-link";
 import { avatarUrlOf, avatarVersionOf } from "./user-avatar";
+import { YourAgents } from "./your-agents";
 import { YourApps } from "./your-apps";
 import { YourOutsideAi } from "./your-outside-ai";
 
@@ -139,6 +140,8 @@ export function ProfilePage({ me, rooms, askForRoom, onSignOut, onFailed }: Prop
   /** The connected apps you can sign in to yourself, each with your sign-in to it, if you've made one. */
   const [apps, setApps] = useState<Profile["apps"]>([]);
   const [outsideAi, setOutsideAi] = useState<Profile["outsideAi"]>(null);
+  /** Your agents as the profile loaded them, which their own section changes from then on; null while you may have none. */
+  const [agents, setAgents] = useState<Profile["agents"] | null>(null);
   const [saving, setSaving] = useState(false);
   const passwordInput = useRef<HTMLInputElement>(null);
   const currentPasswordInput = useRef<HTMLInputElement>(null);
@@ -166,6 +169,7 @@ export function ProfilePage({ me, rooms, askForRoom, onSignOut, onFailed }: Prop
         // The same goes for the Apps section, which signing out there changes.
         setApps(answer.profile.apps);
         setOutsideAi(answer.profile.outsideAi);
+        setAgents(answer.profile.agents ?? null);
       },
       (error: unknown) => {
         // A page left before its profile loads only reports a session that's ended, which goes to sign in.
@@ -390,6 +394,7 @@ export function ProfilePage({ me, rooms, askForRoom, onSignOut, onFailed }: Prop
         {assistant && <AnswerLevels assistant={assistant} onChanged={setAssistant} onFailed={onFailed} />}
         {apps.length > 0 && <YourApps apps={apps} onChanged={setApps} onFailed={onFailed} />}
         {outsideAi && <YourOutsideAi connections={outsideAi} onChanged={setOutsideAi} onFailed={onFailed} />}
+        {agents && <YourAgents agents={agents} rooms={rooms} hasPassword={hasPassword} onFailed={onFailed} />}
         {rooms && <ConversationNotifications me={me} rooms={rooms} askForRoom={askForRoom} onFailed={onFailed} />}
         {transferId && <SignInLink transferId={transferId} mine />}
       </Panel>

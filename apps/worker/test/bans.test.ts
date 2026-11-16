@@ -356,7 +356,7 @@ describe("Ban and unban people", () => {
     const queued = await runInDurableObject(workspaceStub(), (workspace: Workspace) =>
       (workspace as unknown as { store: WorkspaceStore }).store.banPerson(member.user.id, [], CloseCode.Revoked, CloseCode.Reconnect, LATER, new Date().toISOString()),
     );
-    expect(queued).toBe(true);
+    expect(queued).toEqual({ queued: true, agentsOff: [] });
     expect(await workspaceSql("SELECT room_id, user_id, attempts, due_at FROM pending_purges ORDER BY room_id")).toEqual(
       [...shared, dm, own].sort().map((room_id) => ({ room_id, user_id: member.user.id, attempts: 0, due_at: LATER })),
     );
@@ -1142,7 +1142,7 @@ describe("What a ban blocks", () => {
     const store = (workspace: Workspace) => (workspace as unknown as { store: WorkspaceStore }).store;
 
     const now = new Date().toISOString();
-    expect(await runInDurableObject(workspaceStub(), (workspace: Workspace) => store(workspace).banPerson(member.user.id, addresses, CloseCode.Revoked, CloseCode.Reconnect, LATER, now))).toBe(true);
+    expect(await runInDurableObject(workspaceStub(), (workspace: Workspace) => store(workspace).banPerson(member.user.id, addresses, CloseCode.Revoked, CloseCode.Reconnect, LATER, now))).toEqual({ queued: true, agentsOff: [] });
     expect(await queued()).toEqual(expected);
     await workspaceSql("DELETE FROM pending_revocations");
     expect(await runInDurableObject(workspaceStub(), (workspace: Workspace) => store(workspace).unbanPerson(member.user.id, CloseCode.Reconnect, LATER, now))).toBe(true);

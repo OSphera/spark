@@ -558,6 +558,13 @@ Objects, D1 or speed call for something else.
   sent as its person keeps the name the app registered as in `messages.sent_via` (room migration
   0063), a copy rather than a reference to `outside_connections`, so the mark stays once the app is
   disconnected. Other messages have null there, and a page of messages reads no other table for it.
+- **A person's agent is a bot with an owner, and keeps only its key's digest.** Campfire has no
+  personal agents. A person's agent is a bot in `users` whose `owner_id` names its person (workspace
+  migration 0064), under a partial index that holds only agents, which counts a person's agents as one
+  is made and finds them as their person is removed or banned. Its token isn't in `bot_token`, which
+  stays null, but in `bot_key_digest`, an HMAC under `SESSION_SECRET`, so the row opens nothing, and
+  `bot_key_used_at` records the key's last use, written at most once in 10 minutes. How many each
+  person may have is `accounts.personal_agents`, 0 until an administrator sets it.
 - **@ember's levels and model are columns of the person, and the most of each level, and the models
   people can pick, are settings.** Campfire has no AI assistant. The levels someone picks of @ember's
   Thinking and Answer length are `users.assistant_thinking` and `users.assistant_answer_length`

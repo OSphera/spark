@@ -142,15 +142,18 @@ export function PersonPage({ userId, me, onStartDirect, onPersonChanged, reloadP
         {person && (
           <div className="flex flex-col gap-x-[1ch] gap-y-4 wrap-anywhere">
             <Avatar person={person} />
-            {isAgent(person) && <AgentBadge className="mx-auto" />}
+            {isAgent(person) && <AgentBadge agent={person} className="mx-auto" />}
             {fetched?.agent && <AboutAgent name={person.name} agent={fetched.agent} meId={me.id} />}
             {person.role === "bot" ? (
               person.status === "active" ? (
-                // At the page's text size.
-                <button type="button" aria-disabled={starting || undefined} onClick={startDirect} className={cn(DIRECT_BUTTON, "bg-background")}>
-                  <ChatLines className="size-[1.3em]" />
-                  <span className="sr-only">Ping {person.name}</span>
-                </button>
+                // Someone's agent is only ever in rooms they're in, so only they can message it directly.
+                person.ownerId !== undefined && person.ownerId !== me.id ? null : (
+                  // At the page's text size.
+                  <button type="button" aria-disabled={starting || undefined} onClick={startDirect} className={cn(DIRECT_BUTTON, "bg-background")}>
+                    <ChatLines className="size-[1.3em]" />
+                    <span className="sr-only">Ping {person.name}</span>
+                  </button>
+                )
               ) : (
                 <NoLongerHere name={person.name} />
               )

@@ -53,20 +53,20 @@ let listed = { secret: "", tokens: new Map<UserId, string>() };
 
 /**
  * The people directory's entries, each with its avatar's address: `user_avatar_path(user.avatar_token, v: ...)`,
- * and `agent` only for an AI agent's.
+ * `agent` only for an agent's, and `ownerId` only for a personal agent's.
  */
 export async function directoryOf<Entry extends DirectoryEntry>(
   entries: Entry[],
   secret: string,
-): Promise<Array<Omit<Entry, "updatedAt" | "agent"> & { avatarUrl: string; agent?: true }>> {
+): Promise<Array<Omit<Entry, "updatedAt" | "agent" | "ownerId"> & { avatarUrl: string; agent?: true; ownerId?: UserId }>> {
   if (listed.secret !== secret) listed = { secret, tokens: new Map() };
   const { tokens } = listed;
   const tokenOf = await avatarTokens(secret);
   return Promise.all(
-    entries.map(async ({ updatedAt, agent, ...user }) => {
+    entries.map(async ({ updatedAt, agent, ownerId, ...user }) => {
       let token = tokens.get(user.id);
       if (token === undefined) tokens.set(user.id, (token = await tokenOf(user.id)));
-      return { ...user, avatarUrl: avatarPath(user.id, token, updatedAt), ...(agent && { agent }) };
+      return { ...user, avatarUrl: avatarPath(user.id, token, updatedAt), ...(agent && { agent }), ...(ownerId !== null && { ownerId }) };
     }),
   );
 }

@@ -9,7 +9,7 @@ import { roomSettingsPath, SEARCHES_PATH } from "@/hooks/use-route";
 import type { RoomAnswer } from "@/lib/room-list";
 import type { ConnectionStatus } from "@/lib/room-state";
 import { cn } from "@/lib/utils";
-import { AgentBadge, useIsWithAgent } from "./agent-badge";
+import { AgentBadge, useAgentWith } from "./agent-badge";
 import { FavoriteButton } from "./favorite-button";
 import { HuddleButton } from "./huddle-button";
 import { NotificationBell } from "./notification-bell";
@@ -48,7 +48,8 @@ interface Props {
  */
 export function RoomHeader({ room, name, present, status, offline, favorite, onStarred, involvement, askForRoom, onSessionChanged, onFailed }: Props) {
   const nameOf = useNameOf();
-  const isWithAgent = useIsWithAgent();
+  const agentWith = useAgentWith();
+  const agent = agentWith(room);
   const openSearch = useContext(OpenSearchContext);
   const direct = room.kind === "direct";
   const huddles = useAccount().huddles && !direct;
@@ -69,7 +70,7 @@ export function RoomHeader({ room, name, present, status, offline, favorite, onS
             name
           )}
         </h1>
-        {isWithAgent(room) && <AgentBadge />}
+        {agent && <AgentBadge agent={agent} />}
         {!direct && <FavoriteButton roomId={room.id} favorite={favorite} onSaved={onStarred} onSessionChanged={onSessionChanged} />}
         {/* The composer's disabled while it's offline; this says why. */}
         {offline && (

@@ -11,6 +11,7 @@ import { ApiError, fetchBots, isSignedOut } from "@/lib/api";
 import { byName } from "@/lib/people";
 import { cn } from "@/lib/utils";
 import { CopyButton, ROUND_BUTTON } from "./link-buttons";
+import { PersonalAgentsSettings } from "./personal-agents-settings";
 import { Panel, SECTION_HEADING, SettingsPage, TITLE, TITLE_LINK } from "./settings-page";
 import { AvatarLink } from "./user-avatar";
 
@@ -46,8 +47,9 @@ export function useAdministratorsOnly(onFailed: (error: unknown) => void) {
 /**
  * The Chat bots page: what bots do, in short, and Add a chat bot, then each active bot by name, with a
  * link to its settings and, for each room it's in, the commands that post to the room as it, which their
- * buttons copy. Go Back returns to workspace settings. A bot deleted or renamed elsewhere leaves or is
- * renamed here as soon as the people directory hears of it.
+ * buttons copy, and under them people's agents (`PersonalAgentsSettings`). Go Back returns to workspace
+ * settings. A bot deleted or renamed elsewhere leaves or is renamed here as soon as the people directory
+ * hears of it.
  */
 export function BotsPage({ onFailed }: { onFailed: (error: unknown) => void }) {
   const [bots, setBots] = useState<Bot[] | null>(null);
@@ -103,6 +105,7 @@ export function BotsPage({ onFailed }: { onFailed: (error: unknown) => void }) {
               <BotItem key={bot.id} bot={bot} />
             ))}
         </menu>
+        {bots && <PersonalAgentsSettings onFailed={failed} />}
       </Panel>
     </SettingsPage>
   );

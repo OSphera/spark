@@ -4,6 +4,7 @@
 
 import type { AgentProfile } from "./agents.ts";
 import type { YourApp } from "./apps.ts";
+import type { YourAgents } from "./personal-agents.ts";
 import type { AssistantSettings, YourAssistant } from "./assistant.ts";
 import { isActionId, isActionValue, type Card } from "./cards.ts";
 import type { StoredFile } from "./files.ts";
@@ -207,10 +208,16 @@ export interface DirectoryUser extends User {
   /** Their avatar, `/users/<token>/avatar?v=<version>`, whose address changes whenever they do, and @ember's with each release too. */
   avatarUrl: string;
   /**
-   * Whether they're an AI agent, @ember or one an administrator made, which the Agent badge shows, even
-   * once it's deleted, as its answers stay. Left out for anyone else.
+   * Whether they're an agent, which the Agent badge shows: @ember, an AI agent an administrator made, or
+   * a personal agent (`ownerId`), even once it's deleted or turned off, as what it said stays. Left out
+   * for anyone else.
    */
   agent?: true;
+  /**
+   * For a personal agent, one a member made for themselves, the person whose it is, which it's shown as
+   * wherever it carries the Agent badge ("Pete's agent"), even once it's turned off. Left out for anyone else.
+   */
+  ownerId?: UserId;
 }
 
 /** What `GET /api/users` answers: everyone in the workspace, deactivated, banned and suspended people too. */
@@ -930,6 +937,11 @@ export interface Profile {
   apps: YourApp[];
   /** The AI apps connected to Ember as you, newest first, or null when none can be: while an administrator hasn't let AI apps connect, or for a guest. */
   outsideAi: OutsideConnection[] | null;
+  /**
+   * Your personal agents and how many you may have, which `/api/users/me/agents` changes: left out while
+   * you may have none and have none, as every Ember starts, and for a guest.
+   */
+  agents?: YourAgents;
 }
 
 /** What `GET /api/users/me/profile` answers, and `PATCH` once it has saved. */
