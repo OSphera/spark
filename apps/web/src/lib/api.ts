@@ -5,8 +5,10 @@ import {
   roomSocketQuery,
   searchQuery,
   WORKSPACE_PRELOADS,
+  workspaceSocketQuery,
   type Account,
   type AccountChanges,
+  type AccountDeletion,
   type AssistantChanged,
   type AssistantChanges,
   type AssistantForgotten,
@@ -19,6 +21,7 @@ import {
   type BotChanges,
   type Bots,
   type BotSettings,
+  type ChangedBlocks,
   type ChangedPerson,
   type CustomDomainCheck,
   type CustomDomainLookup,
@@ -34,6 +37,9 @@ import {
   type EmailSettings,
   type Favorites,
   type HuddleRelaySetup,
+  type HuddleSoundChanges,
+  type HuddleSounds,
+  type HuddleSoundsChanged,
   type HuddlesForgotten,
   type HuddlesSaved,
   type HuddlesSettings,
@@ -90,6 +96,7 @@ import {
   type UserId,
   type WebSearchChanged,
   type WorkspaceSettings,
+  type WorkspaceSocketParams,
   type YourAssistantChanged,
   type YourAssistantChanges,
 } from "@ember/protocol";
@@ -314,6 +321,15 @@ export async function signInAsGuest(name: string): Promise<Me> {
 export async function signInWithLink(transferId: string): Promise<Me> {
   const body: LinkSignIn = { transferId };
   return (await request<{ user: Me }>("/api/session/transfers", { method: "POST", body: JSON.stringify(body) })).user;
+}
+
+/**
+ * Deletes your account, as Delete my account on your profile does, saying you mean it with your password
+ * while you have one, or else your name, and signs this browser out. Fails with a 409 ApiError for the
+ * only administrator, a 422 when what's typed isn't yours, and a 429 past sign-in's limit.
+ */
+export async function deleteAccount(deletion: AccountDeletion): Promise<void> {
+  await request("/api/users/me", { method: "DELETE", body: JSON.stringify(deletion) });
 }
 
 /**
@@ -857,9 +873,14 @@ export function describeOutsideAsk(ask: OutsideAsk): Promise<OutsideAsked> {
   return request<OutsideAsked>("/api/outside/asks", { method: "POST", body: JSON.stringify(ask) });
 }
 
-/** Answers `ask`, whether to connect its app as you, leaving out `without` of what it asks, answering where to send the browser: back to the app. Fails as `describeOutsideAsk` does, and with a 409 when you have as many connected as one may. */
-export async function answerOutsideAsk(ask: OutsideAsk, allow: boolean, without: OutsideScope[] = []): Promise<string> {
-  return (await request<OutsideAnswered>("/api/outside/answers", { method: "POST", body: JSON.stringify({ ask, allow, without } satisfies OutsideAnswer) })).redirectTo;
+/**
+ * Answers `ask`, whether to connect its app as you, leaving out `without` of what it asks, and with
+ * `ticked` of it, which Ember gives where the page leaves its box unticked only when it's ticked,
+ * answering where to send the browser: back to the app. Fails as `describeOutsideAsk` does, and with a
+ * 409 when you have as many connected as one may.
+ */
+export async function answerOutsideAsk(ask: OutsideAsk, allow: boolean, without: OutsideScope[] = [], ticked: OutsideScope[] = []): Promise<string> {
+  return (await request<OutsideAnswered>("/api/outside/answers", { method: "POST", body: JSON.stringify({ ask, allow, without, with: ticked } satisfies OutsideAnswer) })).redirectTo;
 }
 
 /** Ends the connection `id` of yours, answering the ones you have left. Fails with a 401 ApiError once the session has ended, a 409 while outside AI is off, and a 404 once the connection has ended. */
@@ -924,6 +945,14 @@ export async function changeYourAssistant(changes: YourAssistantChanges): Promis
 }
 
 /**
+ * Turns each of a huddle's sounds that `changes` names on or off for this person, wherever they're signed
+ * in, answering which they hear then.
+ */
+export async function changeHuddleSounds(changes: HuddleSoundChanges): Promise<HuddleSounds> {
+  return (await request<HuddleSoundsChanged>("/api/users/me/huddle-sounds", { method: "PATCH", body: JSON.stringify(changes) })).sounds;
+}
+
+/**
  * Invites each of `emailAddresses`, no more than `INVITATIONS_AT_ONCE`, by email, answering what came of
  * each, in order. Fails with a 422 ApiError for a list it doesn't take, and a 403 one for anyone but an
  * administrator.
@@ -973,6 +1002,14 @@ export async function unbanPerson(userId: UserId): Promise<DirectoryUser> {
   return (await request<ChangedPerson>(`/api/users/${encodeURIComponent(userId)}/ban`, { method: "DELETE" })).user;
 }
 
+/**
+ * Blocks someone, or unblocks them once `blocked` is false, answering whom you've blocked now and your
+ * level in your DM with them alone, when that hid it or showed it again.
+ */
+export async function changeBlock(userId: UserId, blocked: boolean): Promise<ChangedBlocks> {
+  return request<ChangedBlocks>(`/api/users/${encodeURIComponent(userId)}/block`, { method: blocked ? "POST" : "DELETE" });
+}
+
 /** A copy of someone's sidebar, and the ETag the server sent it with. */
 export interface SidebarCopy {
   sidebar: Sidebar;
@@ -993,6 +1030,11 @@ export async function fetchSidebar(copy: SidebarCopy | null): Promise<SidebarCop
 /** Dismisses the welcome card for this person, for good: their sidebar, on any device, has no invitation from then on. */
 export async function dismissInvitation(): Promise<void> {
   await request("/api/sidebar/invitation", { method: "DELETE" });
+}
+
+/** Stops an invitation into room `roomId`'s huddle ringing in every tab this person has open, as joining from it or declining it does. */
+export async function answerHuddleInvitation(roomId: RoomId): Promise<void> {
+  await request(`/api/rooms/${encodeURIComponent(roomId)}/huddle/invitation`, { method: "DELETE" });
 }
 
 /** A copy of the people directory, and the ETag the server sent it with. */
@@ -1123,8 +1165,8 @@ export const roomExportPath = (roomId: string) => `/api/rooms/${encodeURICompone
 
 export const roomSocketUrl = (roomId: string, params: RoomSocketParams) => socketUrl(`/api/rooms/${encodeURIComponent(roomId)}/socket${roomSocketQuery(params)}`);
 
-/** The address of a tab's workspace socket, which carries what changes outside the room it shows. */
-export const workspaceSocketUrl = () => socketUrl("/api/socket");
+/** The address of a tab's workspace socket, which carries what changes outside the room it shows, and tells the Workspace what `params` says about the tab. */
+export const workspaceSocketUrl = (params: WorkspaceSocketParams) => socketUrl(`/api/socket${workspaceSocketQuery(params)}`);
 
 /** Forgets the session earlier versions of the app kept in localStorage, which nothing reads now. */
 export function forgetStoredSession(): void {

@@ -112,6 +112,9 @@ const roomsOf = async (userId: UserId) =>
 /** The open rooms, by id. */
 const openRooms = async () => ((await workspaceSql("SELECT id FROM rooms WHERE kind = 'open' ORDER BY id")) as Array<{ id: RoomId }>).map(({ id }) => id);
 
+/** The DMs, by id. */
+const directRooms = async () => ((await workspaceSql("SELECT id FROM rooms WHERE kind = 'direct' ORDER BY id")) as Array<{ id: RoomId }>).map(({ id }) => id);
+
 /** Changes room `roomId` as its settings do, as `session`. */
 async function changeRoom(session: Session, roomId: RoomId, changes: unknown): Promise<void> {
   const response = await api(`/api/rooms/${roomId}`, { method: "PATCH", headers: { Cookie: session.cookie }, body: JSON.stringify(changes) });
@@ -226,6 +229,19 @@ describe("Ban and unban people", () => {
     expect(await workspaceSql("SELECT * FROM pending_purges")).toEqual([]);
     expect(await workspaceSql("SELECT * FROM pending_revocations")).toEqual([]);
     expect(await written(lobby, member.user.id)).toEqual([message.id]);
+  });
+
+  it("bans someone signed in from a public IPv6 address that ends as an IPv4-mapped private one does", async () => {
+    const administrator = await setUp();
+    const member = await join(grace);
+    const lookalike = "2001:db8:1:2:0:ffff:a00:1";
+    const phone = await signInAsGrace(lookalike);
+
+    expect((await ban(administrator, member.user.id)).status).toBe(200);
+    expect(await stored(member.user.id)).toMatchObject({ status: 2 });
+    expect(await sessionsOf(member.user.id)).toBe(0);
+    expect(await signedIn(phone)).toBe(false);
+    expect(await bansOf(member.user.id)).toMatchObject([{ ip_address: lookalike }]);
   });
 
   it("ends all their sessions and nobody else's, closing their sockets for good in every room, their DMs too, and the workspace's", async () => {
@@ -503,7 +519,8 @@ describe("Ban and unban people", () => {
 
     expect((await unban(administrator, member.user.id)).status).toBe(200);
     expect(await openRooms()).toEqual(expect.arrayContaining([launch.id, leads.id]));
-    expect(await roomsOf(member.user.id)).toEqual([...(await openRooms()), team.id].sort());
+    // The DM that welcomed her as she joined stays hers too.
+    expect(await roomsOf(member.user.id)).toEqual([...(await openRooms()), team.id, ...(await directRooms())].sort());
     expect(await roomsOf(member.user.id)).not.toContain(board.id);
     // As her sidebar lists them once she's signed in again.
     const back = await signInAsGrace("203.0.113.7");
@@ -804,9 +821,15 @@ describe("Ban and unban people", () => {
       for (const ip of internal) expect(banProblem(ip), ip).toBe("internal");
     });
 
-    it("takes any address with ffff before its last 32 bits for an IPv4-mapped one, as Ruby does", () => {
-      expect(banProblem("1::ffff:10.0.0.1")).toBe("internal");
+    it("takes only an address in ::ffff:0:0/96 for an IPv4-mapped one, unlike Ruby, which takes any with ffff before its last 32 bits", () => {
+      // Public addresses, which someone could otherwise sign in from so that nobody could ban them.
+      const lookalikes = [
+        ...["1::ffff:10.0.0.1", "2001:db8:1:2:0:ffff:a00:1", "::1:ffff:10.0.0.1", "8000::ffff:10.0.0.1"],
+        ...["2001:db8::ffff:127.0.0.1", "2001:db8::ffff:172.16.0.1", "2001:db8::ffff:c0a8:101", "2001:db8::ffff:a9fe:a9fe"],
+      ];
+      for (const ip of lookalikes) expect(banProblem(ip), ip).toBeNull();
       expect(banProblem("1::ffff:8.8.8.8")).toBeNull();
+      expect(banProblem("0:0:0:0:0:ffff:a00:1")).toBe("internal");
     });
 
     it("masks an address with its prefix, as Ruby's IPAddr does, and takes one in brackets", () => {

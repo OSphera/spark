@@ -1,4 +1,4 @@
-import { sameName, type Directory, type Me, type NewWorkspace, type RoomId, type RoomSettings, type UserId } from "@ember/protocol";
+import { DELETED_PERSON_NAME, sameName, USERNAME_TAKEN, type Directory, type Me, type NewWorkspace, type RoomId, type RoomSettings, type UserId } from "@ember/protocol";
 import { NAME_TAKEN, agentsName } from "@ember/protocol/agents";
 import type { BotAnswer } from "@ember/protocol/bots";
 import {
@@ -636,6 +636,34 @@ describe("its person answers for it", () => {
     expect((await api(`/api/users/${member.user.id}/ban`, as(administrator, { method: "DELETE" }))).status).toBe(200);
     expect((await stored(agent.id)).status).toBe(1);
     expect((await postAs(key, general, "Back?")).status).toBe(401);
+  });
+
+  it("turns off when its person deletes their account, key and all, and what it said stays", async () => {
+    const { administrator, member, agent, key, general } = await withAgent();
+    const deleted = await api("/api/users/me", as(member, { method: "DELETE", body: json({ currentPassword: grace.password }) }));
+    expect(deleted.status, await deleted.clone().text()).toBe(204);
+    expect((await postAs(key, general, "After")).status).toBe(401);
+    expect((await api("/bot/rooms", { headers: { Authorization: `Bearer ${key}` } })).status).toBe(401);
+    expect(await stored(agent.id)).toMatchObject({ status: 1, bot_key_digest: null });
+    expect(await isMember(general, agent.id)).toBe(false);
+    // It stays listed as its person's agent's, and its person as deleted accounts are.
+    const { users } = (await (await api("/api/users", as(administrator))).json()) as Directory;
+    expect(users.find((user) => user.id === agent.id)).toMatchObject({ name: "Scout", status: "deactivated", ownerId: member.user.id, agent: true });
+    expect(users.find((user) => user.id === member.user.id)).toMatchObject({ name: DELETED_PERSON_NAME, status: "deactivated" });
+  });
+
+  it("is nobody's username, nor can it be called by someone's", async () => {
+    const { administrator, member } = await withAgent();
+    const username = (session: Session, name: string) => api("/api/users/me/profile", as(session, { method: "PATCH", body: json({ username: name }) }));
+    // Scout is Grace's agent, so nobody is @scout, as typing @ finds both.
+    expect(await errorOf(await username(administrator, "SCOUT"), 422)).toBe(USERNAME_TAKEN);
+    expect(await errorOf(await username(member, "scout"), 422)).toBe(USERNAME_TAKEN);
+    // Ada is @pip, so no agent is called Pip, hers included.
+    const named = await username(administrator, "pip");
+    expect(named.status, await named.clone().text()).toBe(200);
+    expect(await errorOf(await makeAgent(member, { name: "Pip", currentPassword: grace.password }), 422)).toBe(NAME_TAKEN);
+    await setLimit(administrator, 2);
+    expect(await errorOf(await makeAgent(administrator, { name: "PIP", currentPassword: ada.password }), 422)).toBe(NAME_TAKEN);
   });
 
   it("is turned away mid-request when its person is removed", async () => {

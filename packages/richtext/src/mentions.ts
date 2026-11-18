@@ -41,27 +41,30 @@ export function mentionContent({ id, name, avatarUrl }: MentionCard): string {
 }
 
 /**
- * Someone as Lexxy's mentions prompt offers them: as a mention shows them, whether they're an agent, as
- * @ember is, and for a personal agent, the name of the person whose it is.
+ * Someone as Lexxy's mentions prompt offers them: as a mention shows them, with their username, if they
+ * have one, whether they're an agent, as @ember is, and for a personal agent, the name of the person
+ * whose it is.
  */
 export interface PromptCard extends MentionCard {
+  username?: string;
   agent?: boolean;
   owner?: string;
 }
 
 /**
  * Campfire's autocompletable/users/_prompt_item.html.erb: someone as Lexxy's mentions prompt offers
- * them, by their avatar and name, with a badge saying so after an agent's, then whose a personal agent
- * is, and the mention picking them
- * writes. Unlike Campfire's, the avatar isn't a link: a click anywhere on someone listed picks them, and
- * screen readers can't reach a link in a list's option, whose content ARIA makes presentational.
+ * them, by their avatar and name, then their @username, if they have one, with a badge saying so after
+ * an agent's, then whose a personal agent is, and the mention picking them writes. Unlike Campfire's,
+ * the avatar isn't a link: a click anywhere on someone listed picks them, and screen readers can't reach
+ * a link in a list's option, whose content ARIA makes presentational.
  */
 export function mentionPromptItem(person: PromptCard): string {
   const name = htmlEscape(person.name);
+  const username = person.username ? ` <span class="autocompletable__username">@${htmlEscape(person.username)}</span>` : "";
   const owner = person.owner === undefined ? "" : ` <span class="autocompletable__owner">${htmlEscape(person.owner)}'s agent</span>`;
   const badge = person.agent ? ` <span class="autocompletable__badge">Agent</span>${owner}` : "";
   return `<lexxy-prompt-item search="${name}" sgid="${htmlEscape(mentionSgid(person.id))}">
-  <template type="menu"><span class="autocomplete__item">${avatarTag(person.avatarUrl)}<span class="autocompletable__name">${name}</span>${badge}</span></template>
+  <template type="menu"><span class="autocomplete__item">${avatarTag(person.avatarUrl)}<span class="autocompletable__name">${name}</span>${username}${badge}</span></template>
   <template type="editor">${mentionContent(person)}</template>
 </lexxy-prompt-item>
 `;

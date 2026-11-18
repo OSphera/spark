@@ -144,6 +144,20 @@ export const MAX_HUDDLE_CAMERAS = 25;
 /** The most screens people share in a huddle at once, as in Slack's. */
 export const MAX_HUDDLE_SCREENS = 2;
 
+/** The most people one `huddle.invite` invites: as many as a huddle takes. */
+export const MAX_HUDDLE_INVITED = MAX_HUDDLE_PEOPLE;
+
+/**
+ * The stickers someone in a huddle can show, as Slack's are: a raised hand, that they'll be right back,
+ * yes, by a thumb up, no, by a thumb down, or that they're done. Someone shows one at a time, until
+ * they take it off.
+ */
+export const HUDDLE_STICKERS = ["hand", "brb", "thumbs-up", "thumbs-down", "done"] as const;
+export type HuddleSticker = (typeof HUDDLE_STICKERS)[number];
+
+/** The most characters a reaction's emoji has, as a string counts them: the longest there is, two people kissing, each with a skin tone, has 15. */
+export const MAX_REACTION_LENGTH = 16;
+
 /** What a huddle closes a socket with, besides the codes a room closes one with (`CloseCode`). None is one to connect again after. */
 export const HuddleCloseCode = {
   /** The huddle has as many people as one takes. */
@@ -210,6 +224,8 @@ export interface HuddlePerson {
   video: boolean;
   /** Whether their screen can be watched: they share it, and their tab has connected to the SFU with it. */
   screen: boolean;
+  /** The sticker they show, while they show one. */
+  sticker?: HuddleSticker;
 }
 
 /**
@@ -220,6 +236,65 @@ export interface HuddlePerson {
 export interface LiveHuddle {
   startedAt: string;
   userIds: UserId[];
+}
+
+/**
+ * A huddle as its message in the room says it (`Message.huddle`): when it started, and once it's over,
+ * when it ended and everyone who was in it, in the order they first joined, named as they were then. A
+ * message without an end is of the huddle going on in its room, and who's in that is the room's
+ * `LiveHuddle`.
+ */
+export interface MessageHuddle {
+  startedAt: string;
+  endedAt?: string;
+  people?: User[];
+}
+
+/**
+ * A huddle's own sounds, which each person chooses whether to hear, on their profile: the `music` that
+ * plays to whoever is the only one in a huddle, the `chimes`, one as someone joins a huddle and another
+ * as someone leaves it, and the `ring` of an invitation into one.
+ */
+export const HUDDLE_SOUNDS = ["music", "chimes", "ring"] as const;
+export type HuddleSound = (typeof HUDDLE_SOUNDS)[number];
+
+/**
+ * Which of a huddle's sounds someone hears, wherever they're signed in: each of them until they turn it
+ * off, as Slack's preferences turn off its huddles' music and their notification sound.
+ */
+export type HuddleSounds = Record<HuddleSound, boolean>;
+
+/** A huddle's sounds as someone hears them until they turn one off: all of them. */
+export const ALL_HUDDLE_SOUNDS: HuddleSounds = { music: true, chimes: true, ring: true };
+
+/** Whether `sounds` are all of a huddle's. */
+export const hearsAllHuddleSounds = (sounds: HuddleSounds) => HUDDLE_SOUNDS.every((sound) => sounds[sound]);
+
+/** The sounds `PATCH /api/users/me/huddle-sounds` turns on or off for whoever asks, the rest staying as they are. */
+export type HuddleSoundChanges = Partial<HuddleSounds>;
+
+/** What `PATCH /api/users/me/huddle-sounds` answers: the sounds whoever asked hears now. */
+export interface HuddleSoundsChanged {
+  sounds: HuddleSounds;
+}
+
+/** Why a change to someone's huddle sounds is refused when it turns one neither on nor off. */
+export const HUDDLE_SOUNDS_REFUSED = "Each of music, chimes and ring must be true or false";
+
+/**
+ * Parses an untrusted change to someone's huddle sounds. Returns why it's refused instead of the change.
+ * A sound it doesn't name stays as it is, and it takes nothing else.
+ */
+export function parseHuddleSoundChanges(data: unknown): HuddleSoundChanges | string {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) return "Expected a JSON object";
+  const changes: HuddleSoundChanges = {};
+  for (const sound of HUDDLE_SOUNDS) {
+    const on = (data as Record<string, unknown>)[sound];
+    if (on === undefined) continue;
+    if (typeof on !== "boolean") return HUDDLE_SOUNDS_REFUSED;
+    changes[sound] = on;
+  }
+  return changes;
 }
 
 /** What a tab sends on its huddle's socket. Leaving the huddle is closing the socket. */
@@ -250,26 +325,46 @@ export type HuddleClientFrame =
   | { type: "huddle.answer"; kind: HuddleTrackKind; sdp: string }
   /** The person has muted their microphone, or unmuted it. */
   | { type: "huddle.mute"; muted: boolean }
+  /**
+   * Invites people into the huddle, each named once: it rings for each of them wherever they have Ember
+   * open, with who invites them, for them to join or decline. Whoever starts a huddle in a direct
+   * message invites everyone else in it. The room leaves out whoever is in the huddle already, and the
+   * Workspace whoever isn't in the room, or has turned its notifications off, so nobody hears of a
+   * room they aren't in.
+   */
+  | { type: "huddle.invite"; userIds: UserId[] }
+  /** The person shows a sticker, in place of any they showed, or with null, takes theirs off. */
+  | { type: "huddle.sticker"; sticker: HuddleSticker | null }
+  /**
+   * The person reacts with an emoji, which everyone in the huddle sees for a moment, as `huddle.reacted`
+   * tells them, their own tab included. The room tells of only so many of a tab's in a while, and says
+   * nothing of the rest.
+   */
+  | { type: "huddle.react"; emoji: string }
   | { type: "ping" };
 
 /** What a tab hears on its huddle's socket. */
 export type HuddleServerFrame =
   /**
    * The huddle as the tab joins it: everyone in it, the tab's person included, and when it started.
-   * While huddles have a relay, `iceServers` are the servers the tab's connections go by, the relay's
-   * among them, which take what the tab is given to use them with for `RELAY_TTL_S` from now. A tab
-   * that's given none goes by Cloudflare's STUN server alone.
+   * `messageId` names the room's message of the huddle, whose thread is the huddle's: the room may have
+   * yet to write it, and it may have been deleted since. While huddles have a relay, `iceServers` are
+   * the servers the tab's connections go by, the relay's among them, which take what the tab is given
+   * to use them with for `RELAY_TTL_S` from now. A tab that's given none goes by Cloudflare's STUN
+   * server alone.
    */
-  | { type: "huddle.welcome"; you: User; people: HuddlePerson[]; startedAt: string; iceServers?: HuddleIceServer[] }
+  | { type: "huddle.welcome"; you: User; people: HuddlePerson[]; startedAt: string; messageId?: string; iceServers?: HuddleIceServer[] }
   | { type: "huddle.joined"; person: HuddlePerson }
   /**
-   * Someone muted or unmuted, can be listened to or watched now, or can't be: they've turned their camera
-   * off or stopped sharing their screen, their tab is publishing again, or they've joined from another
-   * one. A tab asks to hear whoever it can listen to and doesn't, and to see whoever it's to watch and
-   * doesn't.
+   * Someone muted or unmuted, shows a sticker or took theirs off, can be listened to or watched now, or
+   * can't be: they've turned their camera off or stopped sharing their screen, their tab is publishing
+   * again, or they've joined from another one. A tab asks to hear whoever it can listen to and doesn't,
+   * and to see whoever it's to watch and doesn't.
    */
   | { type: "huddle.changed"; person: HuddlePerson }
   | { type: "huddle.left"; userId: UserId }
+  /** Someone in the huddle reacted with an emoji, which shows over the people in it for a moment. */
+  | { type: "huddle.reacted"; userId: UserId; emoji: string }
   /** The SFU's answer to the offer the tab published its `kind` with. */
   | { type: "huddle.published"; kind: HuddleTrackKind; sdp: string }
   /**
@@ -298,7 +393,8 @@ export type HuddleServerFrame =
    * `huddle.listen` or `huddle.answer` the room has let go of the tab's receiving connection, so the tab
    * starts a fresh one. After a failed `huddle.publish` it publishes again, from a new sending
    * connection, unless the room `refused`: it won't publish that however often it's asked, as it won't
-   * one camera or one screen more than a huddle shows, and `message` tells the tab's person why.
+   * one camera or one screen more than a huddle shows, and `message` tells the tab's person why. After
+   * a failed `huddle.invite` nobody was invited, which `message` tells them too.
    */
   | { type: "error"; message: string; failed?: HuddleClientFrame["type"]; kind?: HuddleTrackKind; refused?: true }
   | { type: "pong" };
@@ -328,6 +424,12 @@ export const SCREENS_OFF = "Screen sharing is turned off for huddles here.";
 
 /** Why the room won't show someone's screen while as many people share theirs as a huddle shows. */
 export const SCREENS_FULL = `${MAX_HUDDLE_SCREENS} people are sharing their screens in this huddle, which is as many as one shows. You can share yours once one of them stops.`;
+
+/** Why nobody someone invited into a huddle was: the room couldn't have them told. */
+export const NOBODY_INVITED = "Ember couldn't invite anyone to the huddle just now.";
+
+/** Why the room invites nobody more for someone who has invited people as often as a tab may in a minute. */
+export const INVITED_TOO_OFTEN = "You've invited people to this huddle a lot in the last minute. Wait a moment before inviting anyone else.";
 
 /** The most characters a session description can have: one for a tab hearing a full huddle is a fraction of this. */
 export const MAX_SDP_LENGTH = 500_000;
@@ -365,6 +467,26 @@ function watchOf(value: unknown, most: number): UserId[] | null {
   if (!Array.isArray(value) || value.length > most || !value.every(isUserId)) return null;
   return new Set(value).size === value.length ? value : null;
 }
+
+/** Who a `huddle.invite` invites, at least one of them and `MAX_HUDDLE_INVITED` at most, each named once, or null when they can't be that. */
+function invitedOf(value: unknown): UserId[] | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_HUDDLE_INVITED || !value.every(isUserId)) return null;
+  return new Set(value).size === value.length ? value : null;
+}
+
+/** The sticker a `huddle.sticker` shows, null for none, or undefined when it can't be either. */
+const stickerOf = (value: unknown): HuddleSticker | null | undefined => (value === null ? null : HUDDLE_STICKERS.find((sticker) => sticker === value));
+
+/**
+ * One emoji and nothing else, as an emoji picker writes them: a flag, or one letter of one; a keycap; a
+ * skin tone by itself; the flag of part of a country; or pictographs joined into one, each with its skin
+ * tone or the mark that has it shown as a picture.
+ */
+const ONE_EMOJI =
+  /^(?:\p{Regional_Indicator}{1,2}|[#*0-9]\uFE0F?\u20E3|\p{Emoji_Modifier}|\u{1F3F4}[\u{E0020}-\u{E007E}]+\u{E007F}|\p{Extended_Pictographic}[\p{Emoji_Modifier}\uFE0F]?(?:\u200D\p{Extended_Pictographic}[\p{Emoji_Modifier}\uFE0F]?)*)$/u;
+
+/** The emoji a `huddle.react` reacts with, or null when it isn't one emoji. */
+const reactionOf = (value: unknown): string | null => (typeof value === "string" && value.length <= MAX_REACTION_LENGTH && ONE_EMOJI.test(value) ? value : null);
 
 /** Whether `value` is something a frame says only when it's so: `true`, or left out. */
 const isSaidOrNot = (value: unknown): value is true | undefined => value === undefined || value === true;
@@ -434,6 +556,18 @@ export function parseHuddleClientFrame(raw: string): HuddleClientFrame | null {
     }
     case "huddle.mute":
       return typeof frame.muted === "boolean" ? { type: "huddle.mute", muted: frame.muted } : null;
+    case "huddle.invite": {
+      const userIds = invitedOf(frame.userIds);
+      return userIds !== null ? { type: "huddle.invite", userIds } : null;
+    }
+    case "huddle.sticker": {
+      const sticker = stickerOf(frame.sticker);
+      return sticker !== undefined ? { type: "huddle.sticker", sticker } : null;
+    }
+    case "huddle.react": {
+      const emoji = reactionOf(frame.emoji);
+      return emoji !== null ? { type: "huddle.react", emoji } : null;
+    }
     case "ping":
       return { type: "ping" };
     default:

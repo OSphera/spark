@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useImperativeHandle, useRef, type Ref } from "react";
-import type { Favorites, Invitation, Involvement, Me } from "@ember/protocol";
+import type { Favorites, Invitation, Involvement, Me, User } from "@ember/protocol";
 import { MainContent } from "@/components/main-content";
 import { useNameOf } from "@/hooks/use-directory";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -10,6 +10,7 @@ import { useTitle } from "@/hooks/use-title";
 import type { Room } from "@/lib/api";
 import { roomName } from "@/lib/directs";
 import { rememberLastRoom } from "@/lib/last-room";
+import { newestWrittenBy } from "@/lib/messages";
 import type { RoomAnswer } from "@/lib/room-list";
 import { isPending } from "@/lib/room-state";
 import { Composer, RoomDeleted, type ComposerHandle } from "./composer";
@@ -20,6 +21,14 @@ import { ThreadPanel } from "./thread-panel";
 
 /** Where a thread covers its room, rather than showing beside it: below 1180px wide. */
 const THREAD_COVERS_ROOM = "(width < 73.75rem)";
+
+/** Who joined the workspace, and when, in a DM started as they did, which its timeline opens with, or null. */
+function joinedIn(room: Room): { user: User; at: string } | null {
+  if (room.kind !== "direct" || !room.joined) return null;
+  const { userId, at } = room.joined;
+  const user = room.members.find((member) => member.id === userId);
+  return user ? { user, at } : null;
+}
 
 interface Props {
   room: Room;
@@ -97,11 +106,11 @@ export function RoomView({ room, messageId, threadId, replyId, invitation, onDis
   // A thread that covers the room leaves nothing of it to reach until it's closed.
   const covered = useMediaQuery(THREAD_COVERS_ROOM) && threadId !== undefined;
 
-  // Up Arrow edits your newest message, unless it's still on its way, or the timeline is reading older
-  // history and may not hold it.
+  // Up Arrow edits the newest message you wrote, unless it's still on its way, or the timeline is reading
+  // older history and may not hold it.
   const editLastMessage = () => {
     if (state.hasNewer) return;
-    const newest = state.messages.findLast((message) => message.creator.id === me.id);
+    const newest = newestWrittenBy(state.messages, me.id);
     if (newest && !isPending(newest)) editors.open(newest.id);
   };
 
@@ -112,6 +121,7 @@ export function RoomView({ room, messageId, threadId, replyId, invitation, onDis
         <RoomHeader
           room={room}
           name={name}
+          meId={me.id}
           present={state.present}
           status={state.status}
           offline={state.offline}
@@ -141,6 +151,7 @@ export function RoomView({ room, messageId, threadId, replyId, invitation, onDis
             onDropFiles={(files) => composer.current?.addFiles(files)}
             openThread={threadId}
             newSince={newSince}
+            joined={joinedIn(room)}
           />
           {deleted ? (
             <RoomDeleted />

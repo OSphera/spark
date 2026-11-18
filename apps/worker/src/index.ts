@@ -3,6 +3,8 @@ import {
   CloseCode,
   CURRENT_PASSWORD_NEEDED,
   CURRENT_PASSWORD_WRONG,
+  DELETION_NAME_NEEDED,
+  DELETION_PASSWORD_NEEDED,
   EMAIL_DOMAIN_NEEDS_EMAIL,
   EMAIL_SIGN_UP_PATH,
   INVITATION_PATH,
@@ -22,13 +24,16 @@ import {
   MEMBERFUL_WEBHOOK_PATH,
   NAME_RESERVED,
   NO_EMAIL_DOMAINS,
+  ONLY_ADMINISTRATOR,
   PASSWORD_RESET_PATH,
   PASSWORD_WITH_MEMBERFUL,
   isPasswordTooLong,
   isReservedName,
   isRoomId,
+  notTakingDirects,
   OPEN_WITH_MEMBERFUL,
   parseAccountChanges,
+  parseAccountDeletion,
   parseCustomDomainCheck,
   parseCustomStyles,
   parseFavoriteOrder,
@@ -50,9 +55,11 @@ import {
   SIGN_UP_PATH,
   TRANSFER_PATH,
   TURNSTILE_CHECK_PATH,
+  USERNAME_TAKEN,
   workspacePageOf,
   type Account,
   type Bootstrap,
+  type ChangedBlocks,
   type ChangedPerson,
   type CustomDomainCheck,
   type CustomDomainLookup,
@@ -80,6 +87,7 @@ import {
   type WorkspaceSettings,
 } from "@ember/protocol";
 import { agentsName } from "@ember/protocol/agents";
+import { parseHuddleSoundChanges, type HuddleSoundsChanged } from "@ember/protocol/huddles";
 import { AGENT_DIRECT_REFUSED } from "@ember/protocol/personal-agents";
 import { OUTSIDE_AUTHORIZE_PATH } from "@ember/protocol/outside";
 import { mentionPromptItem } from "@ember/richtext";
@@ -616,6 +624,23 @@ async function banPerson(request: Request, env: Env, userId: UserId): Promise<Re
   return json({ user: person } satisfies ChangedPerson);
 }
 
+/** Blocks someone, as Block on their page and in their messages' More actions does, answering whom you've blocked now. */
+async function block(request: Request, env: Env, userId: UserId): Promise<Response> {
+  const credentials = await credentialsOf(request, env);
+  const blocked = credentials && (await workspace(env).block(credentials, userId));
+  if (!blocked) return problem(401, "Not signed in");
+  if (blocked === "not found") return problem(404, "Not found");
+  if (blocked === "yourself") return problem(422, "You can't block yourself");
+  return json(blocked satisfies ChangedBlocks);
+}
+
+/** Unblocks someone, as Unblock on their page and in Blocked people on your profile does, answering as `block` does. */
+async function unblock(request: Request, env: Env, userId: UserId): Promise<Response> {
+  const credentials = await credentialsOf(request, env);
+  const unblocked = credentials && (await workspace(env).unblock(credentials, userId));
+  return unblocked ? json(unblocked satisfies ChangedBlocks) : problem(401, "Not signed in");
+}
+
 /** Lifts someone's ban, as Remove ban on their page does, answering them as `banPerson` does. */
 async function unbanPerson(request: Request, env: Env, userId: UserId): Promise<Response> {
   const credentials = await credentialsOf(request, env);
@@ -633,7 +658,7 @@ async function unbanPerson(request: Request, env: Env, userId: UserId): Promise<
  * the link.
  */
 async function profileAnswer({ transfer, profile, memberful }: YourProfile, env: Env, site: string | null): Promise<Response> {
-  const transferId = await newTransferId(transfer, env.SESSION_SECRET, Date.now());
+  const transferId = await newTransferId(transfer, env.SESSION_SECRET);
   const answer = { ...profile, memberful: memberfulStatusOf(memberful, site) };
   return json({ profile: answer, transferId } satisfies ProfileAnswer, { headers: { "Cache-Control": "no-store" } });
 }
@@ -696,8 +721,39 @@ async function changeProfile(request: Request, env: Env): Promise<Response> {
   if (yours === "email address taken") return problem(422, "That email address has an account already");
   if (yours === "name reserved") return problem(422, NAME_RESERVED);
   if (yours === "agent's name") return problem(422, agentsName(rest.name!));
+  if (yours === "username taken") return problem(422, USERNAME_TAKEN);
   if (yours === "password needed") return problem(422, currentPassword ? CURRENT_PASSWORD_WRONG : CURRENT_PASSWORD_NEEDED);
   return profileAnswer(yours, env, memberfulSite);
+}
+
+/**
+ * Delete my account, on your profile: once you've said you mean it, with your password while you have
+ * one, which checking counts against sign-in's limit, or else by typing your name, deletes your account,
+ * as `Workspace.deleteAccount` does, and signs this browser out. 401 without a valid session; 409 for the
+ * only administrator; 422 without your password, or your name, or with one that isn't yours; and 429
+ * past sign-in's limit.
+ */
+async function deleteAccount(request: Request, env: Env): Promise<Response> {
+  const credentials = await credentialsOf(request, env);
+  if (!credentials) return problem(401, "Not signed in");
+  const deletion = parseAccountDeletion(await jsonBodyOf(request));
+  if (typeof deletion === "string") return problem(422, deletion);
+  const { currentPassword, name } = deletion;
+  const check = await workspace(env).accountDeletionCheck(credentials, request.headers.get("CF-Connecting-IP") ?? "unknown");
+  if (!check) return problem(401, "Not signed in");
+  if (check === "limited") return problem(429, SIGN_IN_LIMITED);
+  if (check === "only administrator") return problem(409, ONLY_ADMINISTRATOR);
+  if (check.passwordDigest !== null) {
+    if (!currentPassword) return problem(422, DELETION_PASSWORD_NEEDED);
+    // One longer than the form takes is nobody's, as at sign-in.
+    if (isPasswordTooLong(currentPassword) || !(await passwordHasher(env).verify(currentPassword, check.passwordDigest)).matches) return problem(422, CURRENT_PASSWORD_WRONG);
+  }
+  const deleted = await workspace(env).deleteAccount(credentials, check.passwordDigest, name);
+  if (!deleted) return problem(401, "Not signed in");
+  if (deleted === "password needed") return problem(422, currentPassword ? CURRENT_PASSWORD_WRONG : DELETION_PASSWORD_NEEDED);
+  if (deleted === "name needed") return problem(422, DELETION_NAME_NEEDED);
+  if (deleted === "only administrator") return problem(409, ONLY_ADMINISTRATOR);
+  return new Response(null, { status: 204, headers: { "Set-Cookie": expiredSessionCookie(request) } });
 }
 
 /**
@@ -829,6 +885,32 @@ async function dismissInvitation(request: Request, env: Env): Promise<Response> 
 }
 
 /**
+ * Stops an invitation into room `roomId`'s huddle ringing in every tab of the signed-in person's, as
+ * joining from it or declining it in one of them does, answering 204. Nothing is kept of an invitation,
+ * so it answers the same for a room with none.
+ */
+async function answerHuddleInvitation(request: Request, env: Env, roomId: RoomId): Promise<Response> {
+  const credentials = await credentialsOf(request, env);
+  const answered = credentials !== null && (await workspace(env).answerHuddleInvitation(credentials, roomId));
+  return answered ? new Response(null, { status: 204 }) : problem(401, "Not signed in");
+}
+
+/**
+ * `PATCH /api/users/me/huddle-sounds`, `{ music?, chimes?, ring? }`: turns a huddle's music, its sounds
+ * of someone joining and leaving, or an invitation's ring on or off for the signed-in person, as the
+ * switches on their profile do, one it leaves out staying as it is, answering which they hear then:
+ * 422 for one that's neither true nor false.
+ */
+async function changeHuddleSounds(request: Request, env: Env): Promise<Response> {
+  const credentials = await credentialsOf(request, env);
+  if (!credentials) return problem(401, "Not signed in");
+  const changes = parseHuddleSoundChanges(await jsonBodyOf(request));
+  if (typeof changes === "string") return problem(422, changes);
+  const sounds = await workspace(env).setHuddleSounds(credentials, changes);
+  return sounds ? json({ sounds } satisfies HuddleSoundsChanged) : problem(401, "Not signed in");
+}
+
+/**
  * Everyone in the workspace, deactivated and banned people too, with their avatars' addresses, for
  * the app to show people by, but the AI agents only administrators' direct messages reach, which only
  * an administrator is listed. No cache keeps it, as none keeps the sidebar, so the app keeps its own copy.
@@ -860,7 +942,7 @@ async function showPerson(request: Request, env: Env, userId: UserId): Promise<R
   if (!found) return problem(401, "Not signed in");
   if (found === "not found") return problem(404, "Not found");
   const [shown] = await directoryOf([found.person], env.SESSION_SECRET);
-  const transferId = found.transfer ? await newTransferId(found.transfer, env.SESSION_SECRET, Date.now()) : undefined;
+  const transferId = found.transfer ? await newTransferId(found.transfer, env.SESSION_SECRET) : undefined;
   return json({ person: shown!, transferId, ...(found.agent && { agent: found.agent }) } satisfies PersonAnswer, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -921,7 +1003,8 @@ async function createRoom(request: Request, env: Env): Promise<Response> {
 
 /**
  * Starts a DM with the people it names, or opens the one they have, as New direct message does: 201 for
- * a new DM and 200 for one they had, and 403 when it names someone else's personal agent.
+ * a new DM and 200 for one they had, or 403 for a new one with someone who has blocked you, which says
+ * only that they aren't taking direct messages, and 403 when it names someone else's personal agent.
  */
 async function startDirect(request: Request, env: Env): Promise<Response> {
   const credentials = await credentialsOf(request, env);
@@ -931,6 +1014,7 @@ async function startDirect(request: Request, env: Env): Promise<Response> {
   const started = await workspace(env).startDirect(credentials, direct.userIds);
   if (!started) return problem(401, "Not signed in");
   if (started === "agent") return problem(403, AGENT_DIRECT_REFUSED);
+  if ("refusedBy" in started) return problem(403, notTakingDirects(started.refusedBy));
   return json({ room: started.room } satisfies StartedDirect, { status: started.started ? 201 : 200 });
 }
 
@@ -1215,7 +1299,9 @@ function apiAction(request: Request, env: Env, pathname: string): (() => Respons
   if (pathname === "/api/sidebar/order" && request.method === "PUT") return () => setFavoriteOrder(request, env);
   if (pathname === "/api/users/me/profile" && request.method === "GET") return () => profile(request, env);
   if (pathname === "/api/users/me/profile" && request.method === "PATCH") return () => changeProfile(request, env);
+  if (pathname === "/api/users/me" && request.method === "DELETE") return () => deleteAccount(request, env);
   if (pathname === "/api/users/me/assistant" && request.method === "PATCH") return () => changeYourAssistant(request, env);
+  if (pathname === "/api/users/me/huddle-sounds" && request.method === "PATCH") return () => changeHuddleSounds(request, env);
   const ownAppSignIn = pathname.match(/^\/api\/users\/me\/apps\/([^/]+)\/sign-in$/);
   if (ownAppSignIn && request.method === "POST") return () => beginOwnAppSignIn(request, env, ownAppSignIn[1]!);
   if (ownAppSignIn && request.method === "DELETE") return () => signOutOfApp(request, env, ownAppSignIn[1]!);
@@ -1232,6 +1318,9 @@ function apiAction(request: Request, env: Env, pathname: string): (() => Respons
   const ban = pathname.match(/^\/api\/users\/([^/]+)\/ban$/);
   if (ban && request.method === "POST") return () => banPerson(request, env, segmentText(ban[1]!));
   if (ban && request.method === "DELETE") return () => unbanPerson(request, env, segmentText(ban[1]!));
+  const blocking = pathname.match(/^\/api\/users\/([^/]+)\/block$/);
+  if (blocking && request.method === "POST") return () => block(request, env, segmentText(blocking[1]!));
+  if (blocking && request.method === "DELETE") return () => unblock(request, env, segmentText(blocking[1]!));
   if (pathname === "/api/socket") return () => connectToWorkspace(request, env);
   if (pathname === "/api/rooms" && request.method === "POST") return () => createRoom(request, env);
   if (pathname === "/api/rooms/new" && request.method === "GET") return () => newRoomForm(request, env);
@@ -1270,6 +1359,9 @@ function apiAction(request: Request, env: Env, pathname: string): (() => Respons
   }
   const huddle = pathname.match(/^\/api\/rooms\/([^/]+)\/huddle$/);
   if (huddle) return () => (isRoomId(huddle[1]!) ? connectToRoom(request, env, huddle[1]!, true) : problem(404, ROOM_NOT_FOUND));
+  const huddleInvitation = pathname.match(/^\/api\/rooms\/([^/]+)\/huddle\/invitation$/);
+  if (huddleInvitation && request.method === "DELETE")
+    return () => (isRoomId(huddleInvitation[1]!) ? answerHuddleInvitation(request, env, huddleInvitation[1]!) : problem(404, ROOM_NOT_FOUND));
   const settings = pathname.match(/^\/api\/rooms\/([^/]+)\/settings$/);
   if (settings && request.method === "GET") return () => (isRoomId(settings[1]!) ? roomSettings(request, env, settings[1]!) : problem(404, ROOM_NOT_FOUND));
   const roomExport = pathname.match(/^\/api\/rooms\/([^/]+)\/export$/);
