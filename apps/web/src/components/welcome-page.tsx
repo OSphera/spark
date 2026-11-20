@@ -16,7 +16,7 @@ import { rememberThisPage } from "@/lib/return-path";
 // picture, the name Memberful gave Ember, and a username made from it, each theirs to change.
 
 const SIGN_IN_PATH = "/session/new";
-const NO_CONNECTION = "Couldn't reach Ember. Check your connection and try again.";
+const NO_CONNECTION = "Couldn't reach Spark. Check your connection and try again.";
 
 interface Props {
   me: Me;

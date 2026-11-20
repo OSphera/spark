@@ -172,7 +172,7 @@ const page = (title: string, translations: boolean) => `<!DOCTYPE html>
           <h1>Upgrade to a supported web browser</h1>
           <div class="message">
             ${translations ? globe : ""}
-            <p>Ember requires a modern web browser. Please use one of the browsers listed below and make sure auto-updates are enabled.</p>
+            <p>Spark requires a modern web browser. Please use one of the browsers listed below and make sure auto-updates are enabled.</p>
           </div>
         </header>
         <div class="browser-list">
@@ -197,7 +197,7 @@ const scriptHashes = new Map<boolean, Promise<string[]>>();
  * globe once the workspace shows translation buttons.
  */
 export async function unsupportedBrowserPage(request: Request, env: Env): Promise<Response> {
-  const title = isAppleMessages(request.headers.get("User-Agent")) ? "Ember" : "Unsupported browser";
+  const title = isAppleMessages(request.headers.get("User-Agent")) ? "Spark" : "Unsupported browser";
   const account = await workspace(env).account();
   const translations = account?.hideTranslationButtons === false;
   let hashes = scriptHashes.get(translations);

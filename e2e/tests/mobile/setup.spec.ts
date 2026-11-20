@@ -26,7 +26,7 @@ test.beforeEach(async ({ page, baseURL }) => {
 
 test("the Set up Ember screen fits the phone", async ({ page, screenIsFine }) => {
   await page.goto("/first_run");
-  await expect(page.getByRole("heading", { name: "Set up Ember" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Set up Spark" })).toBeVisible();
   await screenIsFine();
 });
 

@@ -57,8 +57,8 @@ test.describe("Set up the workspace", () => {
     // Without the link, the page says to open it, and the form's post is refused before it's read.
     await page.goto("/");
     await expect(page).toHaveURL(/\/first_run$/);
-    await expect(page).toHaveTitle("Set up Ember");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Set up Ember");
+    await expect(page).toHaveTitle("Set up Spark");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Set up Spark");
     await expect(page.getByText("Ember is waiting for its administrator.")).toBeVisible();
     await expect(page.getByText(`${new URL(page.url()).origin}/first_run#token=…`)).toBeVisible();
     await expect(page.getByLabel("Name")).toHaveCount(0);
@@ -110,7 +110,7 @@ test.describe("Set up the workspace", () => {
     // The workspace is made, and before it opens, setup asks about huddles, still at its own address.
     await expect(page.getByRole("heading", { level: 1, name: "Would you like to enable audio and video chat?" })).toBeFocused();
     await expect(page).toHaveURL(/\/first_run$/);
-    await expect(page).toHaveTitle("Set up Ember");
+    await expect(page).toHaveTitle("Set up Spark");
     const withHuddles = test.info().project.name === SETTINGS_FIRST_RUN;
     if (withHuddles) await setUpHuddles(page);
     else await page.getByRole("button", { name: "Not now" }).click();

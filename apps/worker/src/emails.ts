@@ -14,12 +14,12 @@ const htmlOf = (paragraphs: string[]) =>
 
 /** The email Send me a test email sends an administrator, at `to`, from the workspace named `workspace`, whose Ember is at `origin`. */
 export function testEmail(to: string, workspace: string, origin: string): Email {
-  const name = oneLine(workspace) || "Ember";
+  const name = oneLine(workspace) || "Spark";
   return {
     to,
     subject: `Test email from ${name}`,
-    text: `This is a test email from ${name}, at ${origin}.\n\nIt reached you, so Ember can send email.\n`,
-    html: htmlOf([`This is a test email from ${escapeHtml(name)}, at <a href="${escapeHtml(origin)}">${escapeHtml(origin)}</a>.`, "It reached you, so Ember can send email."]),
+    text: `This is a test email from ${name}, at ${origin}.\n\nIt reached you, so Spark can send email.\n`,
+    html: htmlOf([`This is a test email from ${escapeHtml(name)}, at <a href="${escapeHtml(origin)}">${escapeHtml(origin)}</a>.`, "It reached you, so Spark can send email."]),
   };
 }
 
@@ -28,7 +28,7 @@ export function testEmail(to: string, workspace: string, origin: string): Email 
  * `inviter`, with `link`, the invitation's, which joins with that address once, for `INVITATION_DAYS` days.
  */
 export function invitationEmail(to: string, workspace: string, inviter: string, link: string): Email {
-  const name = oneLine(workspace) || "Ember";
+  const name = oneLine(workspace) || "Spark";
   const who = oneLine(inviter) || "An administrator";
   const terms = (address: string) => `The link works once, for ${INVITATION_DAYS} days, and joins with ${address}. If you weren't expecting this, you can ignore it.`;
   return {
@@ -45,7 +45,7 @@ export function invitationEmail(to: string, workspace: string, inviter: string, 
  * hour.
  */
 export function emailDomainLinkEmail(to: string, workspace: string, link: string): Email {
-  const name = oneLine(workspace) || "Ember";
+  const name = oneLine(workspace) || "Spark";
   const terms = (address: string) => `The link works once, for an hour, and joins with ${address}. If you didn't ask for it, you can ignore this email: nobody joins without the link.`;
   return {
     to,
@@ -62,7 +62,7 @@ export function emailDomainLinkEmail(to: string, workspace: string, link: string
  * phone shows anyone.
  */
 export function passwordResetCodeEmail(to: string, workspace: string, code: string): Email {
-  const name = oneLine(workspace) || "Ember";
+  const name = oneLine(workspace) || "Spark";
   const asked = (workspaceName: string) => `Someone asked to reset the password for this email address at ${workspaceName}.`;
   const use = `Enter it within ${PASSWORD_RESET_CODE_MINUTES} minutes, with a new password, where you asked for it. Don't give it to anyone.`;
   const ignore = "If you didn't ask, you can ignore this email: your password stays as it is.";
@@ -80,7 +80,7 @@ export function passwordResetCodeEmail(to: string, workspace: string, code: stri
  * says the same whoever has an account.
  */
 export function alreadyAMemberEmail(to: string, workspace: string, signIn: string): Email {
-  const name = oneLine(workspace) || "Ember";
+  const name = oneLine(workspace) || "Spark";
   const asked = (workspaceName: string) => `Someone asked to join ${workspaceName} with this email address, which has an account there already.`;
   return {
     to,

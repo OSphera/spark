@@ -82,7 +82,7 @@ export function SignInPage({ workspace, onSignedIn }: { workspace: SignedOutWork
       setConnection(answer.memberfulConnection);
     } catch (error) {
       setBusy(false);
-      if (!(error instanceof ApiError)) return setProblem("Couldn't reach Ember. Check your connection and try again.");
+      if (!(error instanceof ApiError)) return setProblem("Couldn't reach Spark. Check your connection and try again.");
       if (passwordInput.current) passwordInput.current.value = "";
       // A member whose password is right, and who has connected Memberful, hears that they sign in with it.
       setRefusal(error.status === 403 ? error.message : error.status === 429 ? SIGN_IN_LIMITED : SIGN_IN_REJECTED);

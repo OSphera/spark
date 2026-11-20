@@ -209,7 +209,7 @@ describe("Sending email", () => {
         from: { name: "Ember Team", email: "chat@example.com" },
         to: "ada@example.com",
         subject: "Test email from Ember",
-        text: "This is a test email from Ember, at https://ember.test.\n\nIt reached you, so Ember can send email.\n",
+        text: "This is a test email from Ember, at https://ember.test.\n\nIt reached you, so Spark can send email.\n",
         html: expect.stringContaining('<a href="https://ember.test">https://ember.test</a>') as unknown,
       },
       expect.objectContaining({ from: { name: "Ember", email: "chat@example.com" }, to: "ada@example.com" }),
@@ -304,8 +304,8 @@ describe("Sending email", () => {
       from: '"Acme, Inc." <chat@acme.example>',
       to: ["ada@example.com"],
       subject: "Test email from Ember",
-      text: "This is a test email from Ember, at https://ember.test.\n\nIt reached you, so Ember can send email.\n",
-      html: expect.stringContaining("It reached you, so Ember can send email.") as unknown,
+      text: "This is a test email from Ember, at https://ember.test.\n\nIt reached you, so Spark can send email.\n",
+      html: expect.stringContaining("It reached you, so Spark can send email.") as unknown,
     });
   });
 

@@ -29,7 +29,7 @@ test.describe("Supported browsers", () => {
       await page.goto("/");
       await expect(page).toHaveTitle("Unsupported browser");
       await expect(upgradeHeading(page)).toBeVisible();
-      await expect(page.getByText("Ember requires a modern web browser.")).toBeVisible();
+      await expect(page.getByText("Spark requires a modern web browser.")).toBeVisible();
       await expect(page.locator(".browser")).toHaveText(["Safari 17.2+", "Chrome 120+", "Firefox 121+", "Opera 104+"]);
       for (const logo of await page.locator(".browser img").all()) {
         await expect.poll(() => logo.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
@@ -64,7 +64,7 @@ test.describe("Supported browsers", () => {
 
     test("previews a link as Ember rather than as a warning", async ({ page }) => {
       await page.goto("/rooms/general");
-      await expect(page).toHaveTitle("Ember");
+      await expect(page).toHaveTitle("Spark");
       await expect(upgradeHeading(page)).toBeVisible();
     });
   });

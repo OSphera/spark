@@ -373,7 +373,7 @@ describe("Set up the workspace", () => {
     history.replaceState(null, "", "/first_run");
     serve({ signedIn: false, setup: "pending", setupAccess: "link" });
     render(<App />);
-    expect(await screen.findByText("Ember is waiting for its administrator.")).toBeInTheDocument();
+    expect(await screen.findByText("Spark is waiting for its administrator.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
   });
 

@@ -155,7 +155,7 @@ test.describe("Sign in with a display name", () => {
   test("signs in with a display name and opens the first room", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: "Join with just a name" }).click();
-    await expect(page.getByRole("heading", { name: "Welcome to Ember" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Welcome to Spark" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Join" })).toBeDisabled();
 
     await page.getByLabel("Your name").fill("  Ada Lovelace  ");

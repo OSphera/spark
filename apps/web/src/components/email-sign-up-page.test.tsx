@@ -119,20 +119,20 @@ describe("Join with an email domain", () => {
     open();
     expect(document.title).toBe("Sign up");
     expect(screen.getByRole("heading", { level: 1, name: "Join Analytical Engines" })).toBeInTheDocument();
-    expect(screen.getByText("Enter your email address, and Ember will email you a link to join with it.")).toBeInTheDocument();
+    expect(screen.getByText("Enter your email address, and Spark will email you a link to join with it.")).toBeInTheDocument();
     expect(emailField()).toHaveAccessibleDescription("Addresses at example.org or example.com can join.");
     expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute("href", "/session/new");
 
     await ask();
     expect(await screen.findByRole("heading", { level: 1, name: "Check your email" })).toBeInTheDocument();
-    expect(screen.getByText(/^Ember emailed hal@example\.org\. Open the link in that email to go on\./)).toBeInTheDocument();
+    expect(screen.getByText(/^Spark emailed hal@example\.org\. Open the link in that email to go on\./)).toBeInTheDocument();
     expect(fetch).toHaveBeenCalledExactlyOnceWith("/api/email_links", expect.objectContaining({ method: "POST", body: JSON.stringify({ emailAddress: "hal@example.org" }) }));
 
     await userEvent.click(screen.getByRole("button", { name: "Ask again" }));
     expect(emailField()).toHaveValue("hal@example.org");
   });
 
-  it("waits for Turnstile's check while Ember has a widget's keys, sending its token, and draws it afresh to ask again", async () => {
+  it("waits for Turnstile's check while Spark has a widget's keys, sending its token, and draws it afresh to ask again", async () => {
     const fetch = serve(emailed);
     const { turnstile, pass } = fakeTurnstile();
     open("/join/email", checked);
@@ -172,7 +172,7 @@ describe("Join with an email domain", () => {
     { status: 429, error: EMAIL_LINKS_LIMITED },
     { status: 503, error: CANT_EMAIL_LINKS },
     { status: 502, error: EMAIL_LINK_UNSENT },
-  ])("says why Ember emailed no link, keeping the address typed: $error", async ({ status, ...body }) => {
+  ])("says why Spark emailed no link, keeping the address typed: $error", async ({ status, ...body }) => {
     serve(() => Response.json(body, { status }));
     open();
     await ask("hal@example.net");
@@ -181,11 +181,11 @@ describe("Join with an email domain", () => {
     expect(screen.queryByRole("heading", { name: "Check your email" })).not.toBeInTheDocument();
   });
 
-  it("says so when it can't reach Ember", async () => {
+  it("says so when it can't reach Spark", async () => {
     serve(unreachable);
     open();
     await ask();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't reach Ember. Check your connection and try again.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't reach Spark. Check your connection and try again.");
     expect(emailMe()).toBeEnabled();
   });
 
@@ -287,7 +287,7 @@ describe("Join with an email domain", () => {
     expect(location.hash).toBe("");
   });
 
-  it("asks again when it can't reach Ember to look a link up, waiting longer each time", async () => {
+  it("asks again when it can't reach Spark to look a link up, waiting longer each time", async () => {
     vi.useFakeTimers();
     const fetch = serve(unreachable, () => Response.json({ error: "Something went wrong" }, { status: 500 }), forHal);
     open(`/join/email#token=${TOKEN}`);

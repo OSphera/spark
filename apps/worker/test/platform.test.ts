@@ -323,7 +323,7 @@ describe("Supported browsers", () => {
 
   it("lists the browsers Ember supports, with Campfire's icons", async () => {
     const html = await (await page("/", as(INTERNET_EXPLORER))).text();
-    expect(html).toContain("Ember requires a modern web browser. Please use one of the browsers listed below and make sure auto-updates are enabled.");
+    expect(html).toContain("Spark requires a modern web browser. Please use one of the browsers listed below and make sure auto-updates are enabled.");
     const listed = [...html.matchAll(/<img src="(\/browsers\/\w+\.svg)" alt="" aria-hidden="true"><div><strong>(\w+)<\/strong><span> ([\d.]+\+)<\/span>/g)].map((match) => match.slice(1));
     expect(listed).toEqual([
       ["/browsers/safari.svg", "Safari", "17.2+"],
@@ -333,9 +333,9 @@ describe("Supported browsers", () => {
     ]);
   });
 
-  it('titles the page "Ember" for Apple Messages\' link previews', async () => {
+  it('titles the page "Spark" for Apple Messages\' link previews', async () => {
     const html = await (await page("/join/AAAA-BBBB-CCCC", as(APPLE_MESSAGES))).text();
-    expect(html).toContain("<title>Ember</title>");
+    expect(html).toContain("<title>Spark</title>");
     expect(html).toContain("Upgrade to a supported web browser");
   });
 
@@ -376,7 +376,7 @@ describe("Translation buttons", () => {
     expect(await upgradePageScripts()).toHaveLength(2);
     const listed = listedIn(html);
     expect(listed.map(([flag]) => flag)).toEqual(["🇺🇸", "🇪🇸", "🇫🇷", "🇮🇳", "🇩🇪", "🇧🇷", "🇯🇵"]);
-    expect(listed[0]![1]).toBe("Upgrade to a supported web browser. Ember requires a modern web browser. Please use one of the browsers listed below and make sure auto-updates are enabled.");
+    expect(listed[0]![1]).toBe("Upgrade to a supported web browser. Spark requires a modern web browser. Please use one of the browsers listed below and make sure auto-updates are enabled.");
     // Escaped.
     expect(listed[2]![1]).toContain("Veuillez utiliser l&#39;un des navigateurs");
 

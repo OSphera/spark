@@ -24,7 +24,7 @@ describe("Web app manifest", () => {
     expect(await manifest()).toMatchObject({ name: "Analytical Engines" });
   });
 
-  it("lists Ember's icons and screenshots and Campfire's shortcuts, colors and categories, with this project's description", async () => {
+  it("lists Spark's icons and screenshots and Campfire's shortcuts, colors and categories, with this project's description", async () => {
     expect(await manifest()).toEqual({
       name: "Ember",
       icons: [
@@ -40,11 +40,11 @@ describe("Web app manifest", () => {
       theme_color: "#ffffff",
       background_color: "#ffffff",
       shortcuts: [
-        { name: "New chat room", description: "Open Ember and start a new chat room", url: "rooms/opens/new", icons: [{ src: "/shortcuts/plus.svg", sizes: "any" }] },
-        { name: "My profile", description: "Open Ember and view your profile", url: "/users/me/profile", icons: [{ src: "/shortcuts/user.svg", sizes: "any" }] },
+        { name: "New chat room", description: "Open Spark and start a new chat room", url: "rooms/opens/new", icons: [{ src: "/shortcuts/plus.svg", sizes: "any" }] },
+        { name: "My profile", description: "Open Spark and view your profile", url: "/users/me/profile", icons: [{ src: "/shortcuts/user.svg", sizes: "any" }] },
       ],
       screenshots: [
-        { src: "/screenshots/chat.png", sizes: "1080x2400", form_factor: "narrow", label: "Ember is an installable, self-hosted group chat system." },
+        { src: "/screenshots/chat.png", sizes: "1080x2400", form_factor: "narrow", label: "Spark is an installable, self-hosted group chat system." },
         { src: "/screenshots/sidebar.png", sizes: "1080x2400", form_factor: "narrow", label: "Easily invite people. Make rooms. @mentions, DMs, and mobile support." },
         { src: "/screenshots/dark-mode.png", sizes: "1080x2400", form_factor: "narrow", label: "Full support for dark mode, customizable to your brand." },
       ],
