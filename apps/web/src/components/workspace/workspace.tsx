@@ -1,28 +1,30 @@
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useReducer, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { ASSISTANT_ID, searchOfQuery, startingInvolvement, type Account, type AccountDeletion, type Blocks, type DirectRoom, type Favorites, type Me, type Room, type RoomId, type SidebarRoom, type User, type UserId } from "@ember/protocol";
+import { ASSISTANT_ID, searchOfQuery, startingInvolvement, type Account, type AccountDeletion, type Blocks, type DirectRoom, type Favorites, type Me, type Room, type RoomId, type SavedRoomLayout, type SidebarRoom, type SidebarSection, type User, type UserId } from "@ember/protocol";
 import { ALL_HUDDLE_SOUNDS, CAMERAS_OFF, SCREENS_OFF } from "@ember/protocol/huddles";
 import { useFlash } from "@/components/flash";
 import { Xmark } from "@/components/icons/iconoir";
 import { MainContent, SkipLink } from "@/components/main-content";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { useAccount, useCamerasAllowed, useScreensAllowed } from "@/hooks/use-account";
+import { useAccount, useCamerasAllowed, useHuddleVideo, useScreensAllowed } from "@/hooks/use-account";
 import { useAppBadge } from "@/hooks/use-app-badge";
 import { BlockingContext, type Blocking } from "@/hooks/use-blocking";
 import { ActivePeople, DirectoryLoaded, PeopleContext, useDirectory } from "@/hooks/use-directory";
 import { useHuddle } from "@/hooks/use-huddle";
 import { useMounted } from "@/hooks/use-mounted";
 import { useReleaseCheck } from "@/hooks/use-release-check";
+import { ReportingContext, type OpenReport, type ReportTarget } from "@/hooks/use-reporting";
 import { useSidebar } from "@/hooks/use-sidebar";
 import { agentsToAsk } from "@/lib/agents";
 import { answerHuddleInvitation, ApiError, changeBlock, dismissInvitation, isSignedOut, startDirect } from "@/lib/api";
 import { invitationsReducer, NO_INVITATIONS } from "@/lib/huddle-invitations";
 import { hasHuddles } from "@/lib/huddle-people";
-import { hearHuddle, hearSounds, leaveHuddle, muteHuddle, OPEN_HUDDLE, openHuddle, shareHuddleScreen, showHuddleCamera } from "@/lib/huddle-store";
+import { hearHuddle, hearSounds, leaveHuddle, muteHuddle, OPEN_HUDDLE, openHuddle, sendVideoAt, shareHuddleScreen, showHuddleCamera } from "@/lib/huddle-store";
 import { whenIdle } from "@/lib/idle";
 import { opensFind, opensShortcuts, togglesHuddle, togglesMute } from "@/lib/keyboard";
 import { lastRoomVisited } from "@/lib/last-room";
 import { takeMemberfulFlash } from "@/lib/memberful";
+import { takeSsoFlash } from "@/lib/sso";
 import { loadPage } from "@/lib/page";
 import { updateOf } from "@/lib/release-check";
 import { isQuietWelcome, markedUnread } from "@/lib/room-list";
@@ -79,6 +81,7 @@ const RARE_PAGES = new Set<Route["page"]>([
   "push-subscriptions",
   "person",
   "search",
+  "huddles",
 ]);
 
 /**
@@ -90,11 +93,11 @@ export function loadPageAhead(pathname: string): Promise<unknown> {
 }
 
 /**
- * What the rail marks on each page: the logo and Home at home, Home on a room's page and the pages that
- * go on to one, Search on search, Admin or Workspace on every page of community settings (a room's
- * forms, the bot and agent pages and the Custom CSS page among them), your avatar on your profile, and nothing on
- * a DM's settings or your push subscriptions, whose addresses none of its links have, nor on New direct
- * message's, which goes on to the last room visited at once.
+ * What the rail marks on each page: the logo and Home at home, Home on a room's page, the pages that
+ * go on to one and the Huddles page, Search on search, Admin or Workspace on every page of community
+ * settings (a room's forms, the bot and agent pages and the Custom CSS page among them), your avatar on
+ * your profile, and nothing on a DM's settings or your push subscriptions, whose addresses none of its
+ * links have, nor on New direct message's, which goes on to the last room visited at once.
  */
 const RAIL_PAGES = {
   home: "home",
@@ -120,6 +123,7 @@ const RAIL_PAGES = {
   "push-subscriptions": null,
   person: null,
   search: "search",
+  huddles: "room",
 } as const satisfies Record<Route["page"], RailPage>;
 
 /** Loads the page shown again, for the Worker to answer it with Campfire's 404 page, as it does for someone nobody is. */
@@ -131,10 +135,11 @@ interface Redirect {
   alert?: string;
 }
 
-/** The rooms, stars and shared order of someone whose rooms haven't loaded yet. */
+/** The rooms, stars, shared order and sections of someone whose rooms haven't loaded yet. */
 const NO_ROOMS: SidebarRoom[] = [];
 const NO_FAVORITES: Favorites = { rooms: [], version: 0 };
 const NO_ORDER: RoomId[] = [];
+const NO_SECTIONS: SidebarSection[] = [];
 const NO_BLOCKS: Blocks = { userIds: [], version: 0 };
 
 /** What the page shows while its rooms, or the page itself, load. */
@@ -285,7 +290,7 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
   const directory = useDirectory();
   // The invitations into huddles that ring in this tab, as the workspace socket brings them and says they're answered.
   const [invitations, changeInvitations] = useReducer(invitationsReducer, NO_INVITATIONS);
-  const { list, answered, change: changeRooms, refresh, askForRoom, askForHuddleSounds, active } = useSidebar(me, onSessionChanged, directory, accountHeard, shownRoomGone, changeInvitations);
+  const { list, answered, change: changeRooms, refresh, askForRoom, askForHuddleSounds, active, huddleChanges, reportsHeard: heard } = useSidebar(me, onSessionChanged, directory, accountHeard, shownRoomGone, changeInvitations);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // New direct message, while it's open, with the link that opened it, which gets focus back, or null
   // when its address did.
@@ -301,12 +306,16 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
   // On a page of community settings, the links to their sections take the conversations' place.
   const section = settingsSectionOf(route, hash);
   const administrator = me.administrator;
-  const settings = useMemo<SettingsPlace | null>(() => section && { section, administrator }, [section, administrator]);
+  // How many reports are open, which only an administrator's sidebar says, and how many times it has said.
+  const openReports = administrator ? (list?.openReports ?? 0) : 0;
+  const reportsHeard = administrator ? heard : 0;
+  const settings = useMemo<SettingsPlace | null>(() => section && { section, administrator, openReports, reportsHeard }, [section, administrator, openReports, reportsHeard]);
 
   const rooms = list?.rooms ?? null;
   const invitation = list?.invitation ?? null;
   const favorites = list?.favorites ?? NO_FAVORITES;
   const sharedOrder = list?.sharedOrder ?? NO_ORDER;
+  const sections = list?.sections ?? NO_SECTIONS;
   const starred = useMemo(() => new Set(favorites.rooms), [favorites]);
 
   // Crossing 900px, as a big phone does on its side, closes the drawer.
@@ -353,6 +362,13 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
   };
   const agents = useMemo(() => (directory.loaded ? agentsToAsk(directory.people.values(), me) : 0), [directory.loaded, directory.people, me]);
 
+  // Report, while it's open, with what had focus as it opened, which gets it back unless what opened it says what does.
+  const [reporting, setReporting] = useState<{ target: ReportTarget; opener: HTMLElement | null; returnFocus?: () => void } | null>(null);
+  const openReport = useCallback<OpenReport>(
+    (target, returnFocus) => setReporting({ target, opener: document.activeElement instanceof HTMLElement ? document.activeElement : null, returnFocus }),
+    [],
+  );
+
   // The search box, while it's open, with what it opened with. On a phone, the drawer closes as it opens.
   const [searchBox, setSearchBox] = useState<SearchBoxOptions | null>(null);
   const openSearch = useCallback((options: SearchBoxOptions) => {
@@ -395,6 +411,10 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
   useEffect(() => hearSounds(soundsHeard), [soundsHeard]);
   // An invitation's ring is one of them, which waits for the server's list to say they hear it.
   const ringless = inAHuddle || !answered || !soundsHeard.ring;
+  // The cameras turned on and the screens shared in this tab's huddles go out at the workspace's video
+  // quality as it is then, which an administrator changes for everyone.
+  const huddleVideo = useHuddleVideo();
+  useEffect(() => sendVideoAt(huddleVideo), [huddleVideo]);
 
   const flash = useFlash();
   const mounted = useMounted();
@@ -433,10 +453,10 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
     leaveHuddle();
     flash("alert", "Huddles have been turned off in this room.");
   }, [inHuddleUnallowed, flash]);
-  // What connecting a Memberful account came to, as the address Memberful sent this browser back to says.
+  // What connecting a Memberful account, or one at the single sign-on provider, came to, as the address
+  // the browser was sent back to says.
   useEffect(() => {
-    const message = takeMemberfulFlash();
-    if (message) flash(message.kind, message.text);
+    for (const message of [takeMemberfulFlash(), takeSsoFlash()]) if (message) flash(message.kind, message.text);
   }, [flash]);
   // A session that's ended goes to sign in; anything else is an alert. Once another person's workspace
   // has taken this one's place, as another tab signing in makes it, what this one's pages hear is
@@ -492,6 +512,13 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
     },
     [failed],
   );
+  const reportFailed = useCallback(
+    (error: unknown) => {
+      setReporting(null);
+      failed(error);
+    },
+    [failed],
+  );
   // A room just saved takes its place in the list, and one that's gone leaves it.
   const listRoom = useCallback((room: Room) => changeRooms({ type: "saved", room }), []);
   const unlistRoom = useCallback((roomId: RoomId) => changeRooms({ type: "gone", roomId }), []);
@@ -529,13 +556,22 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
   // Whom you've blocked, by a key that stays the same while they do, so a list loaded again renders no message again.
   const blockedKey = JSON.stringify((list?.blocks ?? NO_BLOCKS).userIds);
   const blocking = useMemo<Blocking>(() => ({ blocked: new Set(JSON.parse(blockedKey) as UserId[]), setBlocked }), [blockedKey, setBlocked]);
+  // The sidebar loads again at once for the administrator who made, renamed or deleted a section, as it
+  // does soon for everyone else.
+  const reloadSections = useCallback(
+    () =>
+      refresh().catch((error) => {
+        if (mounted.current && isSignedOut(error)) onSessionChanged(null);
+      }),
+    [refresh, onSessionChanged, mounted],
+  );
   // A save's answer can come after a newer order has loaded, so the rooms load again once it's taken.
   const reorderedRooms = useCallback(
-    (sharedOrder: RoomId[]) => {
-      changeRooms({ type: "reordered", sharedOrder });
-      void refresh().catch((error) => mounted.current && isSignedOut(error) && onSessionChanged(null));
+    ({ sharedOrder, sections }: SavedRoomLayout) => {
+      changeRooms({ type: "reordered", sharedOrder, sections });
+      void reloadSections();
     },
-    [refresh, onSessionChanged, mounted],
+    [reloadSections],
   );
 
   // A room found gone while it's shown stays on screen to say so until another page shows, whether its
@@ -735,7 +771,7 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
   // once the server's list has come: the empty one a failed first load leaves knows nothing of what's unread.
   useAppBadge(answered ? activity.unread : null);
   const rail = (
-    <Rail me={me} workspaceName={workspaceName} current={RAIL_PAGES[route.page]} activity={activity} newRelease={newRelease} onNewDirect={openNewDirect} />
+    <Rail me={me} workspaceName={workspaceName} current={RAIL_PAGES[route.page]} activity={activity} newRelease={newRelease} openReports={openReports} onNewDirect={openNewDirect} />
   );
   const sidebar = (
     <Sidebar
@@ -745,7 +781,9 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
       loaded={rooms !== null}
       favorites={favorites}
       sharedOrder={sharedOrder}
+      sections={sections}
       huddles={huddlesOn ? liveHuddles : NO_HUDDLES}
+      onHuddles={route.page === "huddles"}
       currentRoomId={currentRoomId}
       unreadOnly={unreadOnly}
       agents={agents}
@@ -794,7 +832,9 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
             onFailed={failed}
             rooms={rooms}
             sharedOrder={sharedOrder}
+            sections={sections}
             onSharedOrderSaved={reorderedRooms}
+            onSectionsChanged={reloadSections}
             onSessionChanged={onSessionChanged}
             release={release}
             onCheckForUpdates={checkForUpdates}
@@ -805,10 +845,10 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
       case "bots":
         return rarePage(({ BotsPage }) => <BotsPage onFailed={failed} />);
       case "new-bot":
-        return rarePage(({ NewBotPage }) => <NewBotPage me={me} onFailed={failed} />);
+        return rarePage(({ NewBotPage }) => <NewBotPage me={me} rooms={rooms} onFailed={failed} />);
       case "bot-settings":
         return rarePage(({ BotSettingsPage }) => (
-          <BotSettingsPage key={route.userId} botId={route.userId} onMissing={showNotFound} onFailed={failed} />
+          <BotSettingsPage key={route.userId} botId={route.userId} rooms={rooms} onMissing={showNotFound} onFailed={failed} />
         ));
       case "new-agent":
         return rarePage(({ NewAgentPage }) => <NewAgentPage me={me} rooms={rooms} onFailed={failed} />);
@@ -841,6 +881,8 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
         return rarePage(({ PushSubscriptionsPage }) => <PushSubscriptionsPage back={back} onFailed={failed} />);
       case "search":
         return rarePage(({ SearchPage }) => <SearchPage me={me} rooms={rooms ?? NO_ROOMS} back={back} onFailed={failed} />);
+      case "huddles":
+        return rarePage(({ HuddlesPage }) => <HuddlesPage me={me} rooms={rooms} changes={huddleChanges} onFailed={failed} />);
       case "person":
         return rarePage(({ PersonPage }) => (
           <PersonPage
@@ -1044,6 +1086,13 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
             />
           )}
           <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
+          {reporting && (
+            <RarePage
+              show={({ ReportDialog }) => <ReportDialog {...reporting} meId={me.id} onClose={() => setReporting(null)} onFailed={reportFailed} />}
+              loading={null}
+              onFailed={reportFailed}
+            />
+          )}
           {searchBox && <SearchBox {...searchBox} me={me} rooms={rooms ?? NO_ROOMS} onClose={() => setSearchBox(null)} onFailed={failed} />}
           {previewed && (
             <RarePage
@@ -1066,7 +1115,9 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
           <SettingsLayout value={settings}>
             <OpenSearchContext value={openSearch}>
               <HuddlesContext value={huddles}>
-                <BlockingContext value={blocking}>{layout}</BlockingContext>
+                <BlockingContext value={blocking}>
+                  <ReportingContext value={openReport}>{layout}</ReportingContext>
+                </BlockingContext>
               </HuddlesContext>
             </OpenSearchContext>
           </SettingsLayout>

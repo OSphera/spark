@@ -275,18 +275,23 @@ const account = (memberful: Partial<Pick<Account, "memberfulJoin" | "memberfulSi
   hideTranslationButtons: true,
   customStyles: "",
   restrictRoomCreation: false,
+  restrictChannelMentions: false,
+  restrictEveryoneMention: false,
   logo: null,
   customDomain: null,
   joinLink: true,
   openSignUp: false,
   memberfulJoin: false,
   memberfulSignIn: false,
+  ssoJoin: false,
+  ssoSignIn: false,
   emailDomainSignUp: false,
   emailDomains: [],
   navigationIcons: {},
   huddles: false,
   huddleCameras: true,
   huddleScreens: true,
+  huddleVideo: "hd",
   ...memberful,
 });
 
@@ -847,6 +852,19 @@ describe("Sign in with Memberful", () => {
         if (made.status === 201) expect(name).toBe(`katherine.${round}`);
         else expect([made.status, name, await made.json()]).toEqual([422, fullName, { error: NAME_TAKEN }]);
       }
+    });
+
+    it("passes over a name with a blocked word, but calls someone new Member even with that blocked", async () => {
+      const administrator = await setUpWithMemberful();
+      const blocked = await api("/api/account", { method: "PATCH", headers: as(administrator), body: JSON.stringify({ blockedWords: ["johnson", "member"] }) });
+      expect(blocked.status).toBe(200);
+      const site = fakeMemberful();
+      expect((await signedInAs(await signInWithMemberful())).name).toBe("katherine");
+      // "Member" is Ember's word, not theirs, so blocking it can't leave them nameless, though their username passes over it.
+      site.member = { ...katherine, id: "4243", email: null };
+      const unnamed = await signedInAs(await signInWithMemberful());
+      expect(unnamed.name).toBe("Member");
+      expect(await workspaceSql("SELECT username FROM users WHERE id = ?", unnamed.id)).toEqual([{ username: "member2" }]);
     });
 
     it("signs nobody in with a state this browser didn't start with, or without a code, and asks Memberful nothing", async () => {
@@ -2180,7 +2198,7 @@ describe("Disconnect Memberful", () => {
     // A millisecond later. One that's refused, as when the password it checked isn't hers anymore, ends none.
     vi.setSystemTime(Date.now() + 1);
     const credentials = await credentialsFor(member.cookie.split("=")[1]!, new Request(origin), env as unknown as Env);
-    expect(await runInDurableObject(workspaceStub(), (workspace: Workspace) => workspace.disconnectMemberful(credentials!, SITE, "a digest from before", null))).toBe("refused");
+    expect(await runInDurableObject(workspaceStub(), (workspace: Workspace) => workspace.disconnectElsewhere(credentials!, SITE, "a digest from before", null))).toBe("refused");
     expect(await signsInWith(before)).toBe(true);
 
     const disconnected = await disconnect(member, { currentPassword: grace.password });
@@ -2279,7 +2297,7 @@ describe("Disconnect Memberful", () => {
     const other = await memberfulSession("203.0.113.40");
     const credentials = await credentialsFor(member.cookie.split("=")[1]!, new Request(origin), env as unknown as Env);
     // As when a reset lands between the check and the change.
-    const refused = await runInDurableObject(workspaceStub(), (workspace: Workspace) => workspace.disconnectMemberful(credentials!, SITE, "a digest from before", null));
+    const refused = await runInDurableObject(workspaceStub(), (workspace: Workspace) => workspace.disconnectElsewhere(credentials!, SITE, "a digest from before", null));
     expect(refused).toBe("refused");
     expect(await identities()).toHaveLength(1);
     expect(await signsIn(other)).toBe(true);

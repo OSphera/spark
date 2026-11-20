@@ -1,4 +1,4 @@
-import type { Locator } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { cookieHeader } from "../../fixtures";
 import { expect, test, type Member } from "./fixtures";
 
@@ -14,21 +14,37 @@ const prompt = (member: Member) => member.page.getByRole("listbox");
 /** The people the @ prompt lists, in order. */
 const offered = (member: Member) => prompt(member).getByRole("option");
 
+/**
+ * Waits for the @ prompt's list to close and for Lexxy to listen for the next @, which it starts again a
+ * frame after closing the list: sooner than anyone types one, but not always sooner than a test does,
+ * whose @ it would miss.
+ */
+async function listClosed(member: Member): Promise<void> {
+  await expect(prompt(member)).toBeHidden();
+  await member.page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+
 /** The mention of `name` in `scope`: their avatar, then their name. */
 const mention = (scope: Locator, name: string) => scope.getByText(name, { exact: true });
 
 /**
+ * Resolves as `page` gets the list of people for all of `filter`. Lexxy searches whenever typing pauses and
+ * draws each answer as it comes, picking its first, and an answer for less of `filter` can list the same
+ * people first, as on a busy machine. When someone is picked from that list, the answer for all of it comes
+ * after: Lexxy then closes its list once more, and misses an @ typed in the frame that follows.
+ */
+const answerFor = (page: Page, filter: string) => page.waitForResponse((response) => new URL(response.url()).searchParams.get("filter") === filter);
+
+/**
  * Types @ and then `filter` into `field`, waiting for the list between them, as someone does who reads it
- * first. The list follows what's typed while it loads too ("lists the people for what's typed while…").
- * Lexxy searches whenever typing pauses and draws each answer as it comes, picking its first. An answer
- * for less of `filter` can list the same people first, as on a busy machine, so this waits for the
- * answer for all of it.
+ * first, and then for the answer for all of `filter`. The list follows what's typed while it loads too
+ * ("lists the people for what's typed while…").
  */
 async function typeMention(field: Locator, filter: string): Promise<void> {
   const page = field.page();
   await field.pressSequentially("@");
   await expect(page.getByRole("listbox")).toBeVisible();
-  const answered = page.waitForResponse((response) => new URL(response.url()).searchParams.get("filter") === filter);
+  const answered = answerFor(page, filter);
   await field.pressSequentially(filter);
   await answered;
 }
@@ -82,7 +98,7 @@ test.describe("@-mention people", () => {
       await typeMention(zed.composer(), tag);
       await expect(offered(zed)).toHaveText([`Bea ${tag}`, `Zed ${tag}`]);
       await zed.composer().press(key);
-      await expect(prompt(zed)).toBeHidden();
+      await listClosed(zed);
     }
     await expect(mention(zed.composer(), `Bea ${tag}`)).toHaveCount(3);
     await expect(zed.composer()).toContainText(",");
@@ -99,10 +115,12 @@ test.describe("@-mention people", () => {
 
     // The first time, Lexxy fetches the list before it reads what follows the @, and after that, as the @ is typed.
     for (const time of ["first", "second"]) {
+      const answered = answerFor(zed.page, tag);
       await zed.composer().pressSequentially(`@${tag}`);
+      await answered;
       await expect(offered(zed), `the ${time} time`).toHaveText([`Bea ${tag}`, `Zed ${tag}`]);
       await zed.composer().press("Tab");
-      await expect(prompt(zed)).toBeHidden();
+      await listClosed(zed);
     }
     await expect(mention(zed.composer(), `Bea ${tag}`)).toHaveCount(2);
   });
@@ -186,6 +204,34 @@ test.describe("Highlight mentions of you", () => {
     await expect(highlight(ada, "Typed out")).toHaveCount(0);
     await expect(grace.message("Thanks")).toBeVisible();
     await expect(highlight(grace, "Thanks")).toHaveCount(0);
+  });
+});
+
+// Slack's @here and @channel, which notify the room rather than someone.
+test.describe("Notify a room", () => {
+  test("offers @here and @channel after the people, and @here first once it's typed in full, which Space picks, highlighting the message for everyone", async ({ members }) => {
+    const tag = newTag();
+    const ada = await members.signIn(`Ada ${tag}`);
+    const grace = await members.signIn(`Grace ${tag}`);
+
+    await grace.composer().pressSequentially("Lunch? ");
+    await typeMention(grace.composer(), "h");
+    await expect(offered(grace).last()).toHaveText("@here Notify everyone active in this room");
+    await expect(offered(grace).last().locator(".autocompletable__at")).toBeVisible();
+    const answered = answerFor(grace.page, "here");
+    await grace.composer().pressSequentially("ere");
+    await answered;
+    await expect(offered(grace).first()).toHaveText("@here Notify everyone active in this room");
+    await expect(offered(grace).first()).toHaveAttribute("aria-selected");
+    await grace.composer().press("Space");
+    await listClosed(grace);
+    await expect(grace.composer().getByText("@here", { exact: true })).toBeVisible();
+    await grace.composer().press("Enter");
+
+    for (const member of [ada, grace]) {
+      await expect(member.message("Lunch?")).toContainText("Lunch? @here");
+      await expect(member.message("Lunch?").locator(".border-mention")).toHaveCSS("border-left-width", "2px");
+    }
   });
 });
 

@@ -356,10 +356,23 @@ Workspace settings' Membership, where each way has a switch:
 - Memberful, below, lets in the members of a Memberful site, who sign in with their Memberful
   accounts while everyone else keeps a password. Its Members only switch keeps signing in to them
   and administrators.
+- [Single sign-on](#single-sign-on), below, lets in the people of an identity provider that speaks
+  OpenID Connect, such as Zitadel, Keycloak, Authentik, Okta, Microsoft Entra ID or Google Workspace.
+  Its SSO only switch keeps signing in to them and administrators, as Members only does, and can't be
+  on with Open.
 
 While Open is on, Join link, Email domain and Memberful are set aside, keeping their settings, and
 while Memberful is members only, Open, Join link and Email domain are, so Open and Members only can't
 both be on. With all four off, only the people administrators invite by email, below, can join.
+
+Members only and SSO only can be on together, for a community whose paying members sign in with
+Memberful and whose staff sign in with single sign-on: then those two, administrators and the people
+they invite are the only ones who sign in. While one of them is on, the other way lets nobody in, not
+even the people linked to it, unless it's the only way in too, so turning it on in Who can join turns
+on its only switch with it. Meanwhile, someone who joined with the other way has no password to reset,
+so only an administrator's sign-in link lets them in. Nor can someone without a password whom one way
+signs in connect an account at the other from their profile, since holding their session would be all
+there was to check before adding a way in.
 
 To have open sign-up, Email domain's page and the page for a forgotten password check that whoever
 uses them is a person, an administrator sets up [Turnstile](https://developers.cloudflare.com/turnstile/),
@@ -491,6 +504,141 @@ Administrators see suspended members dimmed in Workspace settings, where they ca
 everyone else sees them as removed. All of this goes on whether Memberful is on or not, since its
 members keep signing in with it once it's off.
 
+### Single sign-on
+
+People can join and sign in with an account at an identity provider that speaks
+[OpenID Connect](https://openid.net/developers/how-connect-works/), the standard most providers
+share. Ember uses the authorization code flow with PKCE, checks every ID token against the
+provider's published keys, and needs nothing from any one provider, so the steps are much the same
+everywhere. It's off until an administrator sets a provider up on the Single sign-on card in
+Workspace settings:
+
+1. At the provider, register a web app for Ember that uses the authorization code flow with a client
+   secret. Give it the redirect URI `https://<Ember's address>/auth/sso/callback`, and, if the
+   provider offers back-channel logout, the logout URI
+   `https://<Ember's address>/auth/sso/backchannel_logout`. The card shows both, with Ember's custom
+   domain if it has one. Let it give refresh tokens, often called the refresh token grant or
+   `offline_access`.
+2. On the card, give the provider's issuer, the address its discovery document lives under (Ember
+   reads `<issuer>/.well-known/openid-configuration` and checks it names the same issuer), and the
+   app's Client ID and Client Secret, which Ember keeps encrypted. The name is what the sign-in page's
+   button says: Sign in with Acme.
+3. Turn on Single sign-on under Who can join, and SSO only too if everyone but administrators and the
+   people they invite should sign in with the provider.
+
+A deployment can give the issuer and app as the secrets `SSO_ISSUER`, `SSO_CLIENT_ID` and
+`SSO_CLIENT_SECRET` instead, which take the place of any the card set up. `pnpm run deploy` uploads
+them when its environment has them, and the Preview workflow passes repository secrets of the same
+names through.
+
+Someone who signs in with the provider signs in as the person their account there is linked to, or
+else joins as a new member, in every open room, named as the provider names them, passing over a
+name with a word Blocked words keeps out, with a username made from it. As with Memberful, someone new
+comes to the welcome page first, where both are theirs to change, and everyone here gets a DM
+welcoming them. Accounts are
+linked by the issuer and the account's subject there, so keep the issuer once people have signed in:
+at another issuer, even the same provider's at a new domain, everyone would be someone new.
+Someone new whose email address someone here has already is turned away and asked to sign in with
+their password, unless the card's Link accounts by verified email is checked. Then an
+address the provider says it verified links the account to whoever here has it, once, if only one
+person does, and only while Ember knows that address is theirs too: they joined with an invitation or
+an Email domain link Ember emailed to it, and haven't changed it since, and only when the
+account is in an allowed group, so that linking never suspends anyone. An address someone typed as
+they joined proves nothing, since anyone could type a colleague's, and administrators are never
+linked this way; they, and everyone else, can connect their account from their profile with their
+password. Only check it for a provider that verifies addresses and doesn't let people change their
+own, since whoever controls an address there gets the account here.
+
+The card's Allowed groups keep Ember to the people in at least one of them, as the claim the card
+names lists them: `groups` unless it says otherwise, as a list of names or an object keyed by them.
+With none listed, anyone the provider signs in is let in. Administrators, and the people they invite,
+need no group, as with Memberful. A sign-in under way as the card's Client ID, groups or claim change
+is turned back, to be tried again by the card as it is then. Extra scopes go in the card's Scopes, beside `openid`, `profile`,
+`email` and `offline_access`, which Ember always asks for, the last while the provider offers it.
+
+The provider keeps having its say after sign-in. Each sign-in keeps the refresh token the provider
+gave, encrypted, and once an hour the Workspace asks the provider again with it. When the provider no
+longer takes it, as once someone is removed or deactivated there, or signs out there, or their token
+expires unused, which it doesn't tell apart, the sessions that account signed in here end, and while
+SSO only is on without Members only, so do the rest of a member's, password ones included, since they
+can't sign in again without the provider. While Members only is on too, the sessions Memberful signed
+in stay, since Memberful still lets them in. Without SSO only, a member who has a password can still
+sign in with it: turn SSO only on to make the provider the only way in. When someone is no longer in
+an allowed group, they're suspended as a lapsed Memberful member is, until the next hourly check, or a
+sign-in, finds them in one again. A refreshed ID token that leaves the groups claim out puts its
+person in no group, but a refresh with no ID token goes by the userinfo endpoint, and when that leaves
+the claim out, as Entra's does, it says nothing of groups, so a provider that gives no ID token on
+refresh only enforces groups at the next sign-in, and one with neither a refreshed ID token nor a
+userinfo endpoint keeps its accounts while it takes their refresh tokens, without checking their
+groups. Ember needs the userinfo endpoint's answer only when there's no ID token, or when Allowed
+groups lists some and the ID token leaves the groups claim out; otherwise, while it's down, the ID
+token's word stands. An answer counts only whole: one whose ID token doesn't check out, or whose
+userinfo endpoint answers for someone else, or doesn't answer when it's needed, is no answer, and
+the answer to a check that began before the card started listing Allowed groups, or changed its
+groups claim, when it may not have needed the userinfo endpoint, is asked again a few minutes later. A
+provider that doesn't answer is asked again every few minutes, for a day, after which the sessions the
+account signed in end. The Workspace keeps one refresh token per account, the latest sign-in's, so
+with a provider that rotates refresh tokens, an answer lost on its way back ends that account's
+sessions here at the next check, as revoking the latest device's session there does for every device;
+signing in again starts them anew. A provider that gives no refresh token leaves nothing to ask with,
+so after sign-in only a back-channel logout or the next sign-in checks the account again. A provider
+that sends a back-channel logout ends the sessions that its session signed in here at once, or every
+session an account signed in, when it names the account, of those signed in by the time the logout
+was issued, as the provider's clock has it, so that one delivered late, or sent again, never ends a
+session signed in since. Someone linked to both a Memberful site and
+the provider is suspended only once neither lets them in, going by the Memberful membership only while
+Ember can ask Memberful's admin API, and by the provider only while it keeps a refresh token to ask
+with. A way in that's closed, because the other is the only way in, lets nobody back.
+
+One known gap: someone linked to both whose one way Ember doesn't keep reading, Memberful without
+`MEMBERFUL_API_KEY` or a provider that gives no refresh token, can go back and forth between suspended
+and active, as the other way's checks suspend them and signing in with the first lets them in again.
+
+Someone new is given the email address the provider gives only when the provider says it verified
+it, since some providers let people set their own, and otherwise joins without one, which they can
+add on their profile; their account there keeps it either way. As with Memberful, while the provider
+signs someone without a password in, as it does while it's set up, they aren't given one: their
+profile offers none, and the Worker refuses one, since a password would be another way in that
+holding their session was enough to make, and their account there stays connected. Once the provider
+is forgotten, or its issuer changes, it no longer signs them in: an administrator's sign-in link lets
+them in, and their profile offers a first password then. While SSO only is on, someone with an account from
+before connects theirs from their profile, or as they sign in with their password, as with
+Memberful's Members only, and disconnects it there too. Single sign-on and SSO only turn themselves
+off while there's no provider to sign in with, as once its secrets are gone or its saved secret no
+longer opens under a new SESSION_SECRET, so passwords work again. Keep at least one administrator with
+a password and an email address while SSO only is on, or [reset one's password](#resetting-a-password)
+to get back in if the provider is down.
+
+Some providers need a word of care:
+
+- Google's issuer, `https://accounts.google.com`, is every Google account's, so with an External
+  consent screen anyone with one can join. To keep it to your company, set the groups claim to `hd`,
+  the hosted domain Google names, and list your domain under Allowed groups.
+- Microsoft Entra ID's issuer has to be your tenant's, `https://login.microsoftonline.com/<tenant
+  ID>/v2.0`: the `common` and `organizations` addresses name a template rather than an issuer, which
+  Ember refuses. Entra lists groups by their IDs, and leaves them out of a token for someone in more
+  than about 200, who then isn't let in by group.
+- Keycloak gives refresh tokens for `offline_access` only to people with the role of that name, which
+  its default roles include; someone without it can't sign in, since Ember asks for it whenever the
+  discovery document lists it.
+
+#### Zitadel
+
+1. In a project, add an application of the type Web, with the authentication method Code (PKCE with
+   a client secret, which Zitadel calls `CODE` with `client_secret_basic`). Add the redirect URI
+   above, and, under the app's settings, the back-channel logout URI. Under Token Settings, check
+   Refresh Token.
+2. On the card, the issuer is your instance's address, such as `https://example.zitadel.cloud` or your
+   own domain, and the Client ID and Client Secret are the ones Zitadel shows once, as it creates the
+   app.
+3. To let in only some people, give them a role on the project, check User roles inside ID Token
+   under the app's Token Settings, set the card's groups claim to
+   `urn:zitadel:iam:org:project:roles`, and list the roles under Allowed groups.
+
+Zitadel's refresh tokens last 90 days by default however often they're used, after which the hourly
+check finds the provider no longer takes one and the person signs in again; raise the refresh token
+expiration in the instance's OIDC settings for longer.
+
 ### Sending email
 
 Ember sends email with [Resend](https://resend.com), with an API key an administrator gives it, or
@@ -566,16 +714,19 @@ on again. A pair from Campfire's `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` work
 A new message is pushed from its room's Durable Object as the room tells the Workspace of it, to the
 subscriptions of the members who aren't viewing the room and want to hear of it: each person keeps
 one for each browser they turned notifications on in, which saves it again each time Ember opens
-there, and only the 10 saved most recently. Push services may contact whoever `VAPID_SUBJECT` names,
-a `mailto:` or `https:` address, about your pushes; without it they see this project's address. Each
-push is an outgoing request, of which the Workers Free plan allows 50 per invocation, so there the
-pushes past that, for a message with more subscribers or a run of messages sent together, fail and
-are logged; the Paid plan allows 10,000.
+there, and only the 10 saved most recently. A message that notifies the room, as @channel does, and
+@everyone in an open room, where everyone is, is pushed to everyone in it who hears its @mentions or
+more, as a mention of each of them would be, and one with @here to those of them whose Ember is in use,
+as Slack's are. Push services may contact
+whoever `VAPID_SUBJECT` names, a `mailto:` or `https:` address, about your pushes; without it they see
+this project's address. Each push is an outgoing request, of which the Workers Free plan allows 50 an
+invocation, so the room sends 40 of the pushes for a message, or for a run of messages sent together,
+itself, and hands the rest to the Workspace, 40 a call, each call an invocation with requests of its
+own: a message that notifies a room of hundreds reaches every one of them.
 
 An invitation into a huddle is pushed too, from the huddle's room, to the subscriptions of the
-people it reaches who have Ember in view nowhere, as [Huddles](#huddles) describes. Its pushes
-count toward the same 50, so on the Free plan those past that, for an invitation to many people at
-once, fail and are logged.
+people it reaches who have Ember in view nowhere, as [Huddles](#huddles) describes. Its pushes go
+the same way, 40 from the room and the rest through the Workspace.
 
 ### Files
 
@@ -812,7 +963,7 @@ and OpenAI's [web search](https://platform.openai.com/docs/guides/tools-web-sear
 Workers AI's models search with a tool of Ember's own, which the Worker runs with Cloudflare's
 [Web Search API](https://developers.cloudflare.com/web-search/) through the same gateway: each search
 finds 5 pages, and the model reads what the search says of each, up to 2,000 characters, though not the
-pages themselves. Grok's searches count among the 5 calls an answer makes of Ember's tools, with its
+pages themselves. Grok's searches count among the 20 calls an answer makes of Ember's tools, with its
 searches of the room. A model kept from before in Chat Completions,
 as Google's are, has no such tools, which the page says, its switch opening Set up Ember AI to choose
 another model. Turning it on asks the model that answers everyone a question it has to search the web
@@ -1034,7 +1185,8 @@ nothing said there goes to an app unless someone in it allows it.
 - **The token** goes to the server with every request, as `Authorization: Bearer`. Ember keeps it
   encrypted, as it keeps Ember AI's API token, and never shows it again: the app's page says only that
   it has one. Type another to replace it, or check **Send no token** to stop sending one. Either has
-  Ember ask the server again before it saves, as another address does.
+  Ember ask the server again before it saves, as another address does. The token goes only to the
+  address it was given for, so another address needs it typed again, or **Send no token**.
 - **The tools** show on the app's page, each by its name there, with its title and what the server
   says it does, which is the server's word and not Ember's. Ember keeps up to 100, each with a name of
   letters, digits, `_`, `-` and `.`, a description up to 1,500 characters and a schema of what it takes
@@ -1063,10 +1215,15 @@ nothing said there goes to an app unless someone in it allows it.
   search their room, are given an agent's picked tools beside that search, each named for its app and
   described in the app's own words, marked as the app's; Workers AI's models aren't given them. It never has an app's address or token: it names a tool
   and what to call it with, and Ember posts a card in the room, where the answer would go, saying
-  which agent wants to use which app, the tool, and everything it would be called with, as JSON.
+  which agent wants to use which app, the tool, and everything it would be called with, exactly as
+  it would go: each field by name, a short value on its line, longer text quoted under it with its
+  line breaks, and only nested data, such as a list of objects, as JSON.
   **Allow once** runs that call and no other, and **Deny** tells the model it wasn't allowed; either
   is for whoever asked the agent or an administrator, and the card then says who answered. The answer
-  goes on from there, and waits again at the next call, up to five calls an answer. A model whose
+  goes on from there, and waits again at the next call, up to 20 calls an answer, all within the
+  time and tokens its levels give it. While a call runs, the room's typing line names it after the
+  agent's name, as in "Recap is using Linear: list_issues", or "Recap is searching this room" while
+  it searches the room; nothing of that is kept. A model whose
   provider then won't go on from a call is asked once more without the tools, told what each call came
   to, so that its answer still says what a call did. A call nobody
   answers in 15 minutes isn't run: its card says so in place of its buttons, and Ember forgets the
@@ -1098,12 +1255,12 @@ nothing said there goes to an app unless someone in it allows it.
   the agent's Tools card. That agent's calls of that tool in rooms open to everyone are then made at
   once, with nobody asked, for anyone who can ask the agent, so keep it for tools that only read, or
   whose every use you'd allow. In a DM or a private room each call asks first all the same, and one
-  the agent was about to make when its room was made private isn't made. The room still sees each
-  call: Ember posts a card saying which agent used which app, the tool, and what it was called with,
-  before it makes the call, and makes none it can't show, whether the room wouldn't take the card or
-  there are more than 3,000 characters to show. A call that then
-  isn't made after all, as Ember finds its server has changed the tool or can't get through to it, has its card changed to say so. Uncheck the box
-  and the tool asks first again, from the next call. It ends by itself when the tool is taken from
+  the agent was about to make when its room was made private isn't made, nor one for a question
+  deleted meanwhile. Nothing is posted for such a call: the room sees only the typing line say which
+  app and tool the agent is using while it runs, and then the answer, and the tool's card, if it
+  answers with one. The Worker's log keeps a line for each, with the agent's and the app's ids and
+  the tool's name, not what it was called with. Uncheck the box and the tool asks first again, from
+  the next call. It ends by itself when the tool is taken from
   the agent, or when Ember finds its server has changed it: from then on the tool asks first, even
   once the server describes it as it did, until you check the box again.
 
@@ -1266,7 +1423,7 @@ with Ember as the authorization server:
   gives `write` unless it's cleared and `private` only if it's ticked. An app that asks for `private`
   alone is asked to read with it.
 - An app names itself by the address of a Client ID Metadata Document, which Ember reads from a
-  public address only, or registers itself at `/oauth/register`, 10 times an hour from one address at
+  public address only, or registers itself at `/oauth/register`, 10 times an hour from one network at
   most. Either way it's a public client, with no secret, and proves itself with PKCE (S256).
 - The browser goes back only to an `https` address the app gave, or to `http` on the person's own
   computer, at any port, for an app that runs there. An app that's opened by a scheme of its own,
@@ -1308,14 +1465,19 @@ bar along the window's base, which follows you from page to page with the microp
 the screen, the button that opens the huddle again, and Leave; a phone's bar has the microphone and
 Leave, and opens the huddle at its name. Whoever is speaking has a green ring round their tile, and
 round their face on the bar. Your browser tells who by how loud each voice it plays is, and your own
-by your microphone, so nothing more is sent for it, and nobody muted shows as speaking. Cameras are
-640 by 360 at up to 500 kbps, and up to 25 can be on in a huddle at once. Chrome, Edge and the other
-browsers built on Chromium send a camera in a second size as well, 320 by 180 at up to 150 kbps, and
-a browser whose tiles are no taller than that, as with many people in the huddle, or beside a
-shared screen, is sent that size in place of the larger. Safari and Firefox send a camera in the one
-size, which everyone is sent. Your browser is sent the others' cameras only while you have the
-huddle open, and a camera's picture isn't kept in step with its person's voice, which travels apart
-from it.
+by your microphone, so nothing more is sent for it, and nobody muted shows as speaking. Up to 25
+cameras can be on in a huddle at once, as sharp as the workspace's video quality, which an
+administrator chooses, and is HD until one does. Chrome, Edge and the other browsers built on
+Chromium send a camera in three sizes at once: 320 by 180 at up to 150 kbps, 640 by 360 at up to
+500 kbps, and 1280 by 720 at up to 1.5 Mbps at HD, or 1920 by 1080 at up to 3 Mbps at Full HD, where
+Standard sends the first two only. A camera that takes less, as an older webcam does, is sent in
+fewer sizes. Each browser is sent the smallest of a camera's sizes that's as tall as its
+tiles, counting the screen's own pixels, up to two for each of the page's, as a Retina screen has:
+the small one with many people in the huddle, or beside a shared screen, and the large with few,
+whose tiles grow as wide as 640px at HD and 800px at Full HD, where Standard's stop at 420px. Safari
+and Firefox send a camera in one size, 640 by 360 at up to 500 kbps, which everyone is sent. Your
+browser is sent the others' cameras only while you have the huddle open, and a camera's picture
+isn't kept in step with its person's voice, which travels apart from it.
 
 Share screen, beside the camera, has your browser ask which screen, window or tab to share, and
 shares it until you stop it there or in your browser. Two people can share at once, as in Slack's
@@ -1324,9 +1486,10 @@ screen large, all of it, in its own shape, under whose it is, with the huddle's 
 it, or under it, as on a phone held upright, whichever shows the screen larger. The tiles scroll by
 themselves once there are more than fit there. A second screen shows among the tiles, first of them,
 and a click on it shows it large in place of the other. Your own shows among your tiles, as the
-others see it. A screen is sent as large as 1920 by 1080, at up to 15 frames a second and 1.5 Mbps,
-without its sound, and only to those who have the huddle open: once it's minimized, its bar says
-who's sharing. A phone's browser has no screen to share, so phones watch.
+others see it. A screen is sent as large as 2560 by 1440 at up to 3 Mbps, or 1920 by 1080 at up to
+1.5 Mbps at Standard, at up to 15 frames a second, without its sound, and only to those who have the
+huddle open: once it's minimized, its bar says who's sharing. A phone's browser has no screen to
+share, so phones watch.
 
 On a phone, where the huddle is over all of the page and has no arrows, a button beside the camera,
 Switch camera, is there while your camera is on and the browser has another. It shows the camera
@@ -1402,6 +1565,12 @@ administrator, which leaves the huddle going with no message. Someone who was in
 the room's again within half a minute of its end goes on with that huddle, under the same message,
 so the last person's lost connection doesn't leave the room two of them. Anyone else starts another.
 
+A huddle that nobody joined leaves no message, as Slack's leaves none: once whoever started it has
+left, its message goes from the room, as a deleted message does. It stays where it's someone's to
+come back to: for whoever was invited into the huddle, as the others in a direct message are, so
+that a huddle nobody answered still shows there, and for a reply in its thread or a reaction.
+Whoever comes back to a huddle that left no message starts another.
+
 The huddle shows that thread itself, beside the people in it, where Slack's huddle window has it:
 under Thread, it says what a huddle's thread is for, then what's been written in it, over a composer
 to reply in, with files and links as in any thread. What you send there, everyone in the huddle
@@ -1452,6 +1621,22 @@ someone with Ember behind another tab may get both. So may someone looking at a 
 since before Ember was updated to do this: such a tab doesn't say whether it's shown, so it
 doesn't count until it's reloaded.
 
+While huddles are on, the sidebar has a Huddles row over the rooms, as Slack's has, which opens the
+Huddles page. Happening now lists the huddles going on in your rooms and direct messages, the
+latest to start first: each with its room, LIVE, who's in it and when it started, their faces, and
+Join, which opens the preview, unless this tab is in that huddle. The rest of its card goes to the
+room. The row ends with how many of them there are, on green. Under them, Recent huddles lists the
+latest 50 that are over, as Slack's page does: each with its room, when it started, how long it
+went on, how many replies its thread has, and the faces of the first who were in it, whom a pointer
+names. A row goes to the huddle's thread, beside its room. Everyone in a room has its huddles
+there, whether they were in them or not, and the huddles from before Ember had the page are listed
+once someone next opens their room. A huddle nobody else joined is listed only while its thread has
+a reply, as Slack lists none that left nothing behind. One whose message is deleted goes from the
+list, as a deleted room's do, and the rooms you've hidden from your sidebar are left out of both
+lists and of the row's count. The page keeps up by itself: a huddle shows as it starts, moves to
+the recent ones as it ends, and counts its thread's replies as they're written. With huddles
+turned off the row goes from the sidebar, and the page, at `/huddles`, still lists the recent ones.
+
 An administrator turns huddles on under Huddles in community settings, with the switch on its card.
 Huddles run through Cloudflare's [Realtime SFU](https://developers.cloudflare.com/realtime/sfu/),
 which carries what each person in a huddle says and shows to the others, by an SFU app in your Cloudflare
@@ -1480,15 +1665,27 @@ only. The room takes down whichever cameras and screens a tab left on, eight eve
 Turning a switch on again gives its buttons back, and nobody's camera comes on, or screen is shared,
 by itself.
 
+Under that card is Video quality, Standard, HD or Full HD, which is HD until an administrator
+chooses another, and is saved as soon as it's chosen. Standard sends cameras at 640 by 360 and
+screens at up to 1920 by 1080, HD cameras at up to 1280 by 720 and screens at up to 2560 by 1440,
+and Full HD cameras at up to 1920 by 1080, with screens as at HD. A change applies to the cameras
+turned on and the screens shared after it, and those on already stay as they are. Full HD asks the
+most of a computer, whose browser encodes its camera three times over, and Chrome makes a camera's
+picture smaller while its computer is too busy to keep up, so it suits teams with fast computers and
+connections. What each costs is in [What it costs](#what-it-costs).
+
 A room can go without huddles, as a Slack channel can. While huddles are on, a room's settings have
-a Huddles switch for whoever can change the room, an administrator or the person who made it, which
-is on until they turn it off and save. A room with it off has no headphones at its top, its
-huddle's link opens the room and says that huddles are turned off there, and the room lets nobody
-into a huddle. A huddle going on there ends, which the settings say before they're saved: each tab
-in it leaves as it hears of the change, and tells its person why, and the room ends it within half a
-minute for any that didn't. Everyone else in the room reads in its settings that it has no huddles.
-A direct message has no settings, and its huddles go by who's in it. Turning huddles off for
-everyone leaves each room's switch as it was, for when they're on again.
+a Huddles switch for administrators, as only a Slack workspace's owners and admins change a
+channel's, which is on until one turns it off and saves. The person who made the room can change the
+rest of its settings, and has no switch unless they're an administrator. A room with it off has no
+headphones at its top, its huddle's link opens the room and says that huddles are turned off there,
+and the room lets nobody into a huddle. A huddle going on there ends, which the settings say before
+they're saved: each tab in it leaves as it hears of the change, and tells its person why, and the
+room ends it within half a minute for any that didn't. Everyone else in the room reads in its
+settings that it has no huddles. An administrator has a room's settings only while they're in the
+room, so a private room's huddles are for an administrator in it to turn off. A direct message has
+no settings, and its huddles go by who's in it. Turning huddles off for everyone leaves each room's
+switch as it was, for when they're on again.
 
 Some networks, like an office's or a hotel's, block the way a browser reaches the SFU, and nobody on
 one can connect to a huddle. A third card, Relay for strict networks, gives huddles a relay for them:
@@ -1560,7 +1757,8 @@ minutes, 5 tries and only until a newer one is sent, and with it they choose a n
 signs them in and ends their other sessions. The page says the same whether or not the address has an
 account. Ember emails an address at most 3 times an hour, counting Email domain's links, and until
 Ember has Turnstile's keys, each network can ask for 10 codes an hour. Each try of a code counts
-against sign-in's limit, 10 tries from a network in 3 minutes.
+against sign-in's limit, 10 tries from a network in 3 minutes. A network is an IPv4 address, or an
+IPv6 address's /64, since whoever has one address in a /64 has them all.
 
 Otherwise, someone who can't sign in gets a new password from `apps/worker/scripts/reset-password.ts`.
 The Worker takes recovery requests only while its `EMBER_RECOVERY_TOKEN` secret is set, and the
@@ -1635,8 +1833,8 @@ What a self-hoster should know, beyond keeping the setup password and link to th
   before scrypt are replaced as their passwords sign in.
 - A session lasts until it goes 400 days unused. Changing your email address or password takes
   your current password, so holding someone's session isn't enough to take their account, and
-  someone Memberful signs in without a password isn't given one, so it isn't enough to make another
-  way in either. A new password ends your other sessions and forgets their browsers' push
+  someone Memberful or single sign-on signs in without a password isn't given one, nor can they
+  connect the other, so it isn't enough to make another way in either. A new password ends your other sessions and forgets their browsers' push
   subscriptions. A password reset, deactivation or ban ends all of a person's sessions within a
   minute.
 - Until Ember is set up, only the setup password, or the setup link a deploy printed, opens the form,
@@ -1648,10 +1846,12 @@ What a self-hoster should know, beyond keeping the setup password and link to th
   localhost, and on a Worker with neither, setup is open or closed as [Deploying](#deploying) says.
 - `EMBER_GUEST_SIGN_IN=true` lets anyone with the address in with just a name, so keep it to
   `wrangler dev`, as `.dev.vars.example` says.
-- With Open on, anyone who finds the address can make an account, with any email address, and
-  create rooms unless Must be admin to create new rooms is on. Turnstile, given its keys, keeps most
-  bots out, and until then its limits keep a flood from filling the free plan. The join link has no
-  limits, since its secrecy is the gate: regenerate it if it gets out.
+- With Open on, anyone who finds the address can make an account, with any email address, create
+  rooms unless Must be admin to create new rooms is on, and notify a room with @channel and @here,
+  and everyone with @everyone, unless the switches beside it keep those to administrators.
+  Turnstile, given its keys, keeps most bots out, and until then its limits keep a flood from
+  filling the free plan. The join link has no limits, since its secrecy is the gate: regenerate it
+  if it gets out.
 - A Resend API key pasted into Set up email is kept encrypted, and never shown again, even to
   administrators: Membership says only that Ember has one. Make it a key with Sending access, as Resend
   suggests, so that one that got out could do no more than send email. A Turnstile secret key given in
@@ -1674,6 +1874,12 @@ What a self-hoster should know, beyond keeping the setup password and link to th
   and signs in with it alone. A webhook whose signature the webhook's secret key doesn't check is
   refused, and even a signed one only has Ember ask Memberful's API about a member, so one forged or
   sent again changes nothing.
+- A search with words passes over their matches in every open room on the way to a page of the rooms
+  it looks in, so it takes longer the more messages elsewhere have the words: about 0.1 to 0.3 ms more
+  for each thousand of them, in tests on one machine. It never shows or counts those, and everyone can
+  read an open room. The words of private rooms and DMs are kept apart by who can read them, so they
+  change nothing of another's search, once the index has kept apart those it took before it knew who
+  could read their rooms: the last hour's at once, and the rest up to 3,000 a day, newest first.
 - Custom CSS runs on every page for everyone, so it's an administrator's to write, like the rest of
   the workspace, and `EMBER_RECOVERY_TOKEN` can take over any account, so keep it set only while
   resetting a password, as above.
@@ -1737,14 +1943,18 @@ pages had them in October 2026:
   huddle, and nothing for what they send it. The first 1,000 GB a month are free, and it's $0.05 per GB
   after that, as its page had it in November 2026. A voice is about 50 kbps to each person who hears
   it, so five people talking for an hour are sent under half a GB between them, and the free 1,000 GB
-  carry about 2,000 such hours a month. A camera is up to 500 kbps to each person who has the huddle
-  open, so the same five with their cameras on throughout are sent up to 4.5 GB more in the hour, and
-  the free 1,000 GB carry about 200 such hours a month. A camera from a browser that sends it in two
-  sizes is up to 150 kbps to each person whose tiles show it small, so twenty people with their
-  cameras on throughout, each in a window that shows the others small, are sent up to 26 GB in the
-  hour, where the larger size would come to 86. A shared screen is up to 1.5 Mbps to each person who
-  has the huddle open, so one shared with the other four throughout is up to 2.7 GB more in the
-  hour. Turning Cameras and Screen sharing off under Huddles keeps huddles to voices. A relay for
+  carry about 2,000 such hours a month. At HD, a camera is up to 1.5 Mbps to each person whose tiles
+  show it large, so the same five with their cameras on throughout, each seeing the others large,
+  are sent up to 13.5 GB more in the hour, and the free 1,000 GB carry about 70 such hours a month.
+  Full HD's 3 Mbps doubles that, to 27 GB, about 36 such hours, and Standard's 500 kbps keeps it to
+  4.5 GB, about 200 hours. Smaller tiles are sent smaller sizes: 500 kbps for the medium one and
+  150 kbps for the small, so twenty people with their cameras on throughout, each in a window that
+  shows the others small, are sent up to 26 GB in the hour, or up to 86 where their screens have two
+  pixels for each of the page's and are sent the medium size. A camera from Safari or Firefox is up to
+  500 kbps to each person who has the huddle open, whatever their tiles. A shared screen is up to
+  3 Mbps to each person who has the huddle open, or 1.5 Mbps at Standard, so one shared with the
+  other four throughout is up to 5.4 GB more in the hour, or 2.7 GB. Video quality under Huddles
+  chooses among them, and turning Cameras and Screen sharing off keeps huddles to voices. A relay for
   strict networks adds nothing to it: Cloudflare's TURN service is free of charge used with the SFU.
 
 Cloudflare's pages have the details: [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
