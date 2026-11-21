@@ -89,7 +89,7 @@ describe("First run's question about huddles", () => {
     expect(screen.getByRole("link", { name: "Skip to main content" })).toBeInTheDocument();
   });
 
-  it("opens Ember from Not now, giving it nothing", async () => {
+  it("opens Spark from Not now, giving it nothing", async () => {
     serve();
     const { user, onOpen } = showQuestion();
     await user.click(button("Not now"));
@@ -97,7 +97,7 @@ describe("First run's question about huddles", () => {
     expect(saved()).toEqual([]);
   });
 
-  it("goes on to Set up huddles' two steps, whose button opens Cloudflare's dashboard at the account Ember is deployed to", async () => {
+  it("goes on to Set up huddles' two steps, whose button opens Cloudflare's dashboard at the account Spark is deployed to", async () => {
     serve();
     await showSteps();
     expect(title("Set up huddles")).toHaveFocus();
@@ -114,7 +114,7 @@ describe("First run's question about huddles", () => {
     expect(button("Back")).toBeEnabled();
   });
 
-  it("has the dashboard ask which account where Ember can't say which it's deployed to", async () => {
+  it("has the dashboard ask which account where Spark can't say which it's deployed to", async () => {
     const fetch = serve({ "GET /api/account": () => Response.json({ error: "Not signed in" }, { status: 401 }) });
     await showSteps();
     await waitFor(() => expect(fetch).toHaveBeenCalled());
@@ -136,7 +136,7 @@ describe("First run's question about huddles", () => {
     expect(button("Save and continue")).toBeDisabled();
   });
 
-  it("saves the keys once Cloudflare has started a session with them, says huddles are on, and opens Ember from there", async () => {
+  it("saves the keys once Cloudflare has started a session with them, says huddles are on, and opens Spark from there", async () => {
     const save = held(() => Response.json({ huddles: { appId: APP.appId, relayKeyId: null } }));
     serve({ "PUT /api/account/huddles": save.answered });
     const { user, onOpen } = await showSteps();
@@ -158,7 +158,7 @@ describe("First run's question about huddles", () => {
     expect(card.querySelector("svg.iconoir-headset")).toBeInTheDocument();
     expect(card).toHaveTextContent("You can turn huddles off, or change the app, in Admin under Huddles.");
     expect(onOpen).not.toHaveBeenCalled();
-    await user.click(button("Open Ember"));
+    await user.click(button("Open Spark"));
     expect(onOpen).toHaveBeenCalledOnce();
   });
 
@@ -178,14 +178,14 @@ describe("First run's question about huddles", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Huddles are on" })).toBeInTheDocument();
   });
 
-  it("says so above the card when Ember can't be reached, and lets the keys be saved again", async () => {
+  it("says so above the card when Spark can't be reached, and lets the keys be saved again", async () => {
     const answers: Answer[] = [() => Promise.reject(new TypeError("Failed to fetch"))];
     serve({ "PUT /api/account/huddles": () => (answers.shift() ?? (() => Response.json({ huddles: { appId: APP.appId, relayKeyId: null } })))() });
     const { user, onOpen } = await showSteps();
     await giveKeys(user);
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Couldn't reach Ember. Check your connection and try again.");
+    expect(alert).toHaveTextContent("Couldn't reach Spark. Check your connection and try again.");
     expect(screen.getByRole("region", { name: "Set up huddles" })).not.toContainElement(alert);
     expect(appIdField()).toHaveValue(APP.appId);
     expect(appSecretField()).toHaveValue(APP.appSecret);
@@ -204,7 +204,7 @@ describe("First run's question about huddles", () => {
     expect(button("Save and continue")).toBeEnabled();
   });
 
-  it("opens Ember, which asks them to sign in, for someone signed out since the workspace was made", async () => {
+  it("opens Spark, which asks them to sign in, for someone signed out since the workspace was made", async () => {
     serve({ "PUT /api/account/huddles": () => Response.json({ error: "Not signed in" }, { status: 401 }) });
     const { user, onOpen } = await showSteps();
     await giveKeys(user);

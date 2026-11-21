@@ -1809,7 +1809,7 @@ describe("Keyboard shortcuts", () => {
 
 describe("Welcome card for administrators, until they dismiss it", () => {
   const invited = { ...roomList(rooms), invitation: { roomId: "general", joinCode: "aB3d-Ef5h-iJ7k" } };
-  const card = () => screen.queryByRole("heading", { name: "Welcome to Ember" });
+  const card = () => screen.queryByRole("heading", { name: "Welcome to Spark" });
   /** Shows general with the welcome card, its dismissal answered by `answer`. */
   async function showCard(answer: () => Response) {
     vi.stubGlobal("WebSocket", OpenRoomSocket);

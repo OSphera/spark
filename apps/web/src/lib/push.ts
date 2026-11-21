@@ -18,7 +18,7 @@ const ALLOW_IN_SETTINGS = "Allow notifications for this site in your browser set
 const NOTICES = {
   unavailable: {
     title: "Notifications aren’t available here",
-    message: "Open Ember in a browser that supports notifications. On iPhone or iPad, add it to your Home Screen first.",
+    message: "Open Spark in a browser that supports notifications. On iPhone or iPad, add it to your Home Screen first.",
     help: true,
   },
   unconfigured: { title: "Notifications aren’t configured", message: "Ask your workspace administrator to configure Web Push on this server.", help: false },

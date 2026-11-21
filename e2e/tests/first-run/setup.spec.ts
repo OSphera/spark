@@ -42,7 +42,7 @@ async function setUpHuddles(page: Page) {
     await expect(page.getByRole("heading", { level: 1, name: "Huddles are on" })).toBeFocused();
     expect(sfu.asked.at(-1)).toEqual({ method: "POST", path: `/v1/apps/${SFU_APP.appId}/sessions/new`, authorization: `Bearer ${SFU_APP.appSecret}` });
     await expect(page).toHaveURL(/\/first_run$/);
-    await page.getByRole("button", { name: "Open Ember" }).click();
+    await page.getByRole("button", { name: "Open Spark" }).click();
   } finally {
     await sfu.close();
   }
@@ -133,7 +133,7 @@ test.describe("Set up the workspace", () => {
     await expect(rooms).toHaveCount(2);
     await expect(rooms).toContainText(["general", "random"]);
     // general, the first room, welcomes them with the link that invites everyone else.
-    await expect(page.getByRole("heading", { level: 2, name: "Welcome to Ember" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Welcome to Spark" })).toBeVisible();
     await expect(page.getByRole("textbox", { name: "Share to invite more people" })).toHaveValue(/\/join\/[A-Za-z\d]{4}-[A-Za-z\d]{4}-[A-Za-z\d]{4}$/);
     // Setup took the page's place, so Back doesn't return to it.
     expect(await page.evaluate(() => history.length)).toBe(length);

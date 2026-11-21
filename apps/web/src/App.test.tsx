@@ -341,7 +341,7 @@ describe("Set up the workspace", () => {
     // Nothing has opened Ember yet.
     expect(location.pathname).toBe("/first_run");
     expect(WorkspaceSocket.all).toEqual([]);
-    await user.click(screen.getByRole("button", { name: "Open Ember" }));
+    await user.click(screen.getByRole("button", { name: "Open Spark" }));
 
     expect(await screen.findByRole("heading", { level: 1, name: "general" })).toBeInTheDocument();
     expect(location.pathname).toBe("/rooms/r1");
