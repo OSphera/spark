@@ -46,7 +46,7 @@ describe("Set up the workspace", () => {
       setup: "pending",
       // The suite's Worker has a setup token, so setup takes the link that carries it.
       setupAccess: "link",
-      setupPlaceholders: { name: "Kevin Rose", emailAddress: "kevin@kevinrose.com" },
+      setupPlaceholders: { name: "Jane Smith", emailAddress: "jane.smith@example.com" },
       guestSignIn: true,
       signInWithMemberful: false,
       signInWithSso: null,
@@ -79,7 +79,7 @@ describe("Set up the workspace", () => {
     });
     // Each stands alone, and a blank one counts as unset.
     expect(await placeholders({ EMBER_SETUP_NAME_PLACEHOLDER: " ", EMBER_SETUP_EMAIL_PLACEHOLDER: "grace@example.com" })).toEqual({
-      name: "Kevin Rose",
+      name: "Jane Smith",
       emailAddress: "grace@example.com",
     });
   });

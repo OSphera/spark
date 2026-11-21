@@ -5,7 +5,7 @@ import { expect, test } from "./fixtures";
 const PENDING: Bootstrap = {
   setup: "pending",
   setupAccess: "open",
-  setupPlaceholders: { name: "Kevin Rose", emailAddress: "kevin@kevinrose.com" },
+  setupPlaceholders: { name: "Jane Smith", emailAddress: "jane.smith@example.com" },
   guestSignIn: true,
   signInWithMemberful: false,
   signInWithSso: null,

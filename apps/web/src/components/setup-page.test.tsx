@@ -22,7 +22,7 @@ vi.mock("@/components/workspace/pages", () => ({
 
 const workspace = { user: { id: "u1", name: "Ada Lovelace" }, room: { id: "r1", kind: "open", name: "general", icon: null } };
 /** The placeholders the Worker suggests unless the deployment names its own. */
-const DEFAULTS = { name: "Kevin Rose", emailAddress: "kevin@kevinrose.com" };
+const DEFAULTS = { name: "Jane Smith", emailAddress: "jane.smith@example.com" };
 
 /** The server's answer to the form. */
 const answer = (status: number, body: object) => vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json(body, { status }));
@@ -69,10 +69,10 @@ describe("Set up the workspace", () => {
 
     const name = screen.getByLabelText("Name");
     expect(name).toHaveFocus();
-    expect(name).toHaveAttribute("placeholder", "Kevin Rose");
+    expect(name).toHaveAttribute("placeholder", "Jane Smith");
     expect(name).toHaveAttribute("autocomplete", "name");
     const email = screen.getByLabelText("Email address");
-    expect(email).toMatchObject({ type: "email", placeholder: "kevin@kevinrose.com", required: true });
+    expect(email).toMatchObject({ type: "email", placeholder: "jane.smith@example.com", required: true });
     expect(email).toHaveAttribute("autocomplete", "username");
     const password = screen.getByLabelText("Password");
     expect(password).toMatchObject({ type: "password", placeholder: "••••••••", required: true, minLength: 8, maxLength: 72 });

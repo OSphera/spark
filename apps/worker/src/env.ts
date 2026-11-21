@@ -41,9 +41,9 @@ export interface Env {
   SESSION_SECRET: string;
   /** "true" lets anyone sign in with just a name, for tests and demos. Leave it unset otherwise. */
   EMBER_GUEST_SIGN_IN?: string;
-  /** What the Set up Ember form suggests for the administrator's name in place of "Kevin Rose". */
+  /** What the Set up Ember form suggests for the administrator's name in place of "Jane Smith". */
   EMBER_SETUP_NAME_PLACEHOLDER?: string;
-  /** What the Set up Ember form suggests for their email address in place of "kevin@kevinrose.com". */
+  /** What the Set up Ember form suggests for their email address in place of "jane.smith@example.com". */
   EMBER_SETUP_EMAIL_PLACEHOLDER?: string;
   /**
    * The setup password, which the Set up Ember page asks for, so that only whoever deployed Ember sets

@@ -49,11 +49,11 @@ const ALREADY_SET_UP = { error: "Ember is already set up", redirect: "/" };
 
 /**
  * What the Set up Ember form suggests, as `/api/bootstrap` tells the app: the deployment's own name and
- * email address, else Kevin Rose's. A blank setting counts as unset.
+ * email address, else a sample person's. A blank setting counts as unset.
  */
 export const setupPlaceholdersOf = (env: Env): SetupPlaceholders => ({
-  name: env.EMBER_SETUP_NAME_PLACEHOLDER?.trim() || "Kevin Rose",
-  emailAddress: env.EMBER_SETUP_EMAIL_PLACEHOLDER?.trim() || "kevin@kevinrose.com",
+  name: env.EMBER_SETUP_NAME_PLACEHOLDER?.trim() || "Jane Smith",
+  emailAddress: env.EMBER_SETUP_EMAIL_PLACEHOLDER?.trim() || "jane.smith@example.com",
 });
 
 /** What opens setup on a deployment: the setup passwords the page asks for, and the token a setup link carries. */

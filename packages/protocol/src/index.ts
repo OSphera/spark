@@ -1232,7 +1232,7 @@ export interface Bootstrap {
   /** What setting Ember up takes from here, while it's pending. */
   setupAccess: SetupAccess;
   /**
-   * What the Set up Ember form suggests: Kevin Rose's name and email address, unless the deployment names
+   * What the Set up Ember form suggests: a sample person's name and email address, unless the deployment names
    * its own with `EMBER_SETUP_NAME_PLACEHOLDER` and `EMBER_SETUP_EMAIL_PLACEHOLDER`.
    */
   setupPlaceholders: SetupPlaceholders;

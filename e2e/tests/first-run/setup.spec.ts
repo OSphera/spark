@@ -75,8 +75,8 @@ test.describe("Set up the workspace", () => {
     await expect(page.getByLabel("Name")).toBeFocused();
     await expect(page).toHaveURL(/\/first_run$/);
     // The test server names no placeholders of its own, so the form suggests the defaults.
-    await expect(page.getByLabel("Name")).toHaveAttribute("placeholder", "Kevin Rose");
-    await expect(page.getByLabel("Email address")).toHaveAttribute("placeholder", "kevin@kevinrose.com");
+    await expect(page.getByLabel("Name")).toHaveAttribute("placeholder", "Jane Smith");
+    await expect(page.getByLabel("Email address")).toHaveAttribute("placeholder", "jane.smith@example.com");
     // With no header to show it under, Skip to main content shows at the page's top left, as basecoat's does.
     const skip = page.getByRole("link", { name: "Skip to main content" });
     await skip.focus();

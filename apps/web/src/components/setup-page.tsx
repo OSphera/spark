@@ -23,7 +23,7 @@ import { loadPage } from "@/lib/page";
 
 // The Set up Ember page. Entering its fields doesn't select what's in them, since it isn't one of the
 // app's pages, which do (`useSelectOnEntry`). Its name and email address placeholders come from
-// /api/bootstrap: Kevin Rose's, unless the deployment suggests its own.
+// /api/bootstrap: a sample person's, unless the deployment suggests its own.
 //
 // A deployed Worker takes its setup password, which Deploy to Cloudflare's form had its deployer make
 // up: the page asks for it first, has the Worker check it, and sends it with the form as a bearer token.
