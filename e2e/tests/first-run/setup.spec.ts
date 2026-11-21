@@ -59,7 +59,7 @@ test.describe("Set up the workspace", () => {
     await expect(page).toHaveURL(/\/first_run$/);
     await expect(page).toHaveTitle("Set up Spark");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Set up Spark");
-    await expect(page.getByText("Ember is waiting for its administrator.")).toBeVisible();
+    await expect(page.getByText("Spark is waiting for its administrator.")).toBeVisible();
     await expect(page.getByText(`${new URL(page.url()).origin}/first_run#token=…`)).toBeVisible();
     await expect(page.getByLabel("Name")).toHaveCount(0);
     // Sent as the app's own page would send it, since over HTTPS a write that doesn't say so is refused as cross-site.

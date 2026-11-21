@@ -97,7 +97,7 @@ export function PersonalAgentsSettings({ onFailed }: { onFailed: (error: unknown
           value={limit}
           disabled={everyone === null}
           onChange={(event) => setLimit(event.target.value)}
-          className="min-h-11 w-20 rounded-[9px] border bg-background px-[0.8em]"
+          className="min-h-11 w-20 rounded-[9px] border bg-background px-[0.8em] text-base"
         />
         <button type="submit" disabled={busy || everyone === null} className={BUTTON}>
           Save

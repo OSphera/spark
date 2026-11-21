@@ -41,7 +41,7 @@ async function askForLink(page: Page, emailAddress: string): Promise<SentEmail> 
   await page.getByRole("textbox", { name: "Email address" }).fill(emailAddress);
   await page.getByRole("button", { name: "Email me a link" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Check your email");
-  await expect(page.getByText(`Ember emailed ${emailAddress}.`, { exact: false })).toBeVisible();
+  await expect(page.getByText(`Spark emailed ${emailAddress}.`, { exact: false })).toBeVisible();
   await expect.poll(() => resend.sent.length).toBe(sent + 1);
   return resend.sent.at(-1)!;
 }

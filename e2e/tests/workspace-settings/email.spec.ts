@@ -66,7 +66,7 @@ test.describe("Sending email", () => {
         subject: expect.stringMatching(/^Test email from /) as unknown,
       }),
     ]);
-    expect(resend.sent.at(-1)!.text).toContain(`, at ${baseURL}.\n\nIt reached you, so Ember can send email.`);
+    expect(resend.sent.at(-1)!.text).toContain(`, at ${baseURL}.\n\nIt reached you, so Spark can send email.`);
     expect(resend.sent.at(-1)!.html).toContain(`<a href="${baseURL}">${baseURL}</a>`);
     await setup.getByRole("button", { name: "Done" }).click();
     await expect(setup).toBeHidden();

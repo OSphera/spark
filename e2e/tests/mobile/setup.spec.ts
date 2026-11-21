@@ -35,7 +35,7 @@ test("the setup link screen fits the phone", async ({ page, screenIsFine }) => {
   // As a deployed Worker, opened without its setup link, shows it.
   await page.route("**/api/bootstrap", (route) => route.fulfill({ json: { ...PENDING, setupAccess: "link" } }));
   await page.goto("/first_run");
-  await expect(page.getByText("Ember is waiting for its administrator.")).toBeVisible();
+  await expect(page.getByText("Spark is waiting for its administrator.")).toBeVisible();
   await expect(page.getByText("EMBER_SETUP_PASSWORD")).toBeVisible();
   await screenIsFine();
 });
