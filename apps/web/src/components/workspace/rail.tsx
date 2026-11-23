@@ -88,6 +88,8 @@ interface Props {
   me: Me;
   /** The workspace's name, which the logo's tooltip shows. */
   workspaceName: string;
+  /** Spark: this deployment's version, as the API's X-Version says it, shown above the round buttons. */
+  version?: string;
   current: RailPage;
   activity: Activity;
   /** The release of Ember out since this one, such as "0.2", which Admin marks for an administrator, or null for none. */
@@ -114,12 +116,12 @@ interface Props {
  * Search where nothing else has it: on a phone in landscape, which has no top bar, and in the drawer
  * when it holds the rail alone. Your avatar has a half-moon while you've paused your notifications.
  */
-export function Rail({ me, workspaceName, current, activity, newRelease, openReports = 0, onNewDirect, searchInDrawer = false, askForPause, onFailed }: Props) {
+export function Rail({ me, workspaceName, version, current, activity, newRelease, openReports = 0, onNewDirect, searchInDrawer = false, askForPause, onFailed }: Props) {
   const { logo } = useAccount();
   const paused = usePausedUntil(me.id) !== null;
   const openSearch = useContext(OpenSearchContext);
   const marked = activity.on ? null : current;
-  const notices = [newRelease !== null && `Ember ${newRelease} is available`, openReports > 0 && openReportsNamed(openReports)].filter((notice) => notice !== false);
+  const notices = [newRelease !== null && `Spark ${newRelease} is available`, openReports > 0 && openReportsNamed(openReports)].filter((notice) => notice !== false);
   return (
     // Scrolls when a short screen (a phone in landscape) can't fit it all; widens by the notch's inset.
     <nav
@@ -164,6 +166,13 @@ export function Rail({ me, workspaceName, current, activity, newRelease, openRep
         notice={notices.length > 0 ? notices.join(". ") : undefined}
       />
       {/* The two round buttons and your avatar sit at the rail's foot, pushed there by Pause notifications' auto margin. */}
+      {/* Spark (OSphera/spark#10): the version, plainly, above them, at the labels' size, taking the auto margin from Pause notifications. */}
+      {version && (
+        <div className="mt-auto max-w-14 text-center text-[11px] leading-tight text-muted-foreground [&+*]:mt-0" title={`Spark ${version}`}>
+          <span className="sr-only">Spark version </span>
+          {version}
+        </div>
+      )}
       <PauseMenu meId={me.id} askForPause={askForPause} onFailed={onFailed} />
       <AppearanceMenu />
       {/* Your avatar, at 36px, links to your profile, where you log out. */}

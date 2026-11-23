@@ -145,7 +145,7 @@ test.describe("Version", () => {
   test("shows the version under the sign-in and join cards, and nobody's email address", async ({ page, request, session }) => {
     for (const path of ["/session/new", `/join/${(await invitation(request, session)).joinCode}`]) {
       await page.goto(path);
-      await expect(page.getByText(/^Ember version/)).toHaveText(/^Ember version \d+\.\d+/);
+      await expect(page.getByText(/^Spark version/)).toHaveText(/^Spark version \d+\.\d+/);
       await expect(page.getByText(ADMINISTRATOR.emailAddress)).toHaveCount(0);
     }
   });

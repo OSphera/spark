@@ -180,7 +180,7 @@ describe("Sign-in attempt limit", () => {
 describe("Version", () => {
   it("shows Ember's version under the card", () => {
     render(<SignInPage workspace={workspace} onSignedIn={vi.fn()} />, { wrapper: FlashProvider });
-    expect(card().nextElementSibling).toHaveTextContent(/^Ember version 0\.1$/);
+    expect(card().nextElementSibling).toHaveTextContent(/^Spark version 0\.1$/);
     expect(screen.queryByRole("link", { name: /@/ })).not.toBeInTheDocument();
   });
 });

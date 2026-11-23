@@ -254,6 +254,8 @@ interface Props {
   me: Me;
   /** The workspace's name, which titles the rail's logo and heads the sidebar. */
   workspaceName: string;
+  /** Spark: this deployment's version, which the rail shows (OSphera/spark#10). */
+  version?: string;
   /**
    * Called with the workspace as the workspace socket last said it is, or as its settings last loaded or
    * saved it, when the socket has said nothing since they were asked for.
@@ -270,7 +272,7 @@ interface Props {
   onSessionChanged: (me: Me | null) => void;
 }
 
-export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDeleteAccount, onSessionChanged }: Props) {
+export function Workspace({ me, workspaceName, version, onAccountChanged, onSignOut, onDeleteAccount, onSessionChanged }: Props) {
   // How many times the workspace socket has said what the account is. A page's answer from the server
   // shows only if no more has been said since it was asked for, since it may have been read before.
   const accountsHeard = useRef(0);
@@ -784,6 +786,7 @@ export function Workspace({ me, workspaceName, onAccountChanged, onSignOut, onDe
     <Rail
       me={me}
       workspaceName={workspaceName}
+      version={version}
       current={RAIL_PAGES[route.page]}
       activity={activity}
       newRelease={newRelease}

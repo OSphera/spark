@@ -332,7 +332,7 @@ describe("Version", () => {
   it("shows Ember's version under the card, as the sign-in page does, and nobody to email", () => {
     render(<JoinPage workspace={workspace} joinCode={JOIN_CODE} onJoined={vi.fn()} />);
     const card = screen.getByRole("heading", { name: /^Join / }).closest("section")!;
-    expect(card.nextElementSibling).toHaveTextContent(/^Ember version 0\.1$/);
+    expect(card.nextElementSibling).toHaveTextContent(/^Spark version 0\.1$/);
     expect(screen.queryByRole("link", { name: /@/ })).not.toBeInTheDocument();
   });
 });

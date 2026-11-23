@@ -41,6 +41,16 @@ describe("Rail", () => {
     expect(within(rail).getByRole("link", { name: "Your profile" })).toHaveAttribute("href", "/users/me/profile");
   });
 
+  it("shows Spark's version plainly, just above Pause notifications, at the labels' size", () => {
+    render(<Rail me={ada} workspaceName="Analytical Engines" version="1.0" current="home" activity={activityOff} newRelease={null} onNewDirect={() => {}} askForPause={() => () => {}} onFailed={() => {}} />);
+    const version = screen.getByText("1.0", { exact: false });
+    expect(version).toHaveTextContent(/^Spark version 1\.0$/);
+    expect(version).toHaveClass("text-[11px]");
+    const pause = screen.getByRole("button", { name: "Pause notifications" });
+    expect(version.compareDocumentPosition(pause) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Workspace" }).compareDocumentPosition(version) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("links your avatar to your profile, titled with your name", async () => {
     render(railAt("home"));
     const profile = screen.getByRole("link", { name: "Your profile" });
@@ -64,7 +74,7 @@ describe("Rail", () => {
     const grace = { ...ada, administrator: true };
     const { rerender } = render(railAt("home", activityOff, grace, () => {}, "0.2"));
     const admin = screen.getByRole("link", { name: "Admin" });
-    expect(admin).toHaveAccessibleDescription("Ember 0.2 is available");
+    expect(admin).toHaveAccessibleDescription("Spark 0.2 is available");
     const dot = admin.lastElementChild;
     expect(dot).toHaveAttribute("aria-hidden", "true");
     expect(dot).toHaveClass("absolute", "rounded-full", "border-2", "border-surface", "bg-foreground");
@@ -93,7 +103,7 @@ describe("Rail", () => {
     expect(admin).toHaveAccessibleDescription("1 open report");
     expect(admin.lastElementChild).toHaveClass("absolute", "rounded-full", "bg-foreground");
     rerender(rail(3, "0.2"));
-    expect(admin).toHaveAccessibleDescription("Ember 0.2 is available. 3 open reports");
+    expect(admin).toHaveAccessibleDescription("Spark 0.2 is available. 3 open reports");
     rerender(rail(0));
     expect(admin).not.toHaveAccessibleDescription();
   });

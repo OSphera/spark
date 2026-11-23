@@ -238,6 +238,7 @@ export function App() {
           <Workspace
             me={me}
             workspaceName={workspace.account.name}
+            version={workspace.version}
             onAccountChanged={accountChanged}
             onSignOut={signOutHere}
             onDeleteAccount={deleteAccountHere}
