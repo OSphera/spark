@@ -9,14 +9,16 @@
     <meta name="color-scheme" content="light dark" />
     <!-- What lets browsers install Spark as an app. The script below matches the theme color to the
          page's appearance at once. mobile-web-app-capable is there beside Apple's, since Chrome warns
-         on every page that has only Apple's. -->
+         on every page that has only Apple's. The icons are the server's logo, which is the stock icon
+         until an administrator uploads one, so that an app installed before the app has loaded, as
+         Safari's Add to Dock installs it, gets the community's logo (OSphera/spark#1). -->
     <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="/webmanifest.json" />
-    <link rel="icon" type="image/png" sizes="48x48" href="/logos/app-icon-48.png" />
-    <link rel="apple-touch-icon" href="/logos/app-icon.png" />
+    <link rel="icon" type="image/png" href="/account/logo?size=small" />
+    <link rel="apple-touch-icon" href="/account/logo" />
     <title>Spark</title>
     <script>
       // Apply the saved appearance before first paint, and color the browser around the page to match.

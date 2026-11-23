@@ -61,8 +61,8 @@ test.describe("Workspace logo", () => {
     await expect(remove).toHaveCount(0);
     await expect(logo).toHaveAttribute("src", "/logos/app-icon.png");
     await expect(railLogo(page)).toHaveAttribute("src", "/ember-icon.png");
-    await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/logos/app-icon-48.png");
-    await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute("href", "/logos/app-icon.png");
+    await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/account/logo?size=small");
+    await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute("href", "/account/logo");
     await expect(railLogo(member)).toHaveAttribute("src", "/ember-icon.png");
     await member.context().close();
   });
