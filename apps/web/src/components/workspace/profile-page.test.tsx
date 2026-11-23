@@ -6,19 +6,14 @@ import {
   AVATAR_TOO_LARGE,
   CURRENT_PASSWORD_WRONG,
   MAX_AVATAR_SIZE,
-  MEMBERFUL_CONNECTIONS_PATH,
-  MEMBERFUL_DISCONNECTED_NOTICE,
   type Account,
   type DirectoryUser,
-  type MemberfulDisconnection,
-  type MemberfulStatus,
   type Platform,
   type Profile,
   type ProfileAnswer,
   type ProfileChanges,
   type SidebarRoom,
 } from "@ember/protocol";
-import { MEMBERFUL_WITH_SSO, SSO_CONNECTIONS_PATH, SSO_DISCONNECTED_NOTICE, SSO_WITH_MEMBERFUL, type SsoStatus } from "@ember/protocol/sso";
 import type { HuddleSounds, HuddleSoundsChanged } from "@ember/protocol/huddles";
 import { FlashProvider } from "@/components/flash";
 import { Sheet } from "@/components/ui/sheet";
@@ -37,8 +32,8 @@ vi.mock("@/lib/previews", () => ({ avatarVariantOf: vi.fn(async () => new Blob([
 const ada = { id: "u1", name: "Ada Lovelace", administrator: false };
 /** Ada's avatar as the profile loads it: her initials, until she uploads one. */
 const INITIALS = "/users/t0k3n/avatar?v=1";
-const profile: Profile = { name: "Ada Lovelace", username: null, emailAddress: "ada@example.com", bio: "Wrote the first program", avatarUrl: INITIALS, avatar: false, password: true, membershipNeeded: true, memberful: null, sso: null, assistant: null, apps: [], outsideAi: null };
-const account: Account = { name: "Analytical Engines", tagline: "", hideTranslationButtons: true, customStyles: "", restrictRoomCreation: false, restrictChannelMentions: false, restrictEveryoneMention: false, warnBeforeNotifying: true, logo: null, customDomain: null, joinLink: true, openSignUp: false, memberfulJoin: false, memberfulSignIn: false, ssoJoin: false, ssoSignIn: false, emailDomainSignUp: false, emailDomains: [], navigationIcons: {}, huddles: false, huddleCameras: true, huddleScreens: true, huddleVideo: "hd" };
+const profile: Profile = { name: "Ada Lovelace", username: null, emailAddress: "ada@example.com", bio: "Wrote the first program", avatarUrl: INITIALS, avatar: false, password: true, assistant: null, apps: [], outsideAi: null };
+const account: Account = { name: "Analytical Engines", tagline: "", hideTranslationButtons: true, customStyles: "", restrictRoomCreation: false, restrictChannelMentions: false, restrictEveryoneMention: false, warnBeforeNotifying: true, logo: null, customDomain: null, joinLink: true, openSignUp: false, emailDomainSignUp: false, emailDomains: [], navigationIcons: {}, huddles: false, huddleCameras: true, huddleScreens: true, huddleVideo: "hd" };
 /** The sign-in links loading and saving the profile give. */
 const [LOADED_LINK, SAVED_LINK] = ["u1.mgk3x2a9.loaded", "u1.mgk3x2b0.saved"];
 
@@ -49,20 +44,7 @@ interface Answers {
   saved?: () => Response | Promise<Response>;
   /** What saving an avatar answers, rather than the profile with an avatar. */
   uploaded?: () => Response | Promise<Response>;
-  /** What disconnecting your Memberful account answers, rather than the profile with none connected. */
-  disconnected?: () => Response | Promise<Response>;
-  /** What disconnecting your account at the single sign-on provider answers, rather than the profile with none connected. */
-  ssoDisconnected?: () => Response | Promise<Response>;
 }
-
-/** Ada's Memberful account, as Memberful describes it, once she has connected it. */
-const ADAS_ACCOUNT = { name: "Ada Lovelace", emailAddress: "ada@example.com" };
-/** Where Ada stands with Memberful while it's members only: not connected, or connected to her account there. */
-const NOT_CONNECTED: MemberfulStatus = { membersOnly: true, connected: null };
-const CONNECTED: MemberfulStatus = { membersOnly: true, connected: ADAS_ACCOUNT };
-/** Where Ada stands with single sign-on while it's the only way in, likewise. */
-const SSO_NOT_CONNECTED: SsoStatus = { name: "Acme", ssoOnly: true, connected: null };
-const SSO_CONNECTED: SsoStatus = { name: "Acme", ssoOnly: true, connected: ADAS_ACCOUNT };
 
 /** Ada's avatar once she has uploaded one. */
 const UPLOADED = "/users/t0k3n/avatar?v=2";
@@ -72,8 +54,6 @@ function serve({
   loaded = () => Response.json({ profile, transferId: LOADED_LINK } satisfies ProfileAnswer),
   saved,
   uploaded = () => Response.json({ profile: { ...profile, avatarUrl: UPLOADED, avatar: true }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-  disconnected = () => Response.json({ profile: { ...profile, memberful: NOT_CONNECTED }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-  ssoDisconnected = () => Response.json({ profile: { ...profile, sso: SSO_NOT_CONNECTED }, transferId: SAVED_LINK } satisfies ProfileAnswer),
 }: Answers = {}) {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const request = `${init?.method ?? "GET"} ${String(input)}`;
@@ -88,10 +68,6 @@ function serve({
         return uploaded();
       case `DELETE ${AVATAR_PATH}`:
         return Response.json({ profile: { ...profile, avatarUrl: "/users/t0k3n/avatar?v=3" }, transferId: SAVED_LINK } satisfies ProfileAnswer);
-      case `DELETE ${MEMBERFUL_CONNECTIONS_PATH}`:
-        return disconnected();
-      case `DELETE ${SSO_CONNECTIONS_PATH}`:
-        return ssoDisconnected();
       default:
         throw new Error(`Unexpected request for ${request}`);
     }
@@ -647,306 +623,15 @@ describe("Pause notifications on your profile", () => {
   });
 });
 
-describe("Connect Memberful", () => {
-  const memberful = () => screen.queryByRole("region", { name: "Memberful" });
-  const passwordHelp = () => screen.getByText(/Leave blank to keep/);
-  /** What each disconnection sent, in order. */
-  const disconnections = () =>
-    vi
-      .mocked(fetch)
-      .mock.calls.filter(([input, init]) => String(input) === MEMBERFUL_CONNECTIONS_PATH && init?.method === "DELETE")
-      .map(([, init]) => JSON.parse(String(init?.body)) as MemberfulDisconnection);
-
-  it("has a Memberful section between the form and your rooms' levels while members sign in with Memberful", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, memberful: NOT_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    const { showRooms } = showPage();
-    await loaded();
-    showRooms([{ id: "design", name: "Design", kind: "open", icon: null, unread: false, involvement: "mentions" }]);
-    expect(memberful()).toHaveTextContent("Connect your Memberful account to keep signing in.");
-    // Its own password field, as you have a password.
-    expect(within(memberful()!).getByLabelText("Password")).toBeInTheDocument();
-    expect(saveButton().compareDocumentPosition(memberful()!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(memberful()!.compareDocumentPosition(screen.getByRole("list", { name: "Conversation notifications" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(passwordHelp()).toHaveTextContent("Leave blank to keep your current password.");
-    expect(passwordHelp()).not.toHaveTextContent("disconnects");
-  });
-
-  it("names the account once you've connected one, and says that a new password disconnects it", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, memberful: CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
+describe("Ways to sign in on your profile", () => {
+  it("has no Memberful or Single sign-on section, and offers a first password to someone without one", async () => {
+    serve({ loaded: () => Response.json({ profile: { ...profile, password: false }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
     showPage();
-    await loaded();
-    expect(memberful()).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). You sign in with Memberful.");
-    expect(within(memberful()!).getByRole("button", { name: "Disconnect Memberful" })).toBeEnabled();
-    expect(passwordHelp()).toHaveTextContent("Leave blank to keep your current password. Changing it disconnects Memberful.");
-  });
-
-  it("offers no password to someone without one whom Memberful signs in, whose way in it is, and saves the rest without one", async () => {
-    const theirs = { ...profile, password: false, memberful: CONNECTED };
-    serve({
-      loaded: () => Response.json({ profile: theirs, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      saved: () => Response.json({ profile: { ...theirs, emailAddress: "countess@example.com" }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-    });
-    const { user } = showPage();
-    await loaded();
-    expect(memberful()).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). You sign in with Memberful.");
-    expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
-    expect(within(memberful()!).queryByRole("button", { name: "Disconnect Memberful" })).not.toBeInTheDocument();
-
-    await user.clear(field("Email address"));
-    await user.type(field("Email address"), "countess@example.com");
-    await user.click(saveButton());
-    expect(await screen.findByRole("alert")).toHaveTextContent("Changes saved");
-    expect(saved()).toEqual([{ emailAddress: "countess@example.com" }]);
-    expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
-  });
-
-  it("offers a first password to someone without one once Memberful doesn't sign them in, as at a deployment without its keys", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, password: false, memberful: null }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    showPage();
-    await loaded();
-    expect(memberful()).toBeNull();
-    expect(passwordHelp()).toHaveTextContent("Leave blank to keep signing in without a password.");
-    expect(passwordHelp()).not.toHaveTextContent("disconnects");
-  });
-
-  it("asks someone with a password but no email address to add one first, and warns of a new password disconnecting it only once one is typed", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, emailAddress: null, memberful: CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    const { user } = showPage();
-    await loaded();
-    expect(memberful()).toHaveTextContent("To disconnect, add an email address above so you can still sign in with your password.");
-    expect(within(memberful()!).queryByRole("button", { name: "Disconnect Memberful" })).not.toBeInTheDocument();
-    expect(passwordHelp()).toHaveTextContent("Leave blank to keep your current password.");
-    expect(passwordHelp()).not.toHaveTextContent("disconnects");
-    // Saved with an email address, a new password would disconnect it.
-    await user.type(screen.getByLabelText("Email address"), "ada@example.com");
-    expect(passwordHelp()).toHaveTextContent("Leave blank to keep your current password. Changing it disconnects Memberful.");
-  });
-
-  it("disconnects it with your password, offering to connect one again, with the notice", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, memberful: CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    const { user, onFailed } = showPage();
-    await loaded();
-    await user.type(within(memberful()!).getByLabelText("Password"), "analytical engine");
-    await user.click(within(memberful()!).getByRole("button", { name: "Disconnect Memberful" }));
-    await waitFor(() => expect(memberful()).toHaveTextContent("Connect your Memberful account to keep signing in."));
-    expect(disconnections()).toEqual([{ currentPassword: "analytical engine" }]);
-    expect(await screen.findByRole("alert")).toHaveTextContent(MEMBERFUL_DISCONNECTED_NOTICE);
-    expect(passwordHelp()).toHaveTextContent("Leave blank to keep your current password.");
-    expect(passwordHelp()).not.toHaveTextContent("disconnects");
-    // With a new sign-in link, as each answer brings.
-    expect(screen.getByRole("textbox", { name: "Use this link to login automatically on another device" })).toHaveValue(`http://localhost:3000/session/transfers#token=${SAVED_LINK}`);
-    expect(onFailed).not.toHaveBeenCalled();
-  });
-
-  it("keeps showing it disconnected when a save answers late with the account still connected, since only a reload connects one", async () => {
-    // A save, or a photo, sent before Disconnect can answer after it, as the profile was before.
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, memberful: CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      saved: () => Response.json({ profile: { ...profile, name: "Ada King", memberful: CONNECTED }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-    });
-    const { user } = showPage();
-    await loaded();
-    await user.type(within(memberful()!).getByLabelText("Password"), "analytical engine");
-    await user.click(within(memberful()!).getByRole("button", { name: "Disconnect Memberful" }));
-    await waitFor(() => expect(memberful()).toHaveTextContent("Connect your Memberful account to keep signing in."));
-    await user.type(field("Name"), " King");
-    await user.click(saveButton());
-    await waitFor(() => expect(field("Name")).toHaveValue("Ada King"));
-    expect(memberful()).toHaveTextContent("Connect your Memberful account to keep signing in.");
-    expect(within(memberful()!).queryByRole("button", { name: "Disconnect Memberful" })).not.toBeInTheDocument();
-    expect(passwordHelp()).not.toHaveTextContent("disconnects");
-  });
-
-  it("keeps showing it disconnected once a new password disconnects it, when a photo's answer arrives late with the account still connected", async () => {
-    // A photo picked before the password is saved can answer after it, as the profile was before.
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, memberful: CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      saved: () => Response.json({ profile: { ...profile, memberful: NOT_CONNECTED }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-      uploaded: () => Response.json({ profile: { ...profile, avatarUrl: UPLOADED, avatar: true, memberful: CONNECTED }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-    });
-    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:moon");
-    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-    const { user } = showPage();
-    await loaded();
-    await user.type(field("New password"), "difference engine");
-    await user.type(field("Current password"), "analytical engine");
-    await user.click(saveButton());
-    await waitFor(() => expect(memberful()).toHaveTextContent("Connect your Memberful account to keep signing in."));
-    await user.upload(screen.getByLabelText("Upload avatar", { exact: false }), new File(["moon"], "moon.jpg", { type: "image/jpeg" }));
-    await waitFor(() => expect(screen.getByRole("img", { name: "Your avatar" })).toHaveAttribute("src", UPLOADED));
-    expect(memberful()).toHaveTextContent("Connect your Memberful account to keep signing in.");
-    expect(within(memberful()!).queryByRole("button", { name: "Disconnect Memberful" })).not.toBeInTheDocument();
-  });
-
-  it("keeps offering Disconnect when a photo's answer arrives late without the email address saved since, which only the profile's own answers change", async () => {
-    // A photo picked before an email address is saved can answer after it, as the profile was before.
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, memberful: CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      uploaded: () =>
-        Response.json({ profile: { ...profile, emailAddress: null, avatarUrl: UPLOADED, avatar: true, memberful: CONNECTED }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-    });
-    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:moon");
-    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-    const { user } = showPage();
-    await loaded();
-    await user.upload(screen.getByLabelText("Upload avatar", { exact: false }), new File(["moon"], "moon.jpg", { type: "image/jpeg" }));
-    await waitFor(() => expect(screen.getByRole("img", { name: "Your avatar" })).toHaveAttribute("src", UPLOADED));
-    expect(within(memberful()!).getByRole("button", { name: "Disconnect Memberful" })).toBeEnabled();
-    expect(memberful()).not.toHaveTextContent("Add your email address");
-  });
-
-  it("takes the section away once it's disconnected while Memberful isn't members only, since your password signs you in", async () => {
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, memberful: { membersOnly: false, connected: ADAS_ACCOUNT } }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      disconnected: () => Response.json({ profile: { ...profile, memberful: null }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-    });
-    const { user } = showPage();
-    await loaded();
-    expect(memberful()).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). You can sign in with Memberful or your password.");
-    await user.type(within(memberful()!).getByLabelText("Password"), "analytical engine");
-    await user.click(within(memberful()!).getByRole("button", { name: "Disconnect Memberful" }));
-    await waitFor(() => expect(memberful()).not.toBeInTheDocument());
-    expect(await screen.findByRole("alert")).toHaveTextContent(MEMBERFUL_DISCONNECTED_NOTICE);
-  });
-
-  it("says why it didn't disconnect", async () => {
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, memberful: CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      disconnected: () => Response.json({ error: CURRENT_PASSWORD_WRONG }, { status: 422 }),
-    });
-    const { user, onFailed } = showPage();
-    await loaded();
-    await user.type(within(memberful()!).getByLabelText("Password"), "wrong");
-    await user.click(within(memberful()!).getByRole("button", { name: "Disconnect Memberful" }));
-    await waitFor(() => expect(onFailed).toHaveBeenCalledWith(expect.objectContaining({ status: 422, message: CURRENT_PASSWORD_WRONG })));
-    expect(memberful()).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). You sign in with Memberful.");
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("tells someone who needs no membership, as an administrator or someone they invited, that they can sign in with it too", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, membershipNeeded: false, memberful: NOT_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    showPage();
-    await loaded();
-    expect(memberful()).toHaveTextContent("Connect your Memberful account to sign in with it.");
-  });
-
-  it("has none while members don't sign in with Memberful", async () => {
-    showPage();
-    await loaded();
-    expect(memberful()).not.toBeInTheDocument();
-  });
-});
-
-describe("Connect single sign-on", () => {
-  const sso = () => screen.queryByRole("region", { name: "Single sign-on" });
-  const passwordHelp = () => screen.getByText(/Leave blank to keep/);
-
-  it("has a Single sign-on section, naming the provider as the sign-in page does, while it's the only way in", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, sso: SSO_NOT_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    showPage();
-    await loaded();
-    expect(sso()).toHaveTextContent("Members sign in with Acme. Connect your Acme account to keep signing in.");
-    expect(within(sso()!).getByRole("button", { name: "Connect Acme" })).toBeEnabled();
+    await waitFor(() => expect(screen.getByLabelText("New password")).toBeEnabled());
     expect(screen.queryByRole("region", { name: "Memberful" })).not.toBeInTheDocument();
-  });
-
-  it("names the account once you've connected one, and says that a new password disconnects it, and Memberful's too", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, sso: SSO_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    showPage();
-    await loaded();
-    expect(sso()).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). You sign in with Acme.");
-    expect(passwordHelp()).toHaveTextContent("Leave blank to keep your current password. Changing it disconnects single sign-on.");
-  });
-
-  it("says single sign-on signs nobody in while members sign in with Memberful, rather than that you can sign in with it", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, memberful: CONNECTED, sso: { ...SSO_CONNECTED, ssoOnly: false } }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    showPage({ ...account, memberfulJoin: true, memberfulSignIn: true, ssoJoin: true });
-    await loaded();
-    expect(sso()).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). Signing in with Acme is off while members sign in with Memberful.");
-    expect(screen.getByRole("region", { name: "Memberful" })).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). You sign in with Memberful.");
-  });
-
-  it("says Memberful signs nobody in while members sign in with the provider", async () => {
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, memberful: { membersOnly: false, connected: ADAS_ACCOUNT }, sso: SSO_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-    });
-    showPage({ ...account, memberfulJoin: true, ssoJoin: true, ssoSignIn: true });
-    await loaded();
-    expect(screen.getByRole("region", { name: "Memberful" })).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). Signing in with Memberful is off while members sign in with Acme.");
-    expect(sso()).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). You sign in with Acme.");
-  });
-
-  it("says a new password disconnects both accounts while both are connected", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, memberful: CONNECTED, sso: SSO_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    showPage();
-    await loaded();
-    expect(passwordHelp()).toHaveTextContent("Changing it disconnects Memberful and single sign-on.");
-  });
-
-  it("disconnects it with your password, offering to connect one again, with the notice", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, sso: SSO_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    const { user } = showPage();
-    await loaded();
-    await user.type(within(sso()!).getByLabelText("Password"), "analytical engine");
-    await user.click(within(sso()!).getByRole("button", { name: "Disconnect Acme" }));
-    await waitFor(() => expect(sso()).toHaveTextContent("Connect your Acme account to keep signing in."));
-    expect(await screen.findByRole("alert")).toHaveTextContent(SSO_DISCONNECTED_NOTICE);
-    expect(passwordHelp()).not.toHaveTextContent("disconnects");
-  });
-
-  it("keeps showing it disconnected once a new password disconnects it, when a photo's answer arrives late with the account still connected", async () => {
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, sso: SSO_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      saved: () => Response.json({ profile: { ...profile, sso: SSO_NOT_CONNECTED }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-      uploaded: () => Response.json({ profile: { ...profile, avatarUrl: UPLOADED, avatar: true, sso: SSO_CONNECTED }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-    });
-    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:moon");
-    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
-    const { user } = showPage();
-    await loaded();
-    await user.type(field("New password"), "difference engine");
-    await user.type(field("Current password"), "analytical engine");
-    await user.click(saveButton());
-    await waitFor(() => expect(sso()).toHaveTextContent("Connect your Acme account to keep signing in."));
-    await user.upload(screen.getByLabelText("Upload avatar", { exact: false }), new File(["moon"], "moon.jpg", { type: "image/jpeg" }));
-    await waitFor(() => expect(screen.getByRole("img", { name: "Your avatar" })).toHaveAttribute("src", UPLOADED));
-    expect(sso()).toHaveTextContent("Connect your Acme account to keep signing in.");
-    expect(within(sso()!).queryByRole("button", { name: "Disconnect Acme" })).not.toBeInTheDocument();
-  });
-
-  it("offers no password to someone without one whom single sign-on signs in, whose way in it is, nor offers to disconnect it", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, password: false, sso: SSO_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    showPage();
-    await loaded();
-    expect(sso()).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). You sign in with Acme.");
-    expect(sso()).not.toHaveTextContent(/password|disconnect/i);
-    expect(screen.queryByLabelText("New password")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Current password")).not.toBeInTheDocument();
-  });
-
-  it("offers no Connect to someone without a password whom the other way signs in, as their session would be all there was to check", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, password: false, memberful: CONNECTED, sso: SSO_NOT_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    showPage();
-    await loaded();
-    expect(sso()).toHaveTextContent(SSO_WITH_MEMBERFUL);
-    expect(within(sso()!).queryByRole("button")).not.toBeInTheDocument();
-  });
-
-  it("offers no Connect Memberful either to someone without a password whom single sign-on signs in", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, password: false, memberful: NOT_CONNECTED, sso: SSO_CONNECTED }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    showPage();
-    await loaded();
-    const memberful = screen.getByRole("region", { name: "Memberful" });
-    expect(memberful).toHaveTextContent(MEMBERFUL_WITH_SSO);
-    expect(within(memberful).queryByRole("button")).not.toBeInTheDocument();
-  });
-
-  it("has none while there's nothing to show", async () => {
-    serve();
-    showPage();
-    await loaded();
-    expect(sso()).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Single sign-on" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Memberful|single sign-on/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Leave blank to keep signing in without a password.")).toBeInTheDocument();
   });
 });
 

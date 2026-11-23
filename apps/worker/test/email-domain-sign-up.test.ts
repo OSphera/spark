@@ -31,8 +31,6 @@ const ada = { name: "Ada Lovelace", emailAddress: "ada@example.com", password: "
 const hal = { name: "Hal", password: "heuristically" };
 
 const FROM = "Ember <ember@example.com>";
-/** The keys of a deployment whose members may sign in with Memberful. */
-const MEMBERFUL_KEYS = { MEMBERFUL_URL: "https://example.memberful.com/", MEMBERFUL_CLIENT_ID: "ember-client-id", MEMBERFUL_CLIENT_SECRET: "ember-client-secret" };
 /** Turnstile's test keys: a site key whose check always passes, and a secret key, which this suite's fake siteverify takes. */
 const TURNSTILE_KEYS = { TURNSTILE_SITE_KEY: "1x00000000000000000000AA", TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA" };
 /** The token Turnstile's test site keys give the page. */
@@ -261,14 +259,6 @@ describe("Join with an email domain", () => {
       const response = await change(member, { emailDomains: ["example.org"] });
       expect(response.status).toBe(403);
       expect((await change(null, { emailDomains: ["example.org"] })).status).toBe(401);
-    });
-
-    it("lets nobody in while Memberful is members only, keeping its switch", async () => {
-      const administrator = await setUpEmailDomain();
-      await changed(administrator, { settings: { memberfulSignIn: true } }, MEMBERFUL_KEYS);
-      const response = await ask("hal@example.org");
-      expect(response.status).toBe(403);
-      expect((await bootstrap()).account).toMatchObject({ emailDomainSignUp: true, memberfulSignIn: true });
     });
   });
 

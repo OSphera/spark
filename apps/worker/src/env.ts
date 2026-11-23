@@ -63,38 +63,6 @@ export interface Env {
    */
   EMBER_RECOVERY_TOKEN?: string;
   /**
-   * The address of the Memberful site whose members may join and sign in, such as
-   * https://example.memberful.com, once an administrator turns Memberful on (memberful.ts). With the two
-   * keys of the site's custom app below, it takes the place of the site and every key an administrator
-   * gives in Set up Memberful, and the API key and webhook's secret below with it. Unless all three are
-   * set, Ember has only those.
-   */
-  MEMBERFUL_URL?: string;
-  /** The OAuth identifier of the Memberful site's custom app, a server-side one. */
-  MEMBERFUL_CLIENT_ID?: string;
-  /** That app's client secret, which never leaves the Worker. */
-  MEMBERFUL_CLIENT_SECRET?: string;
-  /**
-   * That app's API key, with which the Workspace asks Memberful's admin API whose memberships are
-   * active, when a webhook says one changed, and once a day (memberful-api.ts). Without it, only
-   * signing in checks a membership, and Memberful's webhooks are refused, as they are without the
-   * secret below.
-   */
-  MEMBERFUL_API_KEY?: string;
-  /** The secret Memberful signs its webhooks to `/webhooks/memberful` with, which its Webhooks settings show. */
-  MEMBERFUL_WEBHOOK_SECRET?: string;
-  /**
-   * The issuer of an OpenID Connect provider whose people may join and sign in once an administrator
-   * turns single sign-on on (sso.ts), such as https://example.zitadel.cloud, and the client ID and secret
-   * of the app registered there for Ember. All three together take the place of any an administrator
-   * gives on the Single sign-on card, which still sets what the sign-in page calls the provider, and
-   * whom it lets in.
-   */
-  SSO_ISSUER?: string;
-  SSO_CLIENT_ID?: string;
-  /** That app's client secret, which never leaves the Worker and the Workspace. */
-  SSO_CLIENT_SECRET?: string;
-  /**
    * The site key of a Cloudflare Turnstile widget, whose check the open sign-up form shows, and the forms
    * that ask Ember to email a link to join or a code to reset a password, to check that whoever fills
    * them in is a person (turnstile.ts). With the secret key below, it takes the place of the keys an

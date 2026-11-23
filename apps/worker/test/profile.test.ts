@@ -127,9 +127,9 @@ describe("Edit your profile", () => {
     const response = await api("/api/users/me/profile", { headers: as(administrator) });
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
-    const profile = { name: "Ada Lovelace", username: null, emailAddress: "ada@example.com", bio: null, ...(await initialsOf(administrator)), password: true, membershipNeeded: false, memberful: null, sso: null, assistant: null, apps: [], outsideAi: null };
+    const profile = { name: "Ada Lovelace", username: null, emailAddress: "ada@example.com", bio: null, ...(await initialsOf(administrator)), password: true, assistant: null, apps: [], outsideAi: null };
     expect(await response.json()).toEqual({ profile, transferId: expect.any(String) } satisfies ProfileAnswer);
-    expect(await profileOf(grace)).toEqual({ name: "Grace Hopper", username: null, emailAddress: null, bio: "Rear admiral", ...(await initialsOf(grace)), password: false, membershipNeeded: true, memberful: null, sso: null, assistant: null, apps: [], outsideAi: null } satisfies Profile);
+    expect(await profileOf(grace)).toEqual({ name: "Grace Hopper", username: null, emailAddress: null, bio: "Rear admiral", ...(await initialsOf(grace)), password: false, assistant: null, apps: [], outsideAi: null } satisfies Profile);
   });
 
   it("saves your name, email address and bio, answering your profile as it is then", async () => {
@@ -139,7 +139,7 @@ describe("Edit your profile", () => {
 
     const response = await save(grace, changed);
     expect(response.status).toBe(200);
-    const profile: Profile = { ...changed, username: null, ...(await initialsOf(grace)), password: false, membershipNeeded: true, memberful: null, sso: null, assistant: null, apps: [], outsideAi: null };
+    const profile: Profile = { ...changed, username: null, ...(await initialsOf(grace)), password: false, assistant: null, apps: [], outsideAi: null };
     expect(await response.json()).toEqual({ profile, transferId: expect.any(String) } satisfies ProfileAnswer);
     expect(await profileOf(grace)).toEqual(profile);
     expect(await (await me(grace)).json()).toEqual({ user: { id: grace.user.id, name: "Grace Brewster Hopper", administrator: false } });
@@ -154,14 +154,14 @@ describe("Edit your profile", () => {
     for (const body of [{}, { name: "Grace Hopper" }, { bio: "Rear admiral", password: "" }]) {
       const response = await save(grace, body);
       expect(response.status, JSON.stringify(body)).toBe(200);
-      expect(await response.json()).toEqual({ profile: { name: "Grace Hopper", username: null, emailAddress: null, bio: "Rear admiral", ...initials, password: false, membershipNeeded: true, memberful: null, sso: null, assistant: null, apps: [], outsideAi: null }, transferId: expect.any(String) });
+      expect(await response.json()).toEqual({ profile: { name: "Grace Hopper", username: null, emailAddress: null, bio: "Rear admiral", ...initials, password: false, assistant: null, apps: [], outsideAi: null }, transferId: expect.any(String) });
       expect((await stored(grace.user.id)).updated_at).toBe(LONG_AGO);
     }
 
     const answer = await (await save(grace, { bio: "Admiral" })).json();
     expect((await stored(grace.user.id)).updated_at > LONG_AGO).toBe(true);
     // The avatar's address changes with it, as it's versioned by when they last changed.
-    expect(answer).toEqual({ profile: { name: "Grace Hopper", username: null, emailAddress: null, bio: "Admiral", ...(await initialsOf(grace)), password: false, membershipNeeded: true, memberful: null, sso: null, assistant: null, apps: [], outsideAi: null }, transferId: expect.any(String) });
+    expect(answer).toEqual({ profile: { name: "Grace Hopper", username: null, emailAddress: null, bio: "Admiral", ...(await initialsOf(grace)), password: false, assistant: null, apps: [], outsideAi: null }, transferId: expect.any(String) });
     expect((await initialsOf(grace)).avatarUrl).not.toBe(initials.avatarUrl);
   });
 
@@ -341,7 +341,7 @@ describe("Edit your profile", () => {
       // The route checks the session before hashing a new password, and on D1 a reset can begin meanwhile.
       expect(await workspace.authenticate(credentials)).not.toBeNull();
       const reset = workspace.resetPassword(ada.emailAddress, "recovery digest");
-      const saved = workspace.changeProfile(credentials, { name: "Mallory" }, "their own digest", digest, null, null);
+      const saved = workspace.changeProfile(credentials, { name: "Mallory" }, "their own digest", digest, null);
       return Promise.all([reset, saved]);
     });
     expect(answers).toEqual(["reset", null]);
@@ -356,10 +356,10 @@ describe("Edit your profile", () => {
     const answers = await runInDurableObject(workspaceStub(), (workspace: Workspace) =>
       // All three were checked against the password Ada had, which the first replaces.
       Promise.all([
-        workspace.changeProfile(credentials, {}, "first digest", digest, null, null),
-        workspace.changeProfile(credentials, {}, "second digest", digest, null, null),
-        workspace.changeProfile(credentials, { emailAddress: "countess@example.com" }, null, digest, null, null),
-        workspace.changeProfile(credentials, { emailAddress: "countess@example.com" }, null, null, null, null),
+        workspace.changeProfile(credentials, {}, "first digest", digest, null),
+        workspace.changeProfile(credentials, {}, "second digest", digest, null),
+        workspace.changeProfile(credentials, { emailAddress: "countess@example.com" }, null, digest, null),
+        workspace.changeProfile(credentials, { emailAddress: "countess@example.com" }, null, null, null),
       ]),
     );
     expect(answers).toEqual([expect.objectContaining({ profile: expect.objectContaining({ password: true }) }), "password needed", "password needed", "password needed"]);

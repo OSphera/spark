@@ -6,18 +6,15 @@ import {
   MAX_EMAIL_ADDRESS_LENGTH,
   MAX_PASSWORD_LENGTH,
   MAX_USER_NAME_LENGTH,
-  MEMBERFUL_DISCONNECTED_NOTICE,
   MIN_PASSWORD_LENGTH,
   type AccountDeletion,
   type DirectoryUser,
   type Me,
-  type MemberfulStatus,
   type Profile,
   type ProfileAnswer,
   type ProfileChanges,
   type SidebarRoom,
 } from "@ember/protocol";
-import { MEMBERFUL_WITH_SSO, SSO_DISCONNECTED_NOTICE, SSO_WITH_MEMBERFUL, type SsoStatus } from "@ember/protocol/sso";
 import type { HuddleSounds } from "@ember/protocol/huddles";
 import { AUTH_FORM } from "@/components/auth-page";
 import { FIELD_INPUT, Field, SubmitButton } from "@/components/field";
@@ -25,7 +22,6 @@ import { useFlash } from "@/components/flash";
 import { LogOut } from "@/components/icons/iconoir";
 import { Input } from "@/components/ui/input";
 import { UsernameField } from "@/components/username-field";
-import { useAccount } from "@/hooks/use-account";
 import { PeopleContext } from "@/hooks/use-directory";
 import { useMounted } from "@/hooks/use-mounted";
 import { usePush } from "@/hooks/use-push";
@@ -41,13 +37,11 @@ import { ConversationNotifications } from "./conversation-notifications";
 import { DeleteAccount } from "./delete-account";
 import { HuddleSoundSwitches } from "./huddle-sound-switches";
 import { PauseNotifications } from "./pause-notifications";
-import { MemberfulConnection } from "./memberful-connection";
 import { InstallInstructions } from "./notification-help";
 import { HEADER_TEXT_BUTTON } from "./page-header";
 import { PicturePicker } from "./picture-picker";
 import { PageHeading, Panel, SettingsPage } from "./settings-page";
 import { SignInLink } from "./sign-in-link";
-import { SingleSignOnConnection } from "./sso-connection";
 import { avatarUrlOf, avatarVersionOf } from "./user-avatar";
 import { YourAgents } from "./your-agents";
 
@@ -116,23 +110,12 @@ function settled(typed: Fields, sent: Fields, saved: Fields): Fields {
   return fields;
 }
 
-/** What the new password field adds that saving one disconnects: the accounts elsewhere you've connected, or nothing. */
-function disconnectsWithNewPassword(memberful: MemberfulStatus | null, sso: SsoStatus | null): string {
-  if (memberful?.connected && sso?.connected) return " Changing it disconnects Memberful and single sign-on.";
-  if (memberful?.connected) return " Changing it disconnects Memberful.";
-  return sso?.connected ? " Changing it disconnects single sign-on." : "";
-}
-
 /**
  * Your profile: how to install Ember, for the browsers that get steps, then your avatar, which a photo
  * picked saves at once, showing it meanwhile, with the notice "It may take up to 30 minutes to change
  * everywhere.", and Remove avatar takes away, then your name, username, email address, a new password,
- * unless Memberful or single sign-on signs you in without one, your current password while you have
- * one, which changing your email address or password takes, and your
- * bio, which Save changes saves with the notice "✓", keeping the page, then, while members sign in with
- * Memberful, connecting your Memberful account, or the one you've connected, which Disconnect Memberful
- * unlinks with the notice "Your Memberful account is disconnected.", then, likewise, while members sign
- * in with single sign-on, connecting your account at the provider, then, while huddles are on, which of a huddle's sounds you
+ * your current password while you have one, which changing your email address or password takes, and
+ * your bio, which Save changes saves with the notice "✓", keeping the page, then, while huddles are on, which of a huddle's sounds you
  * hear, then your notification level in each of your rooms and DMs, then a sign-in
  * link for you, a new one each time the page loads or saves, then Delete my account, and Log out in
  * the top bar. Go Back returns to the page it was opened from. Your avatar, name, username and bio
@@ -155,28 +138,11 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
    * `me` only once it's back. A photo's answer, which can arrive after a save, has the name from before.
    */
   const [savedName, setSavedName] = useState(me.name);
-  /**
-   * Whether you have an email address saved, which signing in with your password takes, so disconnecting
-   * Memberful needs it: from loading and saving the profile alone, which change it, so a photo's answer
-   * arriving late doesn't take it away.
-   */
-  const [hasEmailAddress, setHasEmailAddress] = useState(false);
-  /** The Memberful account you've connected, or none to connect yet, or null while there's nothing to show. */
-  const [memberful, setMemberful] = useState<MemberfulStatus | null>(null);
-  /** The account at the single sign-on provider you've connected, or none to connect yet, or null while there's nothing to show. */
-  const [sso, setSso] = useState<SsoStatus | null>(null);
-  /** Whether you need Memberful, or single sign-on, to sign in while it's the only way in, unlike administrators and the people they invite. */
-  const [membershipNeeded, setMembershipNeeded] = useState(true);
   /** Your agents as the profile loaded them, which their own section changes from then on; null while you may have none. */
   const [agents, setAgents] = useState<Profile["agents"] | null>(null);
   const [saving, setSaving] = useState(false);
   const passwordInput = useRef<HTMLInputElement>(null);
   const currentPasswordInput = useRef<HTMLInputElement>(null);
-  /** Whether you've disconnected your Memberful account here, with Disconnect or a new password, since when no answer shows it connected: connecting one reloads the page. */
-  const disconnectedMemberful = useRef(false);
-  /** Likewise for your account at the single sign-on provider. */
-  const disconnectedSso = useRef(false);
-  const account = useAccount();
   const people = useContext(PeopleContext);
   const back = useBackPath();
   const flash = useFlash();
@@ -192,7 +158,6 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
         saved.current = fieldsOf(answer.profile);
         setFields(saved.current);
         setSavedName(answer.profile.name);
-        setHasEmailAddress(answer.profile.emailAddress !== null);
         showAnswer(answer);
         // Spark (OSphera/spark#4): the profile's answer levels, your apps and your outside AI sections are gone.
         setAgents(answer.profile.agents ?? null);
@@ -209,8 +174,7 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
   useEffect(() => () => void (picked && URL.revokeObjectURL(picked)), [picked]);
 
   /**
-   * Shows your avatar, whether you have a password, where you stand with Memberful and single sign-on and whether you need
-   * it, and a new sign-in link, as an answer has them. An answer can arrive after a later one, as a
+   * Shows your avatar, whether you have a password, and a new sign-in link, as an answer has them. An answer can arrive after a later one, as a
    * profile's save can after a photo's, and the later avatar stays then.
    */
   function showAnswer({ profile, transferId }: ProfileAnswer) {
@@ -218,28 +182,7 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
     setPicture((shown) => (shown && avatarVersionOf(shown.avatarUrl) > avatarVersionOf(answered.avatarUrl) ? shown : answered));
     // Nothing takes a password away, so an answer arriving late doesn't hide the field.
     setHasPassword((had) => had || profile.password);
-    // Nothing connects a Memberful account without a reload, so once it's disconnected here, an answer
-    // arriving late doesn't show it connected again, and shows what the Worker does for one disconnected.
-    const { memberful } = profile;
-    setMemberful(disconnectedMemberful.current && memberful?.connected ? (memberful.membersOnly ? { membersOnly: true, connected: null } : null) : memberful);
-    const { sso } = profile;
-    setSso(disconnectedSso.current && sso?.connected ? (sso.ssoOnly ? { ...sso, connected: null } : null) : sso);
-    setMembershipNeeded(profile.membershipNeeded);
     setTransferId(transferId);
-  }
-
-  /** Shows your profile as disconnecting your Memberful account answered it, with the notice. */
-  function disconnected(answer: ProfileAnswer) {
-    disconnectedMemberful.current = true;
-    showAnswer(answer);
-    flash("notice", MEMBERFUL_DISCONNECTED_NOTICE);
-  }
-
-  /** Shows your profile as disconnecting your account at the single sign-on provider answered it, with the notice. */
-  function disconnectedFromSso(answer: ProfileAnswer) {
-    disconnectedSso.current = true;
-    showAnswer(answer);
-    flash("notice", SSO_DISCONNECTED_NOTICE);
   }
 
   /** Saves `file` as your avatar, once a photo is picked. */
@@ -287,16 +230,9 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
         saved.current = now;
         setSavedName(answer.profile.name);
         setFields((fields) => fields && settled(fields, sent, now));
-        setHasEmailAddress(answer.profile.emailAddress !== null);
         // The passwords leave their fields, unless others were typed meanwhile.
         if (passwordInput.current?.value === password) passwordInput.current.value = "";
         if (currentPasswordInput.current?.value === currentPassword) currentPasswordInput.current.value = "";
-        // A new password disconnects the accounts elsewhere, as Disconnect does, while your email address
-        // lets it sign you in, so an answer arriving late, as a photo's can, doesn't show them connected again.
-        if (password !== "") {
-          if (!answer.profile.memberful?.connected) disconnectedMemberful.current = true;
-          if (!answer.profile.sso?.connected) disconnectedSso.current = true;
-        }
         showAnswer(answer);
         flash("notice", "✓");
       },
@@ -311,12 +247,6 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
   // Another tab's change reaches the people directory, whose address is the later one then.
   const listed = avatarUrlOf(people, me);
   const avatarUrl = picture && avatarVersionOf(picture.avatarUrl) >= avatarVersionOf(listed) ? picture.avatarUrl : listed;
-  // Someone Memberful or single sign-on signs in who has no password is given none, as the Worker refuses one: it's their way in.
-  const signsInElsewhereAlone = !hasPassword && Boolean(memberful?.connected || sso?.connected);
-  // A way in signs nobody in while the other is the only way in without it, as the Worker has it (`rulesOf`).
-  const ssoName = sso?.name ?? "single sign-on";
-  const memberfulClosed = account.ssoSignIn && !account.memberfulSignIn ? `Signing in with Memberful is off while members sign in with ${ssoName}.` : undefined;
-  const ssoClosed = account.memberfulSignIn && !account.ssoSignIn ? `Signing in with ${ssoName} is off while members sign in with Memberful.` : undefined;
 
   const logOut = (
     <button type="button" onClick={() => leave(onSignOut)} className={HEADER_TEXT_BUTTON}>
@@ -370,29 +300,25 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
               className={FIELD_INPUT}
             />
           </Field>
-          {!signsInElsewhereAlone && (
-            <Field id="user_password" label="New password" translation="update_password">
-              {/* Uncontrolled, so what's typed never reaches its `value` attribute, where custom CSS could read it. */}
-              <Input
-                ref={passwordInput}
-                id="user_password"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Change password"
-                minLength={MIN_PASSWORD_LENGTH}
-                maxLength={MAX_PASSWORD_LENGTH}
-                aria-describedby="profile-password-help"
-                disabled={!fields}
-                className={FIELD_INPUT}
-              />
-              <p id="profile-password-help" className="text-[0.8em] text-muted-foreground">
-                {/* Someone who signed in with just a name has no password, nor has someone who joined with Memberful or single sign-on once it no longer signs them in. */}
-                {fields && !hasPassword ? "Leave blank to keep signing in without a password." : "Leave blank to keep your current password."}
-                {/* As the one it replaces connected it, while it's saved with an email address to sign in by. */}
-                {fields && hasPassword && fields.emailAddress.trim() !== "" && disconnectsWithNewPassword(memberful, sso)}
-              </p>
-            </Field>
-          )}
+          <Field id="user_password" label="New password" translation="update_password">
+            {/* Uncontrolled, so what's typed never reaches its `value` attribute, where custom CSS could read it. */}
+            <Input
+              ref={passwordInput}
+              id="user_password"
+              type="password"
+              autoComplete="new-password"
+              placeholder="Change password"
+              minLength={MIN_PASSWORD_LENGTH}
+              maxLength={MAX_PASSWORD_LENGTH}
+              aria-describedby="profile-password-help"
+              disabled={!fields}
+              className={FIELD_INPUT}
+            />
+            <p id="profile-password-help" className="text-[0.8em] text-muted-foreground">
+              {/* Someone who signed in with just a name has no password. */}
+              {fields && !hasPassword ? "Leave blank to keep signing in without a password." : "Leave blank to keep your current password."}
+            </p>
+          </Field>
           {hasPassword && (
             <Field id="user_current_password" label="Current password" translation="password">
               {/* Uncontrolled too, and asked for as sign-in asks for it. */}
@@ -427,33 +353,6 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
           </Field>
           <SubmitButton disabled={!fields || saving}>Save changes</SubmitButton>
         </form>
-        {memberful && (
-          <MemberfulConnection
-            connected={memberful.connected}
-            membersOnly={memberful.membersOnly}
-            hasPassword={hasPassword}
-            hasEmailAddress={hasEmailAddress}
-            membershipNeeded={membershipNeeded}
-            signsInOtherwise={!hasPassword && sso?.connected ? MEMBERFUL_WITH_SSO : undefined}
-            closed={memberfulClosed}
-            onDisconnected={disconnected}
-            onFailed={onFailed}
-          />
-        )}
-        {sso && (
-          <SingleSignOnConnection
-            name={sso.name}
-            connected={sso.connected}
-            ssoOnly={sso.ssoOnly}
-            hasPassword={hasPassword}
-            hasEmailAddress={hasEmailAddress}
-            membershipNeeded={membershipNeeded}
-            signsInOtherwise={!hasPassword && memberful?.connected ? SSO_WITH_MEMBERFUL : undefined}
-            closed={ssoClosed}
-            onDisconnected={disconnectedFromSso}
-            onFailed={onFailed}
-          />
-        )}
         {agents && <YourAgents agents={agents} rooms={rooms} hasPassword={hasPassword} onFailed={onFailed} />}
         <PauseNotifications meId={me.id} askForPause={askForPause} onFailed={onFailed} />
         {huddleSounds && <HuddleSoundSwitches sounds={huddleSounds} askForSounds={askForHuddleSounds} onFailed={onFailed} />}

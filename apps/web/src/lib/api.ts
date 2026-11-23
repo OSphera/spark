@@ -1,7 +1,6 @@
 import {
   AVATAR_PATH,
   LOGO_PATH,
-  MEMBERFUL_CONNECTIONS_PATH,
   roomSocketQuery,
   searchQuery,
   WORKSPACE_PRELOADS,
@@ -50,9 +49,6 @@ import {
   type LinkPreview,
   type LinkSignIn,
   type Me,
-  type MemberfulConnection,
-  type MemberfulConnectionStart,
-  type MemberfulDisconnection,
   type MembersChange,
   type NewAssistantModel,
   type OfferedModels,
@@ -132,22 +128,9 @@ import type {
   YourAppSignedIn,
   YourAppSignedOut,
 } from "@ember/protocol/apps";
-import type { MemberfulKeysChange, MemberfulSaved } from "@ember/protocol/memberful";
 import type { EveryonesAgents, PersonalAgentAnswer, PersonalAgentLimit } from "@ember/protocol/personal-agents";
 import type { OutsideAiSettings, OutsideAnswer, OutsideAnswered, OutsideAsk, OutsideAsked, OutsideScope, YourOutsideAi } from "@ember/protocol/outside";
 import type { HandledReports, NewReport, Report, ReportHandling, ReportOutcome, Reports } from "@ember/protocol/reports";
-import {
-  SSO_CONNECTIONS_PATH,
-  SSO_SETTINGS_PATH,
-  type ElsewhereConnection,
-  type SsoConnection,
-  type SsoConnectionStart,
-  type SsoDisconnection,
-  type SsoForgotten,
-  type SsoSaved,
-  type SsoSettings,
-  type SsoSetup,
-} from "@ember/protocol/sso";
 import type { LogoVariants } from "@/lib/previews";
 
 // The session lives in an HttpOnly cookie, which the browser sends with every request and socket,
@@ -314,21 +297,16 @@ export async function askForPasswordResetCode(asked: PasswordResetRequest): Prom
 /**
  * Gives whoever has `reset.emailAddress` the password `reset.password`, with the code Ember emailed
  * them, ending all their sessions, and signs this browser in as them: who they are, or null when they
- * sign in themselves, as Memberful's members do while it's members only. A code that doesn't work fails
+ * aren't let in anymore. A code that doesn't work fails
  * with an ApiError for the `code` field.
  */
 export async function resetPasswordWithCode(reset: PasswordResetWithCode): Promise<Me | null> {
   return (await request<PasswordResetDone>("/api/password_resets", { method: "PUT", body: JSON.stringify(reset) })).user;
 }
 
-/**
- * Signs in with an email address and password: who signed in, or, for a member whose password checks out
- * while Memberful is members only, or single sign-on the only way in, until they've connected their
- * account there, where to connect it, at either while both are, which signs them in and opens the page `credentials.returnTo` names.
- */
-export async function signIn(credentials: PasswordSignIn): Promise<Me | ElsewhereConnection> {
-  const answer = await request<{ user: Me } | ElsewhereConnection>("/api/session", { method: "POST", body: JSON.stringify(credentials) });
-  return "user" in answer ? answer.user : answer;
+/** Signs in with an email address and password, answering who signed in. */
+export async function signIn(credentials: PasswordSignIn): Promise<Me> {
+  return (await request<{ user: Me }>("/api/session", { method: "POST", body: JSON.stringify(credentials) })).user;
 }
 
 /** Signs in with just a name, as someone new. */
@@ -404,44 +382,6 @@ export async function fetchPerson(userId: UserId): Promise<PersonAnswer> {
 /** Your profile, for the profile page: your name, email address and bio, and a new sign-in link. */
 export async function fetchProfile(): Promise<ProfileAnswer> {
   return request<ProfileAnswer>("/api/users/me/profile");
-}
-
-/**
- * Starts connecting your account to an account at the Memberful site, with your password while you have
- * one: where to sign in there, which sends the browser back to your profile. Fails with a 422 ApiError
- * without your password, or with one that isn't yours, and a 409 once you've connected one.
- */
-export async function connectMemberful(currentPassword?: string): Promise<MemberfulConnection> {
-  const start: MemberfulConnectionStart = currentPassword === undefined ? {} : { currentPassword };
-  return request<MemberfulConnection>(MEMBERFUL_CONNECTIONS_PATH, { method: "POST", body: JSON.stringify(start) });
-}
-
-/**
- * Disconnects your account from your Memberful account, with your password, ending your other sessions
- * but keeping this browser's push subscription, as a new password does, and answers your profile as it
- * is then, with a new sign-in link. Fails with a 422 ApiError without your password, or with one that
- * isn't yours, or while you have no password, and a 404 once it's disconnected.
- */
-export async function disconnectMemberful(disconnection: MemberfulDisconnection): Promise<ProfileAnswer> {
-  return request<ProfileAnswer>(MEMBERFUL_CONNECTIONS_PATH, { method: "DELETE", body: JSON.stringify(disconnection) });
-}
-
-/**
- * Starts connecting your account to an account at the single sign-on provider, with your password while
- * you have one: where to sign in there, which sends the browser back to your profile. Fails with a 422
- * ApiError without your password, or with one that isn't yours, and a 409 once you've connected one.
- */
-export async function connectSso(currentPassword?: string): Promise<SsoConnection> {
-  const start: SsoConnectionStart = currentPassword === undefined ? {} : { currentPassword };
-  return request<SsoConnection>(SSO_CONNECTIONS_PATH, { method: "POST", body: JSON.stringify(start) });
-}
-
-/**
- * Disconnects your account from your account at the single sign-on provider, with your password, as
- * `disconnectMemberful` disconnects Memberful's.
- */
-export async function disconnectSso(disconnection: SsoDisconnection): Promise<ProfileAnswer> {
-  return request<ProfileAnswer>(SSO_CONNECTIONS_PATH, { method: "DELETE", body: JSON.stringify(disconnection) });
 }
 
 /**
@@ -682,15 +622,6 @@ export async function forgetTurnstileKeys(): Promise<TurnstileSettings["turnstil
 }
 
 /**
- * Gives Ember a Memberful site's address and keys, as Set up Memberful does, answering Memberful as
- * Membership's card shows it then. Fails with a 422 ApiError on the field Ember or Memberful refuses, a
- * 502 one when Ember couldn't ask Memberful, and a 403 one for anyone but an administrator.
- */
-export async function saveMemberfulKeys(keys: MemberfulKeysChange): Promise<MemberfulSaved> {
-  return request<MemberfulSaved>("/api/account/memberful_keys", { method: "PUT", body: JSON.stringify(keys) });
-}
-
-/**
  * Gives Ember a Realtime SFU app's ID and secret to run huddles through, answering huddles as they are
  * then. Fails with a 422 ApiError on the field Ember or Cloudflare refuses, a 502 one when Ember couldn't
  * ask Cloudflare, and a 403 one for anyone but an administrator.
@@ -702,23 +633,6 @@ export async function saveHuddles(setup: HuddlesSetup): Promise<HuddlesSettings>
 /** Turns huddles off, forgetting the SFU app's keys Ember was given. Fails with a 403 ApiError for anyone but an administrator. */
 export async function forgetHuddles(): Promise<null> {
   return (await request<HuddlesForgotten>("/api/account/huddles", { method: "DELETE" })).huddles;
-}
-
-/**
- * Gives Ember the single sign-on provider's issuer and the keys of the app registered there, answering
- * the provider as it is then. Fails with a 422 ApiError on the field Ember refuses, or the provider's
- * discovery document does, and a 403 one for anyone but an administrator.
- */
-export async function saveSso(setup: SsoSetup): Promise<SsoSettings> {
-  return (await request<SsoSaved>(SSO_SETTINGS_PATH, { method: "PUT", body: JSON.stringify(setup) })).sso;
-}
-
-/**
- * Forgets the provider an administrator gave, which turns single sign-on off, answering the provider as
- * the deployment's secrets give it, if they do. Fails with a 403 ApiError for anyone but an administrator.
- */
-export async function forgetSso(): Promise<SsoSettings | null> {
-  return (await request<SsoForgotten>(SSO_SETTINGS_PATH, { method: "DELETE" })).sso;
 }
 
 /**

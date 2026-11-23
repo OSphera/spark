@@ -49,14 +49,9 @@ const roomList = (listed: Room[], favorites: RoomId[] = [], sharedOrder: RoomId[
 });
 const generalSettings: RoomSettings = { room: rooms[0]!, canAdminister: true, canChangeHuddles: true, canChangeChannelMentions: true, people: [{ ...ada, member: true }], section: null, sections: [] };
 const workspaceSettings: WorkspaceSettings = {
-  account: { name: "Analytical Engines", tagline: "", hideTranslationButtons: true, customStyles: "", restrictRoomCreation: false, restrictChannelMentions: false, restrictEveryoneMention: false, warnBeforeNotifying: true, logo: null, customDomain: null, joinLink: true, openSignUp: false, memberfulJoin: false, memberfulSignIn: false, ssoJoin: false, ssoSignIn: false, emailDomainSignUp: false, emailDomains: [], navigationIcons: {}, huddles: false, huddleCameras: true, huddleScreens: true, huddleVideo: "hd" },
+  account: { name: "Analytical Engines", tagline: "", hideTranslationButtons: true, customStyles: "", restrictRoomCreation: false, restrictChannelMentions: false, restrictEveryoneMention: false, warnBeforeNotifying: true, logo: null, customDomain: null, joinLink: true, openSignUp: false, emailDomainSignUp: false, emailDomains: [], navigationIcons: {}, huddles: false, huddleCameras: true, huddleScreens: true, huddleVideo: "hd" },
   joinCode: "aB3d-Ef5h-iJ7k",
   canAdminister: false,
-  memberfulSite: null,
-  memberfulWebhooks: false,
-  sso: null,
-  memberfulKeys: null,
-  memberfulSiteKept: null,
   turnstile: null,
   assistant: null,
   huddles: null,
@@ -1255,47 +1250,6 @@ describe("Edit your profile", () => {
     const { onSignOut, user } = showWorkspace("/users/me/profile");
     await user.click(screen.getByRole("button", { name: "Log out" }));
     expect(onSignOut).toHaveBeenCalledOnce();
-  });
-});
-
-describe("Connect Memberful", () => {
-  const address = () => `${location.pathname}${location.search}${location.hash}`;
-
-  it("flashes that your Memberful account is connected, once, taking it out of the address", async () => {
-    const memberful = { membersOnly: true, connected: { name: "Ada Lovelace", emailAddress: "ada@example.com" } };
-    serve({ "GET /api/users/me/profile": () => Response.json({ profile: { name: "Ada", emailAddress: "ada@example.com", bio: null, membershipNeeded: true, memberful, apps: [], outsideAi: null } }) });
-    const { unmount } = showWorkspace("/users/me/profile?memberful=connected#top");
-    expect(await screen.findByRole("alert")).toHaveTextContent("Your Memberful account is connected.");
-    expect(address()).toBe("/users/me/profile#top");
-
-    unmount();
-    showWorkspace(address());
-    expect(await screen.findByRole("region", { name: "Memberful" })).toHaveTextContent("Connected as Ada Lovelace (ada@example.com). You sign in with Memberful.");
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("flashes what went wrong, on whatever page connecting it was started from", async () => {
-    showWorkspace("/rooms/random?memberful=claimed");
-    expect(await screen.findByRole("alert")).toHaveTextContent("That Memberful account is connected to someone else here.");
-    expect(await roomHeading()).toHaveTextContent("random");
-    expect(address()).toBe("/rooms/random");
-  });
-});
-
-describe("Connect single sign-on", () => {
-  const address = () => `${location.pathname}${location.search}${location.hash}`;
-
-  it("flashes that your account at the provider is connected, taking it out of the address", async () => {
-    serve({ "GET /api/users/me/profile": () => Response.json({ profile: { name: "Ada", emailAddress: "ada@example.com", bio: null, membershipNeeded: true, memberful: null, sso: null, apps: [], outsideAi: null } }) });
-    showWorkspace("/users/me/profile?sso=connected#top");
-    expect(await screen.findByRole("alert")).toHaveTextContent("Single sign-on connected.");
-    expect(address()).toBe("/users/me/profile#top");
-  });
-
-  it("flashes what went wrong, on whatever page connecting it was started from", async () => {
-    showWorkspace("/rooms/random?sso=claimed");
-    expect(await screen.findByRole("alert")).toHaveTextContent("This account is already connected to another member.");
-    expect(address()).toBe("/rooms/random");
   });
 });
 

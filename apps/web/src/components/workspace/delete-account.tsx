@@ -11,7 +11,7 @@ import { NEGATIVE_BUTTON } from "./room-settings-page";
 // Delete my account, at the bottom of your profile, as Apple asks of every app with accounts: a button
 // that asks once more, for your password while you have one, or else for your name, typed as your
 // profile has it, and then deletes your account, with your messages, files and reactions in every room,
-// which can take a few minutes, and signs this browser out. Boxed as the Memberful section is.
+// which can take a few minutes, and signs this browser out. Boxed as the profile's other sections are.
 
 /** What the sign-in page says once your account is deleted. */
 export const ACCOUNT_DELETED = "Your account is deleted. It can take a few minutes for your messages to leave every room.";

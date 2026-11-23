@@ -15,7 +15,6 @@ account, as [Deploying](#deploying) describes.
   - [The build's token](#the-builds-token)
   - [A custom domain](#a-custom-domain)
   - [Who can join](#who-can-join)
-  - [Memberful sign-in](#memberful-sign-in)
   - [Sending email](#sending-email)
   - [Inviting people by email](#inviting-people-by-email)
   - [Push notifications](#push-notifications)
@@ -350,26 +349,13 @@ Workspace settings' Membership, where each way has a switch:
   password](#resetting-a-password) together, so nobody can fill someone's inbox with them, counting
   only the emails the provider takes, and until Ember has Turnstile's keys, each network can ask for
   10 links an hour. Each link is an email, so the provider's limits apply.
-- Memberful, below, lets in the members of a Memberful site, who sign in with their Memberful
-  accounts while everyone else keeps a password. Its Members only switch keeps signing in to them
-  and administrators.
-- [Single sign-on](#single-sign-on), below, lets in the people of an identity provider that speaks
-  OpenID Connect, such as Zitadel, Keycloak, Authentik, Okta, Microsoft Entra ID or Google Workspace.
-  Its SSO only switch keeps signing in to them and administrators, as Members only does, and can't be
-  on with Open.
 
-While Open is on, Join link, Email domain and Memberful are set aside, keeping their settings, and
-while Memberful is members only, Open, Join link and Email domain are, so Open and Members only can't
-both be on. With all four off, only the people administrators invite by email, below, can join.
+While Open is on, Join link and Email domain are set aside, keeping their settings. With all three
+off, only the people administrators invite by email, below, can join.
 
-Members only and SSO only can be on together, for a community whose paying members sign in with
-Memberful and whose staff sign in with single sign-on: then those two, administrators and the people
-they invite are the only ones who sign in. While one of them is on, the other way lets nobody in, not
-even the people linked to it, unless it's the only way in too, so turning it on in Who can join turns
-on its only switch with it. Meanwhile, someone who joined with the other way has no password to reset,
-so only an administrator's sign-in link lets them in. Nor can someone without a password whom one way
-signs in connect an account at the other from their profile, since holding their session would be all
-there was to check before adding a way in.
+Spark has no Memberful sign-in or single sign-on, which Ember has: everyone signs in with a password,
+or with just a name where `EMBER_GUEST_SIGN_IN` allows it. A deployment that had them keeps their
+tables and settings, which Spark ignores.
 
 To have open sign-up, Email domain's page and the page for a forgotten password check that whoever
 uses them is a person, an administrator sets up [Turnstile](https://developers.cloudflare.com/turnstile/),
@@ -393,248 +379,8 @@ pnpm exec wrangler secret put TURNSTILE_SITE_KEY     # add --name <worker> for a
 pnpm exec wrangler secret put TURNSTILE_SECRET_KEY
 ```
 
-`pnpm run deploy` uploads the two when its environment has them, as it does Memberful's keys, so the
+`pnpm run deploy` uploads the two when its environment has them, so the
 Preview workflow passes repository secrets of the same names through.
-
-### Memberful sign-in
-
-The members of a [Memberful](https://memberful.com) site can join and sign in with their Memberful
-accounts instead of passwords. It's off until an administrator turns it on under Memberful in
-Membership, which the first time opens Set up Memberful, with three steps:
-
-1. The site's address, the one in the browser while you're signed in to Memberful's admin, such as
-   `yoursite.memberful.com`, or the site's name alone, `yoursite`. Either way Ember keeps it as
-   `https://yoursite.memberful.com`, the site a `MEMBERFUL_URL` of that address names, so members
-   linked at one are linked at the other.
-2. A custom app, a new one for Ember, since its redirect URL must point at Ember. Once an address at
-   memberful.com is given, the step links to Memberful's form for one, since Settings in Memberful's
-   sidebar opens the account's profile. Name it Ember, check Include OAuth tokens with this
-   application, choose Server-side Application, even for a site with a mobile app, since Ember's
-   server handles the sign-in, and give it the OAuth Redirect URL the step shows,
-   `https://<Ember's address>/auth/memberful/callback`, with a button that copies it. Saving it opens
-   the app's page, whose API Key, OAuth Identifier and OAuth Secret go into the step in that order.
-   Leave Memberful's automatic sign-in off, since it skips the check that ties a sign-in to the
-   browser that started it.
-3. A webhook, which is separate from the app: under Settings → Webhooks → Create webhook, which the
-   step links to as well, name it Ember, give it `https://<Ember's address>/webhooks/memberful` as the
-   Endpoint URL, which the step copies too, and select every event under Member, Order, Subscription
-   and Plan. Download isn't needed. Then copy the secret key Memberful gives it into the step. With
-   it, a member whose membership ends is signed out at once, rather than at Ember's daily check.
-
-Ember tries the API Key on Memberful's admin API, and asks its token endpoint whether it knows the app
-by its OAuth Identifier and Secret, before it keeps them, saying on the field what Memberful didn't
-take, then turns Memberful on. It keeps the three secrets in the workspace's settings, encrypted as a
-Resend API key is, never shows them again, and can't read them once `SESSION_SECRET` changes, until
-an administrator gives them again. Change keys, under Memberful while it's on, asks for them all again.
-Nothing needs a Worker secret or a deploy.
-
-A Worker can have the keys as secrets instead, which take the place of any given in Set up Memberful,
-all of them together, and Membership's card then says so: `MEMBERFUL_URL`, the site's address,
-`MEMBERFUL_CLIENT_ID` and `MEMBERFUL_CLIENT_SECRET`, the app's OAuth identifier and secret, and for
-the webhook, `MEMBERFUL_WEBHOOK_SECRET` and `MEMBERFUL_API_KEY`. Each command asks for its value:
-
-```sh
-pnpm exec wrangler secret put MEMBERFUL_URL      # add --name <worker> for a Worker not named in wrangler.jsonc
-pnpm exec wrangler secret put MEMBERFUL_CLIENT_ID
-pnpm exec wrangler secret put MEMBERFUL_CLIENT_SECRET
-pnpm exec wrangler secret put MEMBERFUL_WEBHOOK_SECRET
-pnpm exec wrangler secret put MEMBERFUL_API_KEY
-```
-
-Or add them under the Worker's Settings, Variables and Secrets in the Cloudflare dashboard, as the type
-Secret, since a deploy takes away plain text ones. `pnpm run deploy` uploads them too when its
-environment has them, so the Preview workflow passes repository secrets of the same names through.
-
-While it's on, the sign-in page offers Member? Sign in with Memberful under its form. Someone with an
-active subscription, or the all access pass, signs in as the person their Memberful account is
-linked to, or else joins as a new member, in every open room, and goes on from a welcome page where
-they choose their photo, name and username, which starts as their name in lowercase letters and
-numbers. Everyone else joins and signs in as before. Accounts are linked by the Memberful site and the member's id there, never by email
-address, since Memberful lets anyone register an address without proving it's theirs: someone new
-whose Memberful email address someone here has already is turned away, and asked to sign in with
-their password. At another address, even the same site's, every member would be someone new, so
-once anyone has signed in with Memberful, Set up Memberful keeps the site, asking only for its keys,
-and a `MEMBERFUL_URL` should keep it too. Turning Memberful off stops anyone new joining with it, but
-whoever signed in with it has no password, so they keep signing in with it, and the sign-in page
-keeps offering it, while Ember has the keys.
-
-Members only, under Memberful, keeps Ember to the site's members: the sign-in page offers Sign in
-with Memberful in place of its form, Open, the join link and signing in with just a name are off,
-and only administrators and the people they invite sign in with a password, who need no membership.
-Sessions people have go on, and turning it off brings the other ways and passwords back.
-
-While Memberful is members only, someone with an account from before connects their Memberful
-account to it with their password: from the Memberful section of their profile, or as they sign in
-with their password, which asks them to connect one until they have. Memberful sends them back
-signed in as themselves, and from then on they sign in with Memberful, and their membership counts
-as anyone's. A connection is good for one try within ten minutes, and a new password, theirs or a
-reset, forgets the ones the old one started. Administrators, and the people they invite, can connect
-one too, and sign in either way.
-
-The Memberful section of a profile names the account that's connected, as Memberful describes it,
-and Disconnect Memberful, with their password, unlinks it and ends their other sessions, as a new
-password does. A new password that replaces one they had disconnects it too, so a reset ends every
-other way into an account. Neither disconnects it from someone without an email address, which
-signing in with a password takes, so nobody is left with no way to sign in: the section asks them to
-add one first. Once disconnected, a member signing in with their password is asked to connect one
-again.
-
-Someone who joined with Memberful has no password, and while Memberful signs them in, as it does
-while Ember has the keys to the site they're linked at, they aren't given one: their profile
-offers none, and the Worker refuses one. Memberful is their way in, and a password would be another
-that holding their session was enough to make. Their Memberful account stays connected, since
-they'd have no other way in. Should Ember lose the keys, or `MEMBERFUL_URL` change, Memberful no
-longer signs them in: an administrator's sign-in link lets them in, and their profile offers a
-first password then, which keeps their Memberful account connected for when it signs them in again.
-
-A member whose membership lapses can't sign in with Memberful again. With the webhook, they're suspended too: their
-sessions end, their sockets close and their browsers' push subscriptions are forgotten, but their
-rooms, private ones too, messages and role stay, and they're back as they were once it's renewed and
-they sign in. Making an open room private leaves them out of it, as it does anyone not chosen. A
-webhook only tells Ember whom to ask about: Memberful sends them in no particular order, so the
-Workspace asks Memberful's API what that member's membership is now, and asks about everyone linked
-once a day too, in case one never came. Ember answers every event it's sent with 200 once its
-signature checks out, one about a plan, a download or nothing it knows of too, since Memberful tries
-again for a day whatever fails, then deletes the webhook if it's still failing three days later.
-Administrators, and the people they invite, who need no membership, are never suspended.
-Administrators see suspended members dimmed in Workspace settings, where they can remove them, and
-everyone else sees them as removed. All of this goes on whether Memberful is on or not, since its
-members keep signing in with it once it's off.
-
-### Single sign-on
-
-People can join and sign in with an account at an identity provider that speaks
-[OpenID Connect](https://openid.net/developers/how-connect-works/), the standard most providers
-share. Ember uses the authorization code flow with PKCE, checks every ID token against the
-provider's published keys, and needs nothing from any one provider, so the steps are much the same
-everywhere. It's off until an administrator sets a provider up on the Single sign-on card in
-Workspace settings:
-
-1. At the provider, register a web app for Ember that uses the authorization code flow with a client
-   secret. Give it the redirect URI `https://<Ember's address>/auth/sso/callback`, and, if the
-   provider offers back-channel logout, the logout URI
-   `https://<Ember's address>/auth/sso/backchannel_logout`. The card shows both, with Ember's custom
-   domain if it has one. Let it give refresh tokens, often called the refresh token grant or
-   `offline_access`.
-2. On the card, give the provider's issuer, the address its discovery document lives under (Ember
-   reads `<issuer>/.well-known/openid-configuration` and checks it names the same issuer), and the
-   app's Client ID and Client Secret, which Ember keeps encrypted. The name is what the sign-in page's
-   button says: Sign in with Acme.
-3. Turn on Single sign-on under Who can join, and SSO only too if everyone but administrators and the
-   people they invite should sign in with the provider.
-
-A deployment can give the issuer and app as the secrets `SSO_ISSUER`, `SSO_CLIENT_ID` and
-`SSO_CLIENT_SECRET` instead, which take the place of any the card set up. `pnpm run deploy` uploads
-them when its environment has them, and the Preview workflow passes repository secrets of the same
-names through.
-
-Someone who signs in with the provider signs in as the person their account there is linked to, or
-else joins as a new member, in every open room, named as the provider names them, passing over a
-name with a word Blocked words keeps out, with a username made from it. As with Memberful, someone new
-comes to the welcome page first, where both are theirs to change, and everyone here gets a DM
-welcoming them. Accounts are
-linked by the issuer and the account's subject there, so keep the issuer once people have signed in:
-at another issuer, even the same provider's at a new domain, everyone would be someone new.
-Someone new whose email address someone here has already is turned away and asked to sign in with
-their password, unless the card's Link accounts by verified email is checked. Then an
-address the provider says it verified links the account to whoever here has it, once, if only one
-person does, and only while Ember knows that address is theirs too: they joined with an invitation or
-an Email domain link Ember emailed to it, and haven't changed it since, and only when the
-account is in an allowed group, so that linking never suspends anyone. An address someone typed as
-they joined proves nothing, since anyone could type a colleague's, and administrators are never
-linked this way; they, and everyone else, can connect their account from their profile with their
-password. Only check it for a provider that verifies addresses and doesn't let people change their
-own, since whoever controls an address there gets the account here.
-
-The card's Allowed groups keep Ember to the people in at least one of them, as the claim the card
-names lists them: `groups` unless it says otherwise, as a list of names or an object keyed by them.
-With none listed, anyone the provider signs in is let in. Administrators, and the people they invite,
-need no group, as with Memberful. A sign-in under way as the card's Client ID, groups or claim change
-is turned back, to be tried again by the card as it is then. Extra scopes go in the card's Scopes, beside `openid`, `profile`,
-`email` and `offline_access`, which Ember always asks for, the last while the provider offers it.
-
-The provider keeps having its say after sign-in. Each sign-in keeps the refresh token the provider
-gave, encrypted, and once an hour the Workspace asks the provider again with it. When the provider no
-longer takes it, as once someone is removed or deactivated there, or signs out there, or their token
-expires unused, which it doesn't tell apart, the sessions that account signed in here end, and while
-SSO only is on without Members only, so do the rest of a member's, password ones included, since they
-can't sign in again without the provider. While Members only is on too, the sessions Memberful signed
-in stay, since Memberful still lets them in. Without SSO only, a member who has a password can still
-sign in with it: turn SSO only on to make the provider the only way in. When someone is no longer in
-an allowed group, they're suspended as a lapsed Memberful member is, until the next hourly check, or a
-sign-in, finds them in one again. A refreshed ID token that leaves the groups claim out puts its
-person in no group, but a refresh with no ID token goes by the userinfo endpoint, and when that leaves
-the claim out, as Entra's does, it says nothing of groups, so a provider that gives no ID token on
-refresh only enforces groups at the next sign-in, and one with neither a refreshed ID token nor a
-userinfo endpoint keeps its accounts while it takes their refresh tokens, without checking their
-groups. Ember needs the userinfo endpoint's answer only when there's no ID token, or when Allowed
-groups lists some and the ID token leaves the groups claim out; otherwise, while it's down, the ID
-token's word stands. An answer counts only whole: one whose ID token doesn't check out, or whose
-userinfo endpoint answers for someone else, or doesn't answer when it's needed, is no answer, and
-the answer to a check that began before the card started listing Allowed groups, or changed its
-groups claim, when it may not have needed the userinfo endpoint, is asked again a few minutes later. A
-provider that doesn't answer is asked again every few minutes, for a day, after which the sessions the
-account signed in end. The Workspace keeps one refresh token per account, the latest sign-in's, so
-with a provider that rotates refresh tokens, an answer lost on its way back ends that account's
-sessions here at the next check, as revoking the latest device's session there does for every device;
-signing in again starts them anew. A provider that gives no refresh token leaves nothing to ask with,
-so after sign-in only a back-channel logout or the next sign-in checks the account again. A provider
-that sends a back-channel logout ends the sessions that its session signed in here at once, or every
-session an account signed in, when it names the account, of those signed in by the time the logout
-was issued, as the provider's clock has it, so that one delivered late, or sent again, never ends a
-session signed in since. Someone linked to both a Memberful site and
-the provider is suspended only once neither lets them in, going by the Memberful membership only while
-Ember can ask Memberful's admin API, and by the provider only while it keeps a refresh token to ask
-with. A way in that's closed, because the other is the only way in, lets nobody back.
-
-One known gap: someone linked to both whose one way Ember doesn't keep reading, Memberful without
-`MEMBERFUL_API_KEY` or a provider that gives no refresh token, can go back and forth between suspended
-and active, as the other way's checks suspend them and signing in with the first lets them in again.
-
-Someone new is given the email address the provider gives only when the provider says it verified
-it, since some providers let people set their own, and otherwise joins without one, which they can
-add on their profile; their account there keeps it either way. As with Memberful, while the provider
-signs someone without a password in, as it does while it's set up, they aren't given one: their
-profile offers none, and the Worker refuses one, since a password would be another way in that
-holding their session was enough to make, and their account there stays connected. Once the provider
-is forgotten, or its issuer changes, it no longer signs them in: an administrator's sign-in link lets
-them in, and their profile offers a first password then. While SSO only is on, someone with an account from
-before connects theirs from their profile, or as they sign in with their password, as with
-Memberful's Members only, and disconnects it there too. Single sign-on and SSO only turn themselves
-off while there's no provider to sign in with, as once its secrets are gone or its saved secret no
-longer opens under a new SESSION_SECRET, so passwords work again. Keep at least one administrator with
-a password and an email address while SSO only is on, or [reset one's password](#resetting-a-password)
-to get back in if the provider is down.
-
-Some providers need a word of care:
-
-- Google's issuer, `https://accounts.google.com`, is every Google account's, so with an External
-  consent screen anyone with one can join. To keep it to your company, set the groups claim to `hd`,
-  the hosted domain Google names, and list your domain under Allowed groups.
-- Microsoft Entra ID's issuer has to be your tenant's, `https://login.microsoftonline.com/<tenant
-  ID>/v2.0`: the `common` and `organizations` addresses name a template rather than an issuer, which
-  Ember refuses. Entra lists groups by their IDs, and leaves them out of a token for someone in more
-  than about 200, who then isn't let in by group.
-- Keycloak gives refresh tokens for `offline_access` only to people with the role of that name, which
-  its default roles include; someone without it can't sign in, since Ember asks for it whenever the
-  discovery document lists it.
-
-#### Zitadel
-
-1. In a project, add an application of the type Web, with the authentication method Code (PKCE with
-   a client secret, which Zitadel calls `CODE` with `client_secret_basic`). Add the redirect URI
-   above, and, under the app's settings, the back-channel logout URI. Under Token Settings, check
-   Refresh Token.
-2. On the card, the issuer is your instance's address, such as `https://example.zitadel.cloud` or your
-   own domain, and the Client ID and Client Secret are the ones Zitadel shows once, as it creates the
-   app.
-3. To let in only some people, give them a role on the project, check User roles inside ID Token
-   under the app's Token Settings, set the card's groups claim to
-   `urn:zitadel:iam:org:project:roles`, and list the roles under Allowed groups.
-
-Zitadel's refresh tokens last 90 days by default however often they're used, after which the hourly
-check finds the provider no longer takes one and the person signs in again; raise the refresh token
-expiration in the instance's OIDC settings for longer.
 
 ### Sending email
 
@@ -686,7 +432,7 @@ file.
 
 Under Invite by email, in Workspace settings' Membership, an administrator gives the email addresses
 of the people to invite, and Ember emails each a link that joins with that address, once, within 7
-days, whichever ways to join are on, Members only included. Until Ember can send email, the card
+days, whichever ways to join are on. Until Ember can send email, the card
 makes the links for the administrator to copy and send. The invitations nobody has accepted are
 listed there, each to send again, which replaces its link, or revoke, and joining with an invited
 address, however someone joins, spends its invitation. A link keeps its secret in the address's
@@ -811,7 +557,7 @@ Ember starts, to 10. Lowering it turns nobody's agents off; it stops them making
 - **Its person answers for it.** Removing or banning a person turns their agents off at once: whatever
   their keys began is turned away, they leave every room, and their keys never work again, even if the
   ban is lifted. Someone who deletes their own account turns theirs off the same way, and what the
-  agents wrote stays, as it does when their person is banned. While a person is suspended for their Memberful membership's lapsing, their agents'
+  agents wrote stays, as it does when their person is banned. While a person is suspended, their agents'
   keys don't work either. An administrator sees everyone's agents, with whose each is and its rooms,
   under People's agents, and can turn any off. An agent turned off, or deleted, keeps its messages,
   still shown as its person's agent's; it can't be turned on again, but its person can make another.
@@ -1193,7 +939,7 @@ What a self-hoster should know, beyond keeping the setup password and link to th
   that person for 4 hours, more than once, while the session that showed it is still signed in as an
   administrator. Your own link works only while the session that showed it does, so signing out, a
   password reset, or a new password saved in another session ends it. A new password saved in the
-  session that showed it, or Disconnect Memberful there, ends every link that session had shown until
+  session that showed it ends every link that session had shown until
   then, those an administrator showed of other people included, and the ones it shows from then on
   work. Its id travels in the address's fragment, which no log sees.
 - A file's address is signed and never expires: whoever has it can open the file until its message
@@ -1227,9 +973,7 @@ What a self-hoster should know, beyond keeping the setup password and link to th
   cost, which takes about a quarter of a second of CPU in a Durable Object of its own; digests from
   before scrypt are replaced as their passwords sign in.
 - A session lasts until it goes 400 days unused. Changing your email address or password takes
-  your current password, so holding someone's session isn't enough to take their account, and
-  someone Memberful or single sign-on signs in without a password isn't given one, nor can they
-  connect the other, so it isn't enough to make another way in either. A new password ends your other sessions and forgets their browsers' push
+  your current password, so holding someone's session isn't enough to take their account. A new password ends your other sessions and forgets their browsers' push
   subscriptions. A password reset, deactivation or ban ends all of a person's sessions within a
   minute.
 - Until Ember is set up, only the setup password, or the setup link a deploy printed, opens the form,
@@ -1250,9 +994,8 @@ What a self-hoster should know, beyond keeping the setup password and link to th
 - A Resend API key pasted into Set up email is kept encrypted, and never shown again, even to
   administrators: Membership says only that Ember has one. Make it a key with Sending access, as Resend
   suggests, so that one that got out could do no more than send email. A Turnstile secret key given in
-  Set up Turnstile, an SFU app's secret given in Set up
-  huddles, and a Memberful app's secret and API key and its webhook's secret key given in Set up
-  Memberful, are kept the same way.
+  Set up Turnstile and an SFU app's secret given in Set up
+  huddles are kept the same way.
 - A code to reset a password goes to the account's email address, so whoever reads mail there can
   take the account over, as on most sites. Nobody checks an address is its owner's when someone
   joins, unless they join with an invitation or Email domain, so someone could join with another
@@ -1263,12 +1006,6 @@ What a self-hoster should know, beyond keeping the setup password and link to th
   your organization hands out: Membership warns of ones anyone can have an address at, such as
   gmail.com. Its page answers the same whether or not an address has an account, emailing someone
   who has one a way to sign in instead, so it tells strangers nothing of who's here.
-- The Memberful site vouches for its members, so whoever runs it can sign in here as any of them who
-  have, and while Memberful is on, add new ones. Administrators keep their passwords, so the site
-  being down never locks them out, though one who joined with Memberful has none, as no member does,
-  and signs in with it alone. A webhook whose signature the webhook's secret key doesn't check is
-  refused, and even a signed one only has Ember ask Memberful's API about a member, so one forged or
-  sent again changes nothing.
 - A search with words passes over their matches in every open room on the way to a page of the rooms
   it looks in, so it takes longer the more messages elsewhere have the words: about 0.1 to 0.3 ms more
   for each thousand of them, in tests on one machine. It never shows or counts those, and everyone can

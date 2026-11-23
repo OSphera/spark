@@ -21,7 +21,6 @@ import {
 } from "@ember/protocol";
 import type { GroupingMinutes } from "@ember/protocol/grouping";
 import type { HuddleVideoQuality } from "@ember/protocol/huddles";
-import type { MemberfulSaved } from "@ember/protocol/memberful";
 import { AccountLogo, STOCK_LOGO } from "@/components/account-logo";
 import { FIELD_INPUT, Field, SubmitButton } from "@/components/field";
 import { useFlash } from "@/components/flash";
@@ -50,7 +49,6 @@ import { MessageGroupingRow } from "./message-grouping-settings";
 import { HuddlesSetup } from "./huddles-setup";
 import { InviteByEmail } from "./invite-by-email";
 import { InviteLink } from "./invite-link";
-import { MemberfulSetup } from "./memberful-setup";
 import { PeopleList } from "./people-list";
 import { ReportsList } from "./reports-list";
 import { PicturePicker } from "./picture-picker";
@@ -59,7 +57,6 @@ import { RoomOrder } from "./room-order";
 import { SectionNameDialog } from "./section-name-dialog";
 import { SettingsLayout, workspaceSectionOf } from "./settings-navigation";
 import { CHANGES_SAVED, PageHeading, Panel, SECTION_HEADING, SettingsPage, TITLE, TITLE_LINK } from "./settings-page";
-import { SsoSetup } from "./sso-setup";
 import { TurnstileSettings } from "./turnstile-settings";
 import { TurnstileSetup } from "./turnstile-setup";
 import { HowPeopleJoin, WaysToJoin } from "./ways-to-join";
@@ -128,8 +125,7 @@ interface Props {
  *   @channel and @here, and @everyone, to administrators, as Slack's settings do, and the rooms' order for
  *   everyone, in their sections, each room linking to its settings.
  * - Membership: for administrators, the Reports list first, then who can join, with switches for Open,
- *   the join link, which they can regenerate, Memberful and single sign-on, which Set up single sign-on
- *   sets up, how Ember sends email, and whether Cloudflare Turnstile checks who joins,
+ *   the join link, which they can regenerate, and Email domain, how Ember sends email, and whether Cloudflare Turnstile checks who joins,
  *   or for members, the links that let people in, then the administrators and members, whom
  *   administrators can make administrators or members and remove.
  * - Domain settings: for administrators, the custom domain Ember answers at.
@@ -178,11 +174,7 @@ export function WorkspaceSettingsPage({
   // Set up email, while it's open, with what to go on to once it closes with Ember able to send email.
   const [emailSetup, setEmailSetup] = useState<{ then?: () => void } | null>(null);
   const [settingUpTurnstile, setSettingUpTurnstile] = useState(false);
-  // Set up Memberful, while it's open, with what to go on to once it has kept the keys.
-  const [memberfulSetup, setMemberfulSetup] = useState<{ then?: () => void } | null>(null);
   const [settingUpHuddles, setSettingUpHuddles] = useState(false);
-  // Set up single sign-on, while it's open, with what to go on to once it closes with the provider saved.
-  const [ssoSetup, setSsoSetup] = useState<{ then?: () => void } | null>(null);
   const [settingUpRelay, setSettingUpRelay] = useState(false);
   const [makingSection, setMakingSection] = useState(false);
   const account = useAccount();
@@ -233,39 +225,6 @@ export function WorkspaceSettingsPage({
     );
     return () => void (stopped = true);
   }, [administrator, askForAccount, onJoinCodeChanged, onFailed]);
-
-  // Memberful turned on elsewhere, by an administrator who gave Set up Memberful the keys there, which
-  // this page hasn't heard of: Memberful's settings are loaded again, rather than the card saying Ember
-  // has no keys.
-  const memberfulOn = account.memberfulJoin;
-  const memberfulWasOn = useRef(memberfulOn);
-  const memberfulUnknown = settings?.memberfulSite === null;
-  useEffect(() => {
-    const turnedOn = memberfulOn && !memberfulWasOn.current;
-    memberfulWasOn.current = memberfulOn;
-    if (!turnedOn || !memberfulUnknown) return;
-    fetchWorkspaceSettings().then(
-      ({ memberfulSite, memberfulWebhooks, memberfulKeys, memberfulSiteKept }) =>
-        mounted.current && setSettings((settings) => settings && { ...settings, memberfulSite, memberfulWebhooks, memberfulKeys, memberfulSiteKept }),
-      (error: unknown) => (mounted.current || isSignedOut(error)) && onFailed(error),
-    );
-  }, [memberfulOn, memberfulUnknown, mounted, onFailed]);
-
-  // Single sign-on turned on elsewhere, by an administrator who set its provider up there, likewise: the
-  // provider is loaded again, for administrators, whom alone the settings tell of it, rather than the card
-  // saying none is set up.
-  const ssoOn = account.ssoJoin;
-  const ssoWasOn = useRef(ssoOn);
-  const ssoUnknown = settings?.canAdminister === true && settings.sso === null;
-  useEffect(() => {
-    const turnedOn = ssoOn && !ssoWasOn.current;
-    ssoWasOn.current = ssoOn;
-    if (!turnedOn || !ssoUnknown) return;
-    fetchWorkspaceSettings().then(
-      ({ sso }) => mounted.current && setSettings((settings) => settings && { ...settings, sso }),
-      (error: unknown) => (mounted.current || isSignedOut(error)) && onFailed(error),
-    );
-  }, [ssoOn, ssoUnknown, mounted, onFailed]);
 
   // The name, the tagline and whichever of the switches below them were moved, sent together.
   const save = (event: FormEvent) => {
@@ -403,12 +362,8 @@ export function WorkspaceSettingsPage({
   const setUpEmail = (then?: () => void) => setEmailSetup({ then });
   /** Shows where Ember's Turnstile keys come from as Set up Turnstile, or turning Turnstile off, changes it, which only workspace settings shows. */
   const showTurnstile = (turnstile: WorkspaceSettings["turnstile"]) => setSettings((settings) => settings && { ...settings, turnstile });
-  /** Shows Memberful as Set up Memberful keeps its keys, which only workspace settings shows. */
-  const showMemberful = (memberful: MemberfulSaved) => setSettings((settings) => settings && { ...settings, ...memberful });
   /** Shows huddles as Set up huddles, or turning them off, changes them, which only workspace settings shows. */
   const showHuddles = (huddles: WorkspaceSettings["huddles"]) => setSettings((settings) => settings && { ...settings, huddles });
-  /** Shows the single sign-on provider as Set up single sign-on, or removing it, changes it, which only workspace settings shows. */
-  const showSso = (sso: WorkspaceSettings["sso"]) => setSettings((settings) => settings && { ...settings, sso });
 
   // Regenerate join link: no confirmation first, and no notice after.
   const regenerate = () => {
@@ -635,34 +590,8 @@ export function WorkspaceSettingsPage({
                   saveEmailDomains={saveEmailDomains}
                   onSetUpEmail={setUpEmail}
                   onSetUpTurnstile={() => setSettingUpTurnstile(true)}
-                  onSetUpMemberful={(then) => setMemberfulSetup({ then })}
-                  onSetUpSso={(then) => setSsoSetup({ then })}
-                  onSsoForgotten={showSso}
-                  onFailed={onFailed}
                   joinLink={settings.joinCode !== null && <InviteLink joinCode={settings.joinCode} onRegenerate={regenerate} regenerating={regenerating} />}
                 />
-                {memberfulSetup && (
-                  <MemberfulSetup
-                    memberful={settings}
-                    onSaved={(memberful) => {
-                      showMemberful(memberful);
-                      memberfulSetup.then?.();
-                    }}
-                    onClose={() => setMemberfulSetup(null)}
-                    onFailed={onFailed}
-                  />
-                )}
-                {ssoSetup && (
-                  <SsoSetup
-                    sso={settings.sso}
-                    onSaved={showSso}
-                    onClose={(saved) => {
-                      setSsoSetup(null);
-                      if (saved) ssoSetup.then?.();
-                    }}
-                    onFailed={onFailed}
-                  />
-                )}
                 <InviteByEmail
                   invitations={settings.invitations}
                   emails={sendsEmail(settings.email)}
@@ -701,7 +630,7 @@ export function WorkspaceSettingsPage({
                 )}
               </div>
             ) : (
-              <HowPeopleJoin joinCode={settings.joinCode} memberfulSite={settings.memberfulSite} />
+              <HowPeopleJoin joinCode={settings.joinCode} />
             )}
             <hr className="my-4 w-full" />
             <PeopleList

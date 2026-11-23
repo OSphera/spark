@@ -117,14 +117,6 @@ function deploy(
     EMBER_SETUP_TOKEN: _token,
     EMBER_SETUP_PASSWORD: _password,
     WRANGLER_OUTPUT_FILE_PATH: _output,
-    MEMBERFUL_URL: _site,
-    MEMBERFUL_CLIENT_ID: _client,
-    MEMBERFUL_CLIENT_SECRET: _secret,
-    MEMBERFUL_API_KEY: _apiKey,
-    MEMBERFUL_WEBHOOK_SECRET: _webhookSecret,
-    SSO_ISSUER: _issuer,
-    SSO_CLIENT_ID: _ssoClient,
-    SSO_CLIENT_SECRET: _ssoSecret,
     TURNSTILE_SITE_KEY: _siteKey,
     TURNSTILE_SECRET_KEY: _turnstileSecret,
     RESEND_API_KEY: _resendKey,
@@ -704,54 +696,19 @@ describe("Updates for a copy made with Deploy to Cloudflare", () => {
   });
 });
 
-describe("Sign in with Memberful", () => {
-  const keys = { MEMBERFUL_URL: "https://example.memberful.com", MEMBERFUL_CLIENT_ID: "client-id", MEMBERFUL_CLIENT_SECRET: "client-secret" };
-
-  it("uploads the Memberful keys the environment gives with every deploy, so a changed one changes in the Worker, and never prints them", () => {
-    const { status, secrets, logs } = deploy(EVERY_SECRET, [], { env: { ...keys, CI: "true", GITHUB_ACTIONS: "true" } });
-    expect(status).toBe(0);
-    expect(secrets).toEqual(keys);
-    expect(logs).toContain("Deploying with MEMBERFUL_URL, MEMBERFUL_CLIENT_ID, MEMBERFUL_CLIENT_SECRET from the environment");
-    expect(logs).not.toContain("client-secret");
-  });
-
+describe("Sign up without a link", () => {
   it("names the secrets it made apart from the ones the environment gave", () => {
-    const { secrets, logs } = deploy(["SESSION_SECRET", "EMBER_SETUP_TOKEN"], [], { env: { MEMBERFUL_CLIENT_SECRET: "client-secret" } });
-    expect(Object.keys(secrets!)).toEqual(["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "MEMBERFUL_CLIENT_SECRET"]);
-    expect(logs).toContain("Deploying with new VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and MEMBERFUL_CLIENT_SECRET from the environment");
+    const { secrets, logs } = deploy(["SESSION_SECRET", "EMBER_SETUP_TOKEN"], [], { env: { TURNSTILE_SECRET_KEY: "0x4AAAAAAA-secret-key" } });
+    expect(Object.keys(secrets!)).toEqual(["VAPID_PUBLIC_KEY", "VAPID_PRIVATE_KEY", "TURNSTILE_SECRET_KEY"]);
+    expect(logs).toContain("Deploying with new VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and TURNSTILE_SECRET_KEY from the environment");
   });
 
   it("leaves the keys the environment doesn't give, as a workflow's missing secrets are empty, as the Worker has them", () => {
-    const { secrets, logs } = deploy(EVERY_SECRET, [], { env: { MEMBERFUL_URL: "", MEMBERFUL_CLIENT_ID: "", MEMBERFUL_CLIENT_SECRET: "" } });
+    const { secrets, logs } = deploy(EVERY_SECRET, [], { env: { TURNSTILE_SITE_KEY: "", TURNSTILE_SECRET_KEY: "" } });
     expect(secrets).toEqual({});
     expect(logs).toContain("Deploying with the Worker's secrets as they are");
   });
-});
 
-describe("Single sign-on", () => {
-  it("uploads the provider's issuer and the app's keys the environment gives with every deploy, and never prints the secret", () => {
-    const keys = { SSO_ISSUER: "https://example.zitadel.cloud", SSO_CLIENT_ID: "client-id", SSO_CLIENT_SECRET: "sso-client-secret" };
-    const { status, secrets, logs } = deploy(EVERY_SECRET, [], { env: { ...keys, CI: "true", GITHUB_ACTIONS: "true" } });
-    expect(status).toBe(0);
-    expect(secrets).toEqual(keys);
-    expect(logs).toContain("Deploying with SSO_ISSUER, SSO_CLIENT_ID, SSO_CLIENT_SECRET from the environment");
-    expect(logs).not.toContain("sso-client-secret");
-  });
-});
-
-describe("Memberful memberships", () => {
-  it("uploads the custom app's API key and the webhook's secret the environment gives too, and never prints them", () => {
-    const keys = { MEMBERFUL_API_KEY: "api-key", MEMBERFUL_WEBHOOK_SECRET: "webhook-secret" };
-    const { status, secrets, logs } = deploy(EVERY_SECRET, [], { env: { ...keys, CI: "true", GITHUB_ACTIONS: "true" } });
-    expect(status).toBe(0);
-    expect(secrets).toEqual(keys);
-    expect(logs).toContain("Deploying with MEMBERFUL_API_KEY, MEMBERFUL_WEBHOOK_SECRET from the environment");
-    expect(logs).not.toContain("api-key");
-    expect(logs).not.toContain("webhook-secret");
-  });
-});
-
-describe("Sign up without a link", () => {
   it("uploads the Turnstile widget's keys the environment gives with every deploy, and never prints them", () => {
     const keys = { TURNSTILE_SITE_KEY: "0x4AAAAAAA-site-key", TURNSTILE_SECRET_KEY: "0x4AAAAAAA-secret-key" };
     const { status, secrets, logs } = deploy(EVERY_SECRET, [], { env: { ...keys, CI: "true", GITHUB_ACTIONS: "true" } });

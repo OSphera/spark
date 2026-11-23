@@ -1,7 +1,6 @@
 import {
   JOINING_PROBLEMS,
   MAX_TURNSTILE_TOKEN_LENGTH,
-  OPEN_WITH_MEMBERFUL,
   PASSWORD_TOO_SHORT,
   SIGN_UP_FULL,
   SIGN_UP_LIMITED,
@@ -26,8 +25,6 @@ import { api, apiWith, builtPages, cookieOf, createRoom, freshDeploy, openWorksp
 const ada = { name: "Ada Lovelace", emailAddress: "ada@example.com", password: "analytical engine" };
 const grace = { name: "Grace Hopper", emailAddress: "grace@example.com", password: "compiler" };
 
-/** The keys of a deployment whose members may sign in with Memberful. */
-const MEMBERFUL_KEYS = { MEMBERFUL_URL: "https://example.memberful.com/", MEMBERFUL_CLIENT_ID: "ember-client-id", MEMBERFUL_CLIENT_SECRET: "ember-client-secret" };
 /** Turnstile's test keys: a site key whose check always passes, and a secret key, which this suite's fake siteverify takes. */
 const TURNSTILE_KEYS = { TURNSTILE_SITE_KEY: "1x00000000000000000000AA", TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA" };
 /** The token Turnstile's test site keys give the page. */
@@ -76,10 +73,6 @@ const account = (changes: Partial<Account> = {}): Account => ({
   customDomain: null,
   joinLink: true,
   openSignUp: false,
-  memberfulJoin: false,
-  memberfulSignIn: false,
-  ssoJoin: false,
-  ssoSignIn: false,
   emailDomainSignUp: false,
   emailDomains: [],
   navigationIcons: {},
@@ -221,65 +214,19 @@ describe("Ways to join", () => {
     expect((await bootstrap()).account).toMatchObject({ joinLink, openSignUp });
   });
 
-  describe("with Memberful", () => {
-    const membersOnly = { memberfulJoin: true, memberfulSignIn: true };
-
-    it("won't turn Open on while Memberful is members only, or Members only on while Open is", async () => {
-      const administrator = await setUp();
-      await turn(administrator, { openSignUp: true });
-      const memberful = await change(administrator, { memberfulSignIn: true }, MEMBERFUL_KEYS);
-      expect(memberful.status).toBe(422);
-      expect(await memberful.json()).toEqual({ error: OPEN_WITH_MEMBERFUL });
-      // Nor both at once, from both off.
-      await turn(administrator, { openSignUp: false });
-      const both = await change(administrator, { openSignUp: true, memberfulSignIn: true }, MEMBERFUL_KEYS);
-      expect(both.status).toBe(422);
-      expect(await both.json()).toEqual({ error: OPEN_WITH_MEMBERFUL });
-      expect((await bootstrap()).account).toEqual(account());
-
-      await turn(administrator, { memberfulSignIn: true }, MEMBERFUL_KEYS);
-      const open = await change(administrator, { openSignUp: true }, MEMBERFUL_KEYS);
-      expect(open.status).toBe(422);
-      expect(await open.json()).toEqual({ error: OPEN_WITH_MEMBERFUL });
-      expect((await bootstrap()).account).toEqual(account(membersOnly));
-    });
-
-    it("keeps Memberful on beside Open and the join link, in any order, while it isn't members only", async () => {
-      const administrator = await setUp();
-      await turn(administrator, { openSignUp: true });
-      await turn(administrator, { memberfulJoin: true }, MEMBERFUL_KEYS);
-      expect((await bootstrap()).account).toEqual(account({ openSignUp: true, memberfulJoin: true }));
-      await turn(administrator, { openSignUp: false, memberfulJoin: false }, MEMBERFUL_KEYS);
-      await turn(administrator, { openSignUp: true, memberfulJoin: true }, MEMBERFUL_KEYS);
-      expect((await bootstrap()).account).toEqual(account({ openSignUp: true, memberfulJoin: true }));
-      // But Members only still waits for Open to be off.
-      const membersOnlyToo = await change(administrator, { memberfulSignIn: true }, MEMBERFUL_KEYS);
-      expect(membersOnlyToo.status).toBe(422);
-      expect(await membersOnlyToo.json()).toEqual({ error: OPEN_WITH_MEMBERFUL });
-    });
-
-    it("trades one for the other in one change, Memberful staying on as Members only goes off", async () => {
-      const administrator = await setUp();
-      await turn(administrator, { openSignUp: true });
-      await turn(administrator, { openSignUp: false, memberfulSignIn: true }, MEMBERFUL_KEYS);
-      expect((await bootstrap()).account).toEqual(account(membersOnly));
-      await turn(administrator, { openSignUp: true, memberfulSignIn: false }, MEMBERFUL_KEYS);
-      expect((await bootstrap()).account).toEqual(account({ openSignUp: true, memberfulJoin: true }));
-    });
-
-    it.each([
-      ["Members only", { memberfulSignIn: false }],
-      ["Memberful", { memberfulJoin: false }],
-    ])("lets everything else change while Open and Members only are both stored on, letting nobody sign up, until %s is turned off", async (_, off) => {
-      const administrator = await setUp();
-      await storeSettings('{"open_sign_up":true,"memberful_join":true,"memberful_sign_in":true}');
-      await turn(administrator, { joinLink: false }, MEMBERFUL_KEYS);
-      expect(locationOf(await page("/join"))).toBe(`${origin}/session/new?joining=closed`);
-      expect((await signUp(grace)).status).toBe(403);
-
-      await turn(administrator, off, MEMBERFUL_KEYS);
-      expect((await page("/join")).status).toBe(200);
-    });
+  it("has no Memberful or single sign-on switches, and lets in whomever the others let in, whatever an older Ember stored for them", async () => {
+    const administrator = await setUp();
+    for (const setting of ["memberfulJoin", "memberfulSignIn", "ssoJoin", "ssoSignIn"]) {
+      const response = await change(administrator, { [setting]: true });
+      expect(response.status, setting).toBe(422);
+      expect(await response.json()).toEqual({ error: `Unknown setting: ${setting}` });
+    }
+    await storeSettings('{"open_sign_up":true,"memberful_join":true,"memberful_sign_in":true,"sso_join":true,"sso_sign_in":true}');
+    expect((await bootstrap()).account).toEqual(account({ openSignUp: true }));
+    expect((await bootstrap()).guestSignIn).toBe(true);
+    expect((await page("/join")).status).toBe(200);
+    expect((await page(`/join/${await joinCode()}`)).status).toBe(200);
+    expect((await signUp(grace)).status).toBe(201);
   });
 });
 
@@ -428,9 +375,9 @@ describe("Sign up without a link", () => {
       workspace.ws.close(1000);
     });
 
-    it("refuses it before it's read while Open is off, or Memberful is members only, sending them to sign in", async () => {
+    it("refuses it before it's read while Open is off, sending them to sign in", async () => {
       const closed = { error: JOINING_PROBLEMS.closed, redirect: "/session/new?joining=closed" };
-      for (const settings of [null, "{}", '{"open_sign_up":false}', '{"open_sign_up":true,"memberful_sign_in":true}']) {
+      for (const settings of [null, "{}", '{"open_sign_up":false}']) {
         if (settings === "{}") await setUp();
         if (settings !== null) await storeSettings(settings);
         const response = await signUp("not even JSON");

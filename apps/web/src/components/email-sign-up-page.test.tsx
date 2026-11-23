@@ -28,8 +28,6 @@ const workspace: Omit<Bootstrap, "user"> = {
   setupAccess: "link",
   setupPlaceholders: { name: "Kevin Rose", emailAddress: "kevin@kevinrose.com" },
   guestSignIn: false,
-  signInWithMemberful: false,
-  signInWithSso: null,
   turnstileSiteKey: null,
   passwordResetCodes: false,
   account: {
@@ -45,10 +43,6 @@ const workspace: Omit<Bootstrap, "user"> = {
     customDomain: null,
     joinLink: false,
     openSignUp: false,
-    memberfulJoin: false,
-    memberfulSignIn: false,
-    ssoJoin: false,
-    ssoSignIn: false,
     emailDomainSignUp: true,
     emailDomains: DOMAINS,
     navigationIcons: {},
@@ -65,8 +59,6 @@ const SITE_KEY = "1x00000000000000000000AA";
 const checked = { ...workspace, turnstileSiteKey: SITE_KEY };
 /** Email domain turned off, when the workspace says no domains. */
 const off = { ...workspace, account: { ...workspace.account, emailDomainSignUp: false, emailDomains: [] } };
-/** Memberful's Members only, which lets in nobody else. */
-const membersOnly = { ...workspace, account: { ...workspace.account, memberfulJoin: true, memberfulSignIn: true } };
 const TOKEN = "Ab-_9z".repeat(7) + "Q";
 
 /** Answers the page's requests with `answers`, one each, in order. */
@@ -201,12 +193,9 @@ describe("Join with an email domain", () => {
     await waitFor(() => expect(loadPage).toHaveBeenCalledExactlyOnceWith("/session/new?joining=email_off"));
   });
 
-  it.each([
-    ["it's off", off],
-    ["Memberful is members only", membersOnly],
-  ])("sends the browser to sign in, which says why, while %s", (_, shown) => {
+  it("sends the browser to sign in, which says why, while it's off", () => {
     const fetch = vi.spyOn(globalThis, "fetch");
-    open("/join/email", shown);
+    open("/join/email", off);
     expect(loadPage).toHaveBeenCalledExactlyOnceWith("/session/new?joining=email_off");
     expect(screen.getByRole("main")).toHaveAttribute("aria-busy", "true");
     expect(fetch).not.toHaveBeenCalled();

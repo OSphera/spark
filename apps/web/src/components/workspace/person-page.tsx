@@ -61,7 +61,7 @@ const DIRECT_BUTTON =
  * for anyone else active or Remove ban for anyone banned. Everyone gets Block for anyone else active,
  * bots too, and Unblock for anyone they've blocked, whose page offers no DM, and Report for anyone else
  * active, for their name, picture or bio. The people directory keeps
- * what it lists of them current. Members suspended for their Memberful membership's lapsing show as
+ * what it lists of them current. Members suspended for an outside membership's lapsing show as
  * removed people do, but to administrators, who see them as banned people, with why they can't sign in,
  * and Ban.
  */
@@ -241,7 +241,7 @@ export function PersonPage({ userId, me, onStartDirect, onPersonChanged, reloadP
                   </>
                 )}
                 {person.status === "suspended" && (
-                  <div className="mt-4">{person.name}’s Memberful membership has lapsed, so they can’t sign in until it’s renewed.</div>
+                  <div className="mt-4">{person.name}’s membership has lapsed, so they can’t sign in.</div>
                 )}
                 {blockButton && <div className="mt-4">{blockButton}</div>}
                 {reportButton && <div className="mt-4">{reportButton}</div>}

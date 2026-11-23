@@ -12,7 +12,6 @@ import type { StoredFile } from "./files.ts";
 import { GROUPING_MINUTES_REFUSED, isGroupingMinutes, type GroupingMinutes } from "./grouping.ts";
 import { HUDDLE_VIDEO_REFUSED, isHuddleVideoQuality, type HuddleSounds, type HuddlesSettings, type HuddleVideoQuality, type LiveHuddle, type MessageHuddle } from "./huddles.ts";
 import type { OutsideConnection } from "./outside.ts";
-import type { SsoSettings, SsoStatus } from "./sso.ts";
 import { MAX_ID_LENGTH } from "./pages.ts";
 import { MAX_PUSH_ENDPOINT_LENGTH } from "./push.ts";
 import { ROOM_ICON_NAMES } from "./room-icons.ts";
@@ -101,8 +100,6 @@ export type {
   PastHuddle,
   PastHuddles,
 } from "./huddles.ts";
-// And the rest of sso.ts, from "@ember/protocol/sso", which only the sign-in pages, the Single sign-on card and the Worker's single sign-on use.
-export type { SsoAccount, SsoConnection, SsoField, SsoForgotten, SsoSaved, SsoSettings, SsoSetup, SsoStatus } from "./sso.ts";
 export {
   FILE_NAME_NOT_KEPT,
   FILE_TOO_LARGE,
@@ -141,19 +138,15 @@ export {
   MAX_ID_LENGTH,
   NEW_BOT_PATH,
   NEW_DIRECT_PATH,
-  pageAfterWelcome,
   PASSWORD_RESET_PATH,
   PROFILE_PATH,
   PUSH_SUBSCRIPTIONS_PATH,
   SEARCHES_PATH,
-  signInReturnPathIn,
   SIGN_UP_PATH,
   threadPath,
   TRANSFER_PATH,
   transferLink,
   TURNSTILE_CHECK_PATH,
-  WELCOME_PATH,
-  welcomePath,
   withEmailAddress,
   WORKSPACE_PRELOADS,
   WORKSPACE_SETTINGS_PATH,
@@ -223,8 +216,7 @@ export type Role = "member" | "administrator" | "bot";
 
 /**
  * Whether someone can still sign in: people who were removed are deactivated, and banned people are
- * banned. A member who signs in with Memberful is suspended while their membership has lapsed, until
- * it's renewed.
+ * banned. Suspended people, as an outside membership once lapsed, can't either, until they're active again.
  */
 export type UserStatus = "active" | "deactivated" | "banned" | "suspended";
 
@@ -649,47 +641,18 @@ export interface Account {
   customDomain: string | null;
   /**
    * Whether the join link lets people in, which an administrator turns off in Membership: then it sends
-   * them to sign in, keeping its code for when it's on again. On until one turns it off. While Memberful
-   * is members only it's off whatever this says (`joinsWithLink`).
+   * them to sign in, keeping its code for when it's on again. On until one turns it off.
    */
   joinLink: boolean;
   /**
    * Whether anyone may create an account at `/join`, with no link, which an administrator turns on in
-   * Membership as Open. Off until one does, and never on while Memberful is members only.
+   * Membership as Open. Off until one does.
    */
   openSignUp: boolean;
   /**
-   * Whether the members of Ember's Memberful site join, and sign in, with their Memberful account, which
-   * an administrator turns on in Membership as Memberful. Off until one does. Members who joined with it
-   * keep signing in with it once it's off, while Ember has the site's keys.
-   */
-  memberfulJoin: boolean;
-  /**
-   * Whether only Memberful's members sign in, and administrators, which an administrator turns on in
-   * Membership as Memberful's Members only: then the join link, open sign-up, Email domain and signing in
-   * with just a name are off, and only administrators and the people they invite sign in with a
-   * password. Off until one turns it on, and never on while Memberful is off.
-   */
-  memberfulSignIn: boolean;
-  /**
-   * Whether the people the single sign-on provider signs in join with it, which an administrator turns on
-   * in Membership as Single sign-on, once it's set up. Off until one does. People who joined with it keep
-   * signing in with it once it's off, while it's set up.
-   */
-  ssoJoin: boolean;
-  /**
-   * Whether only the people the single sign-on provider signs in sign in, and administrators, which an
-   * administrator turns on in Membership as SSO only: then the join link, open sign-up, Email domain and
-   * signing in with just a name are off, and only administrators and the people they invite sign in with
-   * a password. Off until one turns it on, and never on while single sign-on is off, nor with Open or
-   * Memberful's Members only.
-   */
-  ssoSignIn: boolean;
-  /**
    * Whether people with an email address at one of `emailDomains` may join with a link Ember emails
    * them, which they ask for at `/join/email`, and which an administrator turns on in Membership as Email
-   * domain. Off until one does, and off whatever this says while Memberful is members only
-   * (`signsUpWithEmailDomain`).
+   * domain. Off until one does.
    */
   emailDomainSignUp: boolean;
   /**
@@ -736,36 +699,6 @@ export interface WorkspaceSettings {
   joinCode: string | null;
   /** Whether you can change the workspace, as administrators can. Members see it read-only. */
   canAdminister: boolean;
-  /**
-   * The address of the Memberful site whose members can sign in, such as https://example.memberful.com,
-   * once Ember has the keys of its custom app, as `memberfulKeys` says where from, or null while it
-   * hasn't, when Memberful can't be turned on.
-   */
-  memberfulSite: string | null;
-  /**
-   * Whether Ember also has what Memberful's webhooks take, their signing secret and the custom app's API
-   * key, so that it hears when a membership lapses or is renewed, and checks what it hears with Memberful:
-   * always with the keys an administrator gave, and with the deployment's while it has
-   * `MEMBERFUL_WEBHOOK_SECRET` and `MEMBERFUL_API_KEY`.
-   */
-  memberfulWebhooks: boolean;
-  /**
-   * Where Memberful's keys come from, as Membership's Memberful card says: the deployment's secrets
-   * (`MEMBERFUL_URL` and the rest), which take the place of any others, the ones an administrator gave
-   * Ember in Set up Memberful, or null while it has neither.
-   */
-  memberfulKeys: "secret" | "saved" | null;
-  /**
-   * The Memberful site Set up Memberful keeps, for administrators, since people here sign in with their
-   * accounts at it, which are linked to them by that site and their member id there, or null while nobody
-   * does, or for anyone else, or while the deployment's secrets give Memberful's keys.
-   */
-  memberfulSiteKept: string | null;
-  /**
-   * The single sign-on provider, as the Single sign-on card shows it to administrators, once it's set up,
-   * by an administrator or by the deployment's secrets, and null otherwise, or for anyone else.
-   */
-  sso: SsoSettings | null;
   /**
    * Where the keys of the Cloudflare Turnstile widget come from that checks whoever signs up, or asks
    * Ember to email them, is a person, as Membership's Turnstile card says: the deployment's secrets
@@ -992,10 +925,8 @@ export interface AccountChanges {
 
 /**
  * The workspace's settings that workspace settings' switches change, the ways to join among them: the
- * join link's switch, Open, Memberful, its Members only, which the Worker turns on only once Ember has
- * Memberful's keys, and Email domain, which it turns on only with a domain to let in, while
- * Ember can send email. Members only turns Memberful on with it, turning Memberful off turns it off, and
- * it's never on together with Open.
+ * join link's switch, Open, and Email domain, which the Worker turns on only with a domain to let in,
+ * while Ember can send email.
  */
 export interface AccountSettings {
   hideTranslationButtons?: boolean;
@@ -1007,35 +938,17 @@ export interface AccountSettings {
   huddleScreens?: boolean;
   joinLink?: boolean;
   openSignUp?: boolean;
-  memberfulJoin?: boolean;
-  memberfulSignIn?: boolean;
-  ssoJoin?: boolean;
-  ssoSignIn?: boolean;
   emailDomainSignUp?: boolean;
 }
 
-/**
- * Whether people sign in only with an account elsewhere, but administrators and the people they invite:
- * Memberful is members only, or single sign-on is the only way in. Then the join link, open sign-up,
- * Email domain and signing in with just a name are off.
- */
-export const signsInElsewhereOnly = ({ memberfulSignIn, ssoSignIn }: Pick<Account, "memberfulSignIn" | "ssoSignIn">) => memberfulSignIn || ssoSignIn;
+/** Whether the join link lets people in: its switch is on. */
+export const joinsWithLink = (account: Pick<Account, "joinLink">) => account.joinLink;
 
-/** Whether the join link lets people in: its switch is on, and people don't sign in only elsewhere, which turns it off. */
-export const joinsWithLink = (account: Pick<Account, "joinLink" | "memberfulSignIn" | "ssoSignIn">) => account.joinLink && !signsInElsewhereOnly(account);
+/** Whether anyone may create an account at `/join`: Open is on. */
+export const signsUpOpenly = (account: Pick<Account, "openSignUp">) => account.openSignUp;
 
-/** Whether anyone may create an account at `/join`: Open is on, and people don't sign in only elsewhere, which it can't be on with. */
-export const signsUpOpenly = (account: Pick<Account, "openSignUp" | "memberfulSignIn" | "ssoSignIn">) => account.openSignUp && !signsInElsewhereOnly(account);
-
-/**
- * Whether people may join with an email address at the workspace's email domains: Email domain is on,
- * with a domain to let in, and Memberful isn't members only, which turns it off.
- */
-export const signsUpWithEmailDomain = (account: Pick<Account, "emailDomainSignUp" | "emailDomains" | "memberfulSignIn" | "ssoSignIn">) =>
-  account.emailDomainSignUp && account.emailDomains.length > 0 && !signsInElsewhereOnly(account);
-
-/** Why turning on Open, or Memberful's Members only, is refused while the other is on: Members only lets only Memberful's members in. */
-export const OPEN_WITH_MEMBERFUL = "Open and Members only can't both be on. Turn one off first.";
+/** Whether people may join with an email address at the workspace's email domains: Email domain is on, with a domain to let in. */
+export const signsUpWithEmailDomain = (account: Pick<Account, "emailDomainSignUp" | "emailDomains">) => account.emailDomainSignUp && account.emailDomains.length > 0;
 
 /** The most domains Email domain lets in, which every page carries while it's on. */
 export const MAX_EMAIL_DOMAINS = 100;
@@ -1194,24 +1107,6 @@ export interface Profile {
   avatar: boolean;
   /** Whether you have a password, which changing your email address or password then asks for (`currentPassword`). */
   password: boolean;
-  /**
-   * Whether you need a Memberful membership to sign in while Memberful is members only, as everyone does
-   * but administrators and the people they invite, who sign in with a password too.
-   */
-  membershipNeeded: boolean;
-  /**
-   * Where you stand with Memberful (`MemberfulStatus`): the account at the Memberful site you've connected
-   * your account to, which you can sign in with then, or none yet while Memberful is members only. Null
-   * when there's nothing to show: while Ember lacks Memberful's keys, for a guest, who has
-   * nothing to connect, or while Memberful isn't members only and you haven't connected one.
-   */
-  memberful: MemberfulStatus | null;
-  /**
-   * Where you stand with single sign-on (`SsoStatus`): the account at the provider you've connected, or
-   * none yet while it's the only way in. Null when there's nothing to show: while it isn't set up, for a
-   * guest, or while it isn't the only way in and you haven't connected one.
-   */
-  sso: SsoStatus | null;
   /** How much @ember thinks and how long it answers you, and the most each may be, and the model you picked, if you did, and the ones you can pick, or null while Ember AI is off. */
   assistant: YourAssistant | null;
   /** The connected apps you can sign in to yourself, by name, each with your sign-in to it, if you've made one: none while Ember AI is off, or for a guest. */
@@ -1282,18 +1177,6 @@ export interface Bootstrap {
   setupPlaceholders: SetupPlaceholders;
   /** Whether people may sign in with just a name (`EMBER_GUEST_SIGN_IN`). */
   guestSignIn: boolean;
-  /**
-   * Whether the sign-in page offers Sign in with Memberful, once Ember has the keys of its Memberful
-   * site's custom app: while Memberful lets that site's members join, or while anyone here signs
-   * in with an account there, as members who joined with it keep doing once it's off.
-   */
-  signInWithMemberful: boolean;
-  /**
-   * What the sign-in page calls the single sign-on provider it offers Sign in with, while single sign-on
-   * lets its people join, or while anyone here signs in with it, as people who joined with it keep doing
-   * once it's off, or null while it offers none.
-   */
-  signInWithSso: string | null;
   /**
    * The site key of the Turnstile widget whose check the open sign-up form shows, and the forms that ask
    * Ember to email a link to join or a code to reset a password, to check that whoever fills them in is a
@@ -1454,10 +1337,7 @@ export interface PasswordResetWithCode {
   password: string;
 }
 
-/**
- * What a new password chosen with a code answers: who it signed this browser in as, or null when they
- * sign in themselves, as someone who signs in with Memberful while it's members only does.
- */
+/** What a new password chosen with a code answers: who it signed this browser in as, or null when they sign in themselves. */
 export interface PasswordResetDone {
   user: Me | null;
 }
@@ -1508,11 +1388,6 @@ export interface NewWorkspace {
 export interface PasswordSignIn {
   emailAddress: string;
   password: string;
-  /**
-   * The page to come back to, a page of the workspace, if signing in goes on at the Memberful site, to
-   * connect a member's account there first (`MemberfulConnection`), as Sign in with Memberful names it.
-   */
-  returnTo?: string;
 }
 
 /** Signing in with a sign-in link (`POST /api/session/transfers`): its id, which the link's address keeps out of every request's. */
@@ -1543,78 +1418,6 @@ export const SIGN_IN_REJECTED = "Incorrect email or password. Please try again."
 export const SIGN_IN_LIMITED = "Too many sign-in attempts. Please wait a few minutes and try again.";
 
 /**
- * Campfire's one answer to a sign-in it refuses, which a Memberful sign-in Ember refuses still gets,
- * since it can't say which of the two went wrong.
- */
-export const SIGN_IN_REFUSED = "Too many requests or unauthorized.";
-
-/**
- * Where the sign-in page's Sign in with Memberful goes, which sends the browser on to sign in at the
- * Memberful site, naming the page to come back to in `return_to`.
- */
-export const MEMBERFUL_SIGN_IN_PATH = "/auth/memberful";
-
-/** Where Memberful sends the browser back to, which the Memberful site's custom app names as its OAuth redirect URL. */
-export const MEMBERFUL_CALLBACK_PATH = "/auth/memberful/callback";
-
-/**
- * Where the Memberful site's webhooks go, which say when a member's membership changes. Memberful signs
- * each, and the Worker checks what it says with Memberful.
- */
-export const MEMBERFUL_WEBHOOK_PATH = "/webhooks/memberful";
-
-/** Signing in with Memberful, coming back to `returnTo`, a page of the workspace, once signed in, or home without one. */
-export const memberfulSignInPath = (returnTo: string | null) =>
-  returnTo === null ? MEMBERFUL_SIGN_IN_PATH : `${MEMBERFUL_SIGN_IN_PATH}?return_to=${encodeURIComponent(returnTo)}`;
-
-/**
- * Where your profile's Connect Memberful goes, which answers where to sign in at the Memberful site
- * (`MemberfulConnection`) once it knows it's you.
- */
-export const MEMBERFUL_CONNECTIONS_PATH = "/api/users/me/memberful_connections";
-
-/**
- * What connecting your account to a Memberful account from your profile takes (`POST
- * /api/users/me/memberful_connections`): your password, while you have one, so that holding your session
- * isn't enough to add a way into your account, as changing your email address or password takes it.
- */
-export interface MemberfulConnectionStart {
-  currentPassword?: string;
-}
-
-/**
- * The Memberful account you've connected, as Memberful described it when you connected it or last
- * signed in with it: its name and email address there, either null when Memberful didn't say, or for
- * an account connected before Ember kept them, until you sign in with it again.
- */
-export interface MemberfulAccount {
-  name: string | null;
-  emailAddress: string | null;
-}
-
-/**
- * Where you stand with Memberful, as your profile's Memberful section shows it: the account you've
- * connected, which you sign in with, or null while you haven't, when the section offers Connect
- * Memberful, and whether Memberful is members only, when members sign in with Memberful alone, unless
- * they need no membership (`Profile.membershipNeeded`).
- */
-export interface MemberfulStatus {
-  membersOnly: boolean;
-  connected: MemberfulAccount | null;
-}
-
-/**
- * What disconnecting your Memberful account from your profile takes (`DELETE
- * /api/users/me/memberful_connections`): your password, so that holding your session isn't enough to
- * change how you sign in, as connecting one takes it, and this browser's push subscription, if it has
- * one, which it keeps while it forgets your other browsers', as a new password does.
- */
-export interface MemberfulDisconnection {
-  currentPassword?: string;
-  pushSubscriptionEndpoint?: string;
-}
-
-/**
  * What Delete my account on your profile sends (`DELETE /api/users/me`), saying you mean it: your
  * password while you have one, as changing your email address takes it, or else your name, typed as
  * your profile has it.
@@ -1623,79 +1426,6 @@ export interface AccountDeletion {
   currentPassword?: string;
   name?: string;
 }
-
-/**
- * Where to sign in at the Memberful site, within ten minutes, to connect the account you sign in to there
- * to yours here: what connecting from your profile answers, and what signing in with a password answers a
- * member whose password checks out while Memberful is members only, until they've connected one.
- * Memberful sends the browser back, which connects it. Asked at an address Ember has moved from to its
- * custom domain, where Memberful doesn't send it back, it's the page to come back to at the custom domain
- * instead, to sign in and connect there.
- */
-export interface MemberfulConnection {
-  memberfulConnection: string;
-}
-
-/**
- * Why a Memberful sign-in didn't sign anyone in, or didn't connect an account, which the callback sends
- * the browser back to sign in with, as `?memberful=`, or to your profile when it's signed in as you, and
- * what that page then says.
- */
-export const MEMBERFUL_SIGN_IN_PROBLEMS = {
-  /**
-   * Memberful sent the browser back without a sign-in, or with one this browser didn't start, or didn't
-   * answer as it should, or an administrator gave Ember another site's keys while it signed in.
-   */
-  failed: "Signing in with Memberful didn't work. Try again.",
-  /** The Memberful account has no active subscription, nor the all access pass. */
-  membership: "Your Memberful account has no active membership.",
-  /**
-   * Someone here has the Memberful account's email address already, and accounts are never matched by it,
-   * but connected by its owner, as signing in with that password does while Memberful is members only.
-   */
-  taken: "Someone here has your Memberful email address already. If that's you, sign in with your password.",
-  /** The Memberful account is connected to someone else here already. */
-  claimed: "That Memberful account is connected to someone else here.",
-  /** Your account is connected to another account at the Memberful site already. */
-  another: "Your account is connected to another Memberful account already.",
-  /** Someone new signed in with Memberful while an administrator has Memberful off. */
-  off: "Joining with Memberful is off.",
-  /** Someone connected their account to one at Memberful once Memberful stopped being members only, when their password signs them in. */
-  unneeded: "Memberful isn't members only anymore, so there's nothing to connect. Your password signs you in.",
-  /** It's on, but Ember has no Memberful keys, neither the deployment's nor any an administrator gave. */
-  unavailable: "Memberful sign-in isn't set up. Ask an administrator for help.",
-  /** Too many sign-ins from the address, or the account was removed or banned, which this doesn't tell apart. */
-  refused: SIGN_IN_REFUSED,
-} as const;
-export type MemberfulSignInProblem = keyof typeof MEMBERFUL_SIGN_IN_PROBLEMS;
-
-/** The query parameter that names a Memberful sign-in's problem, or says that your profile connected your Memberful account. */
-export const MEMBERFUL_PROBLEM_PARAM = "memberful";
-
-/** What that parameter says once your Memberful account is connected, and what your profile then says. */
-export const MEMBERFUL_CONNECTED = "connected";
-export const MEMBERFUL_CONNECTED_NOTICE = "Your Memberful account is connected.";
-
-/** The problem `value` names, or null for none it names. */
-export const memberfulProblemOf = (value: string | null): MemberfulSignInProblem | null =>
-  value !== null && Object.hasOwn(MEMBERFUL_SIGN_IN_PROBLEMS, value) ? (value as MemberfulSignInProblem) : null;
-
-/** Why connecting Memberful from your profile is refused without your password, while you have one. */
-export const MEMBERFUL_PASSWORD_NEEDED = "Enter your password to connect Memberful.";
-
-/** Why disconnecting it is refused without your password. */
-export const MEMBERFUL_DISCONNECT_PASSWORD_NEEDED = "Enter your password to disconnect Memberful.";
-/** Why it's refused while you have no password, which you'd have nothing to sign in with without, and which Memberful signing you in gives you none of. */
-export const MEMBERFUL_DISCONNECT_WITHOUT_PASSWORD = "You sign in with Memberful alone, so it can't be disconnected.";
-/** Why it's refused while you have no email address, which signing in with your password takes. */
-export const MEMBERFUL_DISCONNECT_WITHOUT_EMAIL = "Add your email address first, so that you can still sign in once Memberful is disconnected.";
-/** Why it's refused while you haven't connected a Memberful account. */
-export const MEMBERFUL_NOT_CONNECTED = "Your account isn't connected to a Memberful account.";
-/** What your profile says once your Memberful account is disconnected. */
-export const MEMBERFUL_DISCONNECTED_NOTICE = "Your Memberful account is disconnected.";
-
-/** Why signing in with a password, joining with the join link, or signing in with just a name is refused while Memberful is members only. */
-export const MEMBERFUL_SIGN_IN_NEEDED = "Members sign in with Memberful. Only administrators and invited people sign in with a password.";
 
 /**
  * Why a page for joining sent the browser to sign in instead, which the address names as `?joining=`,
@@ -1771,12 +1501,6 @@ export const PASSWORD_TOO_LONG = "Password must be at most 72 characters.";
 export const CURRENT_PASSWORD_NEEDED = "Enter your current password to change your email address or password.";
 /** Why it's refused with a current password that isn't yours. */
 export const CURRENT_PASSWORD_WRONG = "That isn't your current password.";
-/**
- * Why a first password is refused to someone Memberful signs in, while it does: it's their way in, and
- * a password that whoever holds their session could set would be another.
- */
-export const PASSWORD_WITH_MEMBERFUL = "You sign in with Memberful, so there's no password to set.";
-
 /** What a deleted account is called from then on, wherever anything still names it. */
 export const DELETED_PERSON_NAME = "Deleted person";
 /** Why Delete my account is refused without your password, while you have one. */
@@ -2698,10 +2422,6 @@ const SETTING_NAMES: Record<keyof AccountSettings, string> = {
   huddleScreens: "Screen sharing",
   joinLink: "Join link",
   openSignUp: "Open",
-  memberfulJoin: "Memberful",
-  memberfulSignIn: "Members only",
-  ssoJoin: "Single sign-on",
-  ssoSignIn: "SSO only",
   emailDomainSignUp: "Email domain",
 };
 
@@ -3118,21 +2838,6 @@ export function parseProfileChanges(data: unknown): ProfileChanges | string {
     return `Endpoint can't be longer than ${MAX_PUSH_ENDPOINT_LENGTH} characters`;
   }
   return changes;
-}
-
-/**
- * Parses an untrusted disconnection of your Memberful account. Returns why it's refused instead. Whether
- * the password is yours, and whether you have one, the server checks once it knows who's asking.
- */
-export function parseMemberfulDisconnection(data: unknown): MemberfulDisconnection | string {
-  if (!isJsonObject(data)) return "Expected a JSON object";
-  const { currentPassword, pushSubscriptionEndpoint } = data;
-  if (currentPassword !== undefined && typeof currentPassword !== "string") return "Current password must be text";
-  if (pushSubscriptionEndpoint !== undefined && typeof pushSubscriptionEndpoint !== "string") return "Push subscription endpoint must be text";
-  if (pushSubscriptionEndpoint !== undefined && pushSubscriptionEndpoint.length > MAX_PUSH_ENDPOINT_LENGTH) {
-    return `Endpoint can't be longer than ${MAX_PUSH_ENDPOINT_LENGTH} characters`;
-  }
-  return { ...(currentPassword === undefined ? {} : { currentPassword }), ...(pushSubscriptionEndpoint === undefined ? {} : { pushSubscriptionEndpoint }) };
 }
 
 /**
