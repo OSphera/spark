@@ -4,6 +4,10 @@ Thanks for your interest in Spark. Issues and pull requests are welcome from eve
 
 Spark is a group chat for small circles, run on your own Cloudflare account. It is a fork of [Ember](https://github.com/NYLLON-SOFTWARE/ember-cloudflare): it started from Ember's code and now goes its own way, taking Ember's changes when they suit it.
 
+## With thanks
+
+Spark stands on other people's work, and we're grateful for it. Our deep thanks to [Kevin Rose](https://github.com/kropdx) and NYLLON for Ember, which Spark is built on, and for releasing it under the MIT License, which is what makes a fork like this possible at all. And our thanks to 37signals for [Campfire](https://github.com/basecamp/once-campfire), which Ember grew from, and which they also opened up under the MIT License. Most of Spark is still their work.
+
 ## Start with an issue
 
 Open an [issue](https://github.com/OSphera/spark/issues) for anything you'd like to change or ask about: what happens, what you'd like instead, and why. For a bug, say which version of Spark you saw it on (it's in the left rail, above the "pause notifications" bell icon) and the browser, device, and operating system.
@@ -45,10 +49,6 @@ Spark picks changes from Ember with `git cherry-pick -x`, rather than merging it
 ## Releases
 
 Spark uses its own semantic versions, starting at 1.0.0, always shown with all three numbers. A release is a `vX.Y.Z` tag on `main` with a GitHub release and its notes, which Spark's update check and the Update Spark workflow read.
-
-## With thanks
-
-Spark stands on other people's work, and we're grateful for it. Our deep thanks to [Kevin Rose](https://github.com/kropdx) and NYLLON for Ember, which Spark is built on, and for releasing it under the MIT License, which is what makes a fork like this possible at all. And our thanks to 37signals for [Campfire](https://github.com/basecamp/once-campfire), which Ember grew from, and which they also opened up under the MIT License. Whatever is good in Spark began with them.
 
 ## License
 
