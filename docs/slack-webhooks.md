@@ -36,12 +36,6 @@ generic webhook, which shows the same way.
 
 ![Alerts from a monitoring bot, firing and resolved, in a room](screenshots/bots.png)
 
-@ember and the [AI agents](self-hosting.md#ai-agents) post these cards too, as what Ember tells them
-teaches them to. An answer that writes a payload as JSON in a code block starting
-with ```` ```slack ```` shows the payload's cards under it, as the bot's message would, though only with
-the pictures a person in the conversation linked to, as [Ember AI](self-hosting.md#ember-ai) says, and
-without buttons that act.
-
 ## Buttons that act
 
 A Block Kit button with an `action_id` and no `url` acts: a click on it goes to the bot that posted

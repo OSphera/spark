@@ -20,10 +20,7 @@ account, as [Deploying](#deploying) describes.
   - [Inviting people by email](#inviting-people-by-email)
   - [Push notifications](#push-notifications)
   - [Files](#files)
-  - [Ember AI](#ember-ai)
-  - [AI agents](#ai-agents)
-  - [Apps](#apps)
-  - [Outside AI](#outside-ai)
+  - [People's agents](#peoples-agents)
   - [Huddles](#huddles)
   - [A preview from GitHub Actions](#a-preview-from-github-actions)
   - [A demo from GitHub Actions](#a-demo-from-github-actions)
@@ -64,7 +61,7 @@ and a VAPID key pair for push notifications on its first deploy, and later deplo
 a new secret would sign everyone out and a new pair would end every push subscription. They go up
 with the code and never appear in the deploy's output. So does the ID of the Cloudflare account the
 Worker goes to, as `CLOUDFLARE_ACCOUNT_ID`, which a Worker can't find out by itself, for
-[Set up Ember AI](#ember-ai) to fill in: the account the `CLOUDFLARE_ACCOUNT_ID` environment
+[Set up huddles](#huddles) to fill in: the account the `CLOUDFLARE_ACCOUNT_ID` environment
 variable names, if it's set, or else the only one your login reaches, as a Deploy to Cloudflare
 build's token does. A login that reaches several gives none, unless you set the variable, and the
 field starts blank. Where git's origin is a copy of Ember on GitHub, as a Deploy to Cloudflare build's
@@ -780,355 +777,6 @@ Only a member of the room can download it. An administrator who isn't in a room 
 outside it does, a 404, and a guest is refused. Each person can start 6 downloads an hour. An
 export of everything in the workspace, for an administrator, isn't there yet.
 
-### Ember AI
-
-An administrator adds @ember, an AI assistant, on the AI assistant tab of community settings. Turning
-on its Ember AI card opens Set up Ember AI, which takes a Cloudflare account's ID and an API token,
-then a model. Its steps make the token under Account API tokens in the Cloudflare dashboard, as a
-custom token with three of the account's permissions: AI Gateway Run, which asking Claude and GPT
-takes, Workers AI Read, which listing and asking Workers AI's models and Grok takes, and AI Gateway
-Read, which searching the web for Grok and Workers AI's models takes as well. The account's ID starts as the one Ember is deployed to, when
-the deploy gave it, leaving only the token to make, and the dialog's links open that account's pages in
-the dashboard. Ember asks models through the account's default
-[AI Gateway](https://developers.cloudflare.com/ai-gateway/), whose logs, caching and spend limits
-apply: Claude and GPT at the gateway's endpoint for the model's provider,
-[Anthropic's](https://developers.cloudflare.com/ai-gateway/usage/providers/anthropic/) or
-[OpenAI's](https://developers.cloudflare.com/ai-gateway/usage/providers/openai/), in the provider's own
-API, which has all the model's features, and Grok and Workers AI's through Cloudflare's
-[REST API](https://developers.cloudflare.com/ai-gateway/usage/rest-api/), in Chat Completions, as AI
-Gateway's credits don't pay for Grok at the gateway's
-[xAI endpoint](https://developers.cloudflare.com/ai-gateway/usage/providers/grok/), where xAI answers
-"No credentials presented". Every model and every search goes through the gateway. Its logs keep
-what each request asked and was answered, but for a question asked in a DM or a private room, which
-they keep only the model, tokens, cost and time of, with `cf-aig-collect-log-payload: false`, so that
-nobody reading them reads what only that conversation's people do;
-[Logpush](https://developers.cloudflare.com/ai-gateway/observability/logging/logpush/), if you turn it
-on, still exports everything. Ember tells OpenAI and xAI not to keep the conversations, as each
-otherwise does for 30 days. AI Gateway Run lets the token send requests through every gateway on the
-account, with any provider keys stored on them, so keep it as safe as those keys.
-
-The model menu lists the models Ember offers, by their makers, then Workers AI's, each with what a
-million tokens read and a million written cost, as [What it costs](#what-it-costs) says. Claude, GPT
-and Grok come from [the models file](models.md), `models.json` on Ember's main branch, which every copy
-reads once a day, so that a model can be offered, or stop being, without an update: now Anthropic's
-Claude Fable 5.2, Claude Opus 5.5, Claude Sonnet 5.5 and Claude Haiku 5.5, OpenAI's GPT-6 Astra,
-GPT-6.1 Sol, GPT-6.1 Terra and GPT-6 Luna, and xAI's Grok 4.7, at their providers' prices, which AI
-Gateway's credits pay. The file lists only models whose tools for the web Ember knows, where it can turn
-them on, and can change nothing but which models are offered.
-Until a copy has read it, and whenever it can't, the copy offers the file its release shipped with.
-Workers AI's models come from Cloudflare's model search, which the Worker reads once a day for the
-account: the text models that take tools, as Ember's own for searching the web is, at the prices and
-Thinking levels the search lists. While the token lacks Workers AI Read, the menu lists the others and
-says why it can't list those. A model whose maker, or Cloudflare for Workers AI's, plans to stop
-running it says on which day, and Ember stops offering it then. The menu starts at Ember AI's model, if
-Ember offers it, or else at the one the file suggests, Claude Haiku 5.5. The Worker asks the model a
-test question before keeping the setup. @ember then joins every room open to everyone, and turning the
-card off takes it and the [AI agents](#ai-agents) out again and forgets the token. Nobody else can take
-the name Ember, though anyone who had it keeps it.
-
-Ember AI set up before Ember offered only these keeps what it saved, and its models answer as they did:
-the one that answers everyone, the others people can pick, and the agents'. One that Ember doesn't
-offer, such as one the models file no longer lists, or a Workers AI model the model search doesn't list
-for the account, is marked "no longer offered" on @ember's Models list and in its agent's model menu,
-and Ember goes on asking it as it did, through Cloudflare's REST API or its provider's endpoint, until
-it's removed from the list, or its agent is saved with another model, after which nothing offers it
-again. While Workers AI's models can't be listed, one of theirs isn't marked, as Ember may offer it
-still. Claude and GPT models that Ember asked through the REST API move at the first answers
-after the update: in the background, Ember asks each, the agents' too, its test question through its
-provider's endpoint, at most 8 at an answer, and asks those that answer there from then on, at the
-levels of thinking they take there. The rest stay where they are, as they all do while the token lacks
-AI Gateway Run, until Ember AI is set up again, which has Ember ask them again.
-
-While Ember AI is on, the Agents card under it lists @ember, marked Built in, then the agents, each
-linking to its page. @ember's page, headed Ember, has the settings below: its avatar, its instructions,
-the models people can pick, Search the web and the limits.
-
-@ember's avatar is Ember's flame until an administrator picks a picture in the Avatar section of
-@ember's page, which R2 keeps as it does people's avatars, and Use Ember's flame brings the flame back.
-The picture stays while Ember AI is off, as @ember's messages do. Each change gives the avatar a new
-address, even two changes in the same second, and every open page hears of it at once, so nobody's
-browser goes on showing the old picture it keeps for half an hour.
-
-@ember follows Ember's own instructions, and Instructions, on its page, adds an administrator's to
-them, up to 10,000 characters, such as how the team likes answers written or what to leave to people.
-What Ember adds around them shows the whole prompt @ember is given, from the Worker's own code, and
-administrators can [modify it with caution](#what-ember-adds-around-the-instructions). They're kept
-while Ember AI is off.
-
-The Models list on @ember's page has the models people can pick, at most 20, starting with the one Set
-up Ember AI chose. Its radio buttons choose which answers everyone who hasn't picked another, Add a
-model offers the models Ember offers that nobody can pick yet, asking the one chosen a test question
-before adding it, and Remove takes one out. Each person picks theirs from the Model menu under Ember AI
-on their profile, which shows while there's more than one: Default follows the administrators' choice,
-whichever model they choose, and a model picked by name stays theirs, even the one that's the default.
-Someone whose model is removed gets the default again, and their pick back if it's added again.
-Changing the model in Set up Ember AI puts the one chosen in place of the old default, and turning
-Ember AI off forgets the list. When the model someone picked has run out of credits or won't take the
-question, @ember's note says they can pick another.
-
-Mention @ember in a room or a thread, or write to it in a DM, and it answers there: in the thread when
-it's asked in one, typing while its model answers. It reads the thread, its first message and latest 50
-replies, after the room's 10 messages before it, which show what led to the thread, such as the
-question an answer it's under was asked, or else the room's latest 20 messages, each after its writer's
-name, at most about 40,000 characters of them, a thread's own first, and sends them through AI Gateway
-to the model, whose provider reads them. Its
-answer is a message of its own, in Markdown: links, bold, strikethrough, lists, quotes, code blocks and
-tables show as they do in people's messages, as do emoji, which it's told to write as themselves rather
-than by names such as :tada:, the pictures it links to show in a card under it, and its first web link
-gets a preview, as a pasted link does. Both are only of addresses a person wrote in the messages it
-read, not a bot or @ember itself, or of the pages it came from, and a preview is never of Ember's own
-pages. Any other address shows only as a link, since one the model made up could carry what it read to
-whoever runs that address the moment a reader's app or the Worker fetched it. An answer longer than a
-message holds is cut to as much as fits, ending with an ellipsis. It reads bots' messages but never
-answers one, so that bots can't keep each other talking. When the model can't answer, as when the token
-is refused, the credits run out, or Workers AI won't run the model, as it runs some models only for
-accounts on Workers Paid, retires others, and runs them free only for 10,000 Neurons a day, @ember says
-why in a short note, and the Worker's log has Cloudflare's own words. AI Gateway's logs keep each
-request with the id of whoever asked, as custom metadata's `user_id`, and of whoever answers, `ember`
-for @ember or an AI agent's, as `agent_id`, which a spend limit can be split by. An administrator can
-also turn on the gateway's
-[Guardrails](https://developers.cloudflare.com/ai-gateway/features/guardrails/) or
-[Data Loss Prevention](https://developers.cloudflare.com/ai-gateway/features/dlp/) in the Cloudflare
-dashboard, to check the questions, with the messages @ember reads, or the answers. When either blocks
-one, @ember's note says which, and that an administrator can change what it blocks there.
-
-For more of the room than the messages it reads, @ember has three tools Ember runs for it in the room
-it's asked in: its model answers with a call of one in place of an answer, Ember runs it and asks the
-model again with what it came to, and the model answers, or calls again. The search finds the room's
-messages, its threads' too, that have every word the model gives, or that someone it names wrote, or
-both, as Ember's search does for someone in the room. It knows someone by the name they have or by the
-one a message @ember was given or read gives them, which they may have changed since, and answers the
-newest 10 but those @ember was given with the question, which would only crowd out what's older, at most
-600 characters of each. Reading the room answers 40 of its messages at a time, oldest first: those
-before the question, or before the thread it's asked in, which take in what @ember was given, so that
-the model learns their ids, or those before or after a message the model names, at most 2,000 characters
-of each, with where to read on. Reading a thread answers the message it's under and its newest 40
-replies, or the 40 before a reply the model names, of the thread @ember is asked in or of a message the
-model names. Each message comes with when it was written, its id, which the tools take, the thread it's
-a reply in or how many replies its own has, who wrote it and what it says, which the model's provider
-reads as it does the conversation. None of them reads another room, and an id finds only the room's own
-messages, so an answer holds nothing its readers couldn't find themselves. An answer's calls of them
-read at most 80,000 characters of the room between them, about 20,000 tokens, twice what it's given with
-the question, counting what it read before it waited at a call of an app's tool, then the model is told
-it has read enough and to answer with what it has. An answer makes at most 20 calls, of these and [apps'
-tools](#apps) together, then the model is told to answer with what it has, and they share the answer's
-limit of tokens, so a model that spends them all reading is cut short as any other answer is. Claude,
-GPT and Grok, the models the models file lists, are given the tools, with nothing to turn on; Workers
-AI's models aren't, nor is a model kept from before Ember offered its own, or a test question, and a
-model that stops taking the tools is asked again without them: one refused only once it has called them
-answers without them, told what its calls found, in the tokens, and with the web searches and pages, the
-answer has left. Each call has the model read the conversation again, with all it has read since, so an
-answer that reads the room costs that many more tokens read. A picture or a link that only the tools
-found shows as a link, as the rule above has it, since the card and the preview are only of addresses in
-the messages @ember read with the question.
-
-@ember can also show cards under its answer, as a chat bot's [Slack-compatible
-webhook](slack-webhooks.md) does, for where something stands, a report, options to compare, a table or
-buttons that open pages: it writes a Slack message's payload as JSON in a code block that starts
-with ```` ```slack ````, and the cards the payload posts show under the answer, after the card of its
-pictures, in place of the block, with all of the answer's words above them. They show as a webhook's do,
-without what only a Slack app could answer, such as a menu, and without the payload's `text`, as the
-answer's own words are its text. A card's pictures show only at the addresses its Markdown's may, while
-its links and buttons, like its Markdown's links, may go anywhere. A block whose payload doesn't parse,
-or posts no card Ember keeps, stays the code it's written as, as does one in a list or a quote. An
-answer too long for a message keeps as many of its cards as fit, each whole, and as much of its text as
-fits beside them, counting the cards' text.
-
-What Ember tells @ember and every agent teaches them to make cards: when a card helps, as whenever
-someone asks for one, or for where something stands, and when to leave one out, as from a
-conversational reply; that one asked for is made even when the model couldn't find all it should show,
-showing what it found and saying in it what it couldn't; each block a card shows, with how it shows
-and what it's for; Slack's markup, which isn't Markdown; what doesn't show; and an
-example of a focused card. That's about 1,800 tokens of each question on Claude's models. It comes with
-the rest of what's the same from question to question, ahead of the date and where the question's asked,
-so that a provider that caches the start of a prompt on its own, as OpenAI's does, can reuse it.
-
-Two dials say how much @ember does for each question. Thinking, Off, Low, Medium or High, is how much
-its model thinks before it answers, up to about 4,000, 16,000 or 32,000 tokens, asked for as each API
-takes it: OpenAI's and xAI's reasoning effort, which Chat Completions takes too, or Anthropic's
-adaptive thinking, at its lowest effort for Off, since Anthropic's newest models don't turn thinking
-off. Answer length, Short, Medium or Long, is about 150, 400 or 1,500 words, which @ember's
-instructions ask for and its token limit allows, with room for code and tables. The Limits on @ember's
-page set the most of each for anyone's questions, the top of each until an administrator lowers them,
-and each person picks their own levels under Ember AI on their profile, up to those, starting at Low
-thinking and a Medium answer. An agent's levels are its own, set on its page.
-
-Which thinking levels a model takes is something only asking it says: a provider can refuse a level for
-one of its models that it takes for another, and a list of a model's settings can be wrong, as
-Cloudflare's catalog was in listing Low and High for xAI's Grok 4.20 Reasoning, which xAI refuses at
-every level. So when an administrator picks a model, in Set up Ember AI, Add a model or an agent's
-page, the Worker also asks it the test question once at each level, all at once, and keeps the levels
-it answered at. A level it doesn't take costs nothing, as the provider refuses it before the model
-writes anything. Workers AI's models are the exception: Cloudflare runs them itself, and its model
-search lists the reasoning efforts each takes, and those it turns into others, which asking can't tell,
-so Ember keeps those as its levels, and asks at each only a model the search doesn't say them for. The
-Thinking dial then offers only those, on a person's profile for their model and on an agent's page, and
-says which the model can't be set to. A level chosen before that the model doesn't take asks it for the
-nearest one it does, below first, so Off asks a model that can't turn thinking off for Low. A model
-that takes no level decides how much it thinks, and Thinking still sets how much it may. A model picked
-before Ember asked at each level, or one whose provider refuses a level it took then, is asked again
-without one.
-
-@ember waits for its model as long as the levels may take, 2 minutes at the least and about 13 at High
-and Long. An answer its token limit cuts short ends with an ellipsis, and when the model thinks for all
-it may before writing anything, @ember says so and suggests less thinking.
-
-Search the web, on @ember's page, lets @ember search the web and read pages with its model's own tools,
-which AI Gateway passes on and the model's provider runs
-([Cloudflare's guide](https://developers.cloudflare.com/ai-gateway/usage/web-search/)): Anthropic's
-[web search](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool) and
-[web fetch](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-fetch-tool) for Claude,
-and OpenAI's [web search](https://platform.openai.com/docs/guides/tools-web-search) for GPT. Grok and
-Workers AI's models search with a tool of Ember's own, which the Worker runs with Cloudflare's
-[Web Search API](https://developers.cloudflare.com/web-search/) through the same gateway: each search
-finds 5 pages, and the model reads what the search says of each, up to 2,000 characters, though not the
-pages themselves. Grok's searches count among the 20 calls an answer makes of Ember's tools, with its
-searches of the room. A model kept from before in Chat Completions,
-as Google's are, has no such tools, which the page says, its switch opening Set up Ember AI to choose
-another model. Turning it on asks the model that answers everyone a question it has to search the web
-for, and keeps the tools AI Gateway took, reading pages only if it took that tool too, and says what
-the model found; a model that answers without searching leaves it off. A Grok saved before in xAI's
-own Responses, at the gateway's xAI endpoint, moves to Chat Completions then, where AI Gateway's credits
-pay for its searches, and is asked again at each level of thinking, as the levels it takes there
-needn't be the ones it took before. One that already searched there, with an xAI key on the gateway, searches there
-still until the switch is turned off and on again. While the token lacks AI Gateway Read, which Ember's tool takes, the
-switch says to add it. Choosing another model to answer everyone, under Models or in Set up Ember AI,
-or another Cloudflare account there, turns it off, as another model, or another account's AI Gateway,
-may not take the same tools, until it's turned on again. A model someone picks on their profile is
-given the same tools, of those its format has, so the models Ember offers search too, and any other
-is told to say it can't, and that they can pick one that can. While it's on, @ember searches at most 5
-times an answer and reads at most 3 pages, each cut to about 10,000 tokens: pages people link to, or
-that its searches find. Its answer is what it writes after it last searches, and a line under it links
-to the pages it cites and the pages it read, by their titles, at most 10, leaving out those the answer
-links to itself. Grok's and Workers AI's APIs have no citations of their own, so Ember numbers the pages
-their searches find, counting on across an answer's searches, and asks the model to cite a page by its
-number in brackets, as [2], after what it takes from it. Ember takes those numbers out of the answer,
-but in code, and its line links to the pages they cite, in the order the answer first cites them, with
-any whose address the answer writes; one that cites none has no line, and still counts as searching
-when the switch is turned on. A model that stops taking the tools is asked again without them, told
-it can't search this time. Its searches are written from the conversation, so the provider's search
-sees what the room was asking about. While it's off, @ember is told it can't search, and that an
-administrator can turn Search the web on.
-
-### AI agents
-
-Beside @ember, administrators can make AI agents of their own, each a bot that answers with its own
-instructions and model, for a task such as summing up threads or drafting replies in a support room.
-While Ember AI is on, New agent, on the Agents card, makes one, up to 20, and the card links to each
-agent's page, which changes it. The page sets up:
-
-- **Name and avatar.** An agent's name is unique among everyone, in any capitals, so no person or bot
-  can pose as it, nor take its name while it exists, whether Ember AI is on or off. Its avatar is the
-  one chat bots start with until an administrator uploads a picture.
-- **What it does**, in a line of at most 100 characters, which the Agents card and the agent's profile
-  show, so people know when to ask it.
-- **Instructions**, its system prompt, up to 10,000 characters: its task, how to go about it, and what to
-  leave alone. What Ember adds around them shows the prompt the Worker writes around them, from the
-  same code, which administrators can [modify with caution](#what-ember-adds-around-the-instructions).
-  They aren't secret, as anyone who can ask the agent could get it to repeat them, so leave out keys,
-  passwords and private links. Nor are they a boundary: someone in the conversation can talk an agent
-  out of them, so what an agent reads and does is up to Ember's code, as it is for @ember.
-- **How it answers**: its model, of those Ember offers, and its own Thinking and Answer length, the
-  dials @ember has, which people can't change on their profile as they can for @ember. The page says
-  the most an answer at those levels costs at the model's prices. An agent saved on a model Ember no
-  longer offers keeps it, marked so in the menu, until it's saved with another.
-- **Search the web**, as @ember's does, for every model Ember offers. Turned on for a model kept from
-  before that can't search, it says in red that the model can't, until the model or the switch changes.
-- **Rooms**: Every room, which is every room open to everyone, new ones too, as @ember is, or only the
-  open rooms chosen. People can still add it to a closed room or DM it, as they can anyone.
-- **Admin access**, two switches, both off for an agent anyone can ask:
-  - **Admins only** leaves the agent in its rooms, where everyone reads what it answers, but it answers
-    administrators alone. A mention or a DM from anyone else gets no answer, the mention prompt and New
-    direct message don't offer it to them, and its profile tells them that only administrators can ask
-    it.
-  - **Only available in admin DMs** takes the agent out of every room, private ones too, keeps it out
-    of them, and holds Admins only on. Nobody else can see it: their people directory, mention prompt
-    and Available Agents don't list it, and its profile and avatar aren't there for them. Only an
-    administrator can start a DM with it, and it answers there while everyone else in the DM is an
-    administrator. A DM started with it and anyone else, a member, a bot, whose key reads the rooms
-    it's in, or another agent, is started without it.
-
-  Whoever becomes an administrator can ask these agents from then on, and no longer once they aren't
-  one. A DM someone had with an agent before it was kept for administrators stays theirs to read, and
-  the agent answers nothing more in it.
-
-Try it asks the agent a question as the page sets it up, before anyone saves, and shows the answer as
-the agent's message would, with how long it took, to nobody else. Create agent, and Save changes when
-the model changes or Search the web goes on, first ask the model a test question, or one it has to
-search the web for, as Set up Ember AI does. The page says who last changed the agent, and when, and
-Delete agent, which asks first, takes it out of every room for good and frees its name, while its
-answers stay.
-
-An agent answers as @ember does: when it's mentioned in a room or a thread it's in, or written to in a
-DM, it reads the same conversation and sends it through AI Gateway to its own model, whose provider
-reads it, with its own instructions, and its answer shows the pictures, cards and preview @ember's
-would. Like @ember, it never answers a bot, so agents and @ember don't answer each other. AI Gateway's
-logs and spend limits tell the agents apart by `agent_id`, as [Ember AI](#ember-ai) says. Turning Ember
-AI off takes every agent out of its rooms, as it does @ember, and keeps them, to come back as they were
-when it's on again, in the open rooms there are then.
-
-What an agent, or @ember, reads stays in the conversation it's asked in, by Ember's code rather than
-its instructions. It's asked only in a room or DM it's in, and reads that one alone: the conversation
-it's given, and what the room's tools find, which read no other room. So nothing said in a DM or
-a private room reaches another room through it, or anyone who isn't there, even someone who is in both
-asking elsewhere. Agents join the rooms open to everyone; a private room or a DM has one only when its
-people add it, and a DM's people never change, so nobody can put an agent in someone else's. An agent
-keeps nothing from one question to the next but what the room keeps. In a DM or a private room, every
-call of an app's tool asks first, even [one always allowed](#apps), and AI Gateway's logs keep nothing
-of what's said. The model's provider still reads what it's asked, and a chat bot in the same room reads
-it all by its key, as anyone in the room can.
-
-The Agent badge follows an agent's name wherever it shows, so nobody takes it for a person: on its
-messages, deleted agents' too, on a DM with it alone in the sidebar and the room's header, in the
-mention prompt and New direct message, and on its profile. The profile shows everyone what the agent
-does, the model it answers with, where that runs (Cloudflare's Workers AI, or the company that makes
-the model, which AI Gateway sends what it's asked to), and who set it up, but not its instructions.
-
-Available Agents, under the DMs in everyone's sidebar while Ember AI is on, says how many agents they
-can ask, @ember among them, and opens the list of them: each agent's picture, the @name that summons
-it, which a click copies, what it does, the rooms it shares with whoever is looking, each a link to the
-room, and a button that starts a DM with it. People who aren't administrators are listed only the
-agents anyone can ask. Administrators are listed the ones kept for them too, marked Admins only or
-Admin DMs only, with a link to each agent's page and to New agent.
-
-#### What Ember adds around the instructions
-
-Ember writes the rest of @ember's and each agent's system prompt around their instructions: who they are
-before them, and after them how the chat shows Markdown and pictures, how to show cards, what they may
-do on the web, the date and time, and where they're asked, last, as it changes from question to
-question most. The time is in UTC, as Ember doesn't know where each person asking is, so the model is
-told that for them it may still be the day before, or already the next.
-Under What Ember adds around them, on @ember's page and each agent's, a box headed Modify with caution
-keeps it as Ember writes it until Modify is pressed, as a change there can leave a model unsure who it
-is, where it's asked or what the chat can show. Modify opens the template Ember fills in each time it's
-asked, up to 10,000 characters, with what each placeholder stands for:
-
-| Placeholder | What Ember fills in |
-| --- | --- |
-| `{{name}}` | Its name |
-| `{{community}}` | The community's name |
-| `{{where}}` | The room, thread or direct message it's asked in |
-| `{{asker}}` | The name of whoever asked |
-| `{{words}}` | About how many words it may answer in, from Answer length |
-| `{{cards}}` | How it can show cards under its answer with Slack payloads: when they help, what they can hold, and an example |
-| `{{web}}` | What it may do on the web, or who could let it |
-| `{{today}}` | Today's date and the time, in UTC, as Tuesday, November 17, 2026 at 01:54 |
-| `{{instructions}}` | The instructions, which it needs once |
-
-The preview above it follows what's typed, and the box says why Ember can't take a template, before
-anything's saved: one without `{{instructions}}`, or with it twice, or with a placeholder Ember doesn't
-fill in, such as a misspelt one. A template that leaves out a placeholder, such as `{{web}}` or
-`{{today}}`, is taken, though the model then isn't told what it would have said. While @ember has no
-instructions added, `{{instructions}}` on a line of its own goes with its line, and within a line it
-leaves the rest of the line as it's written. An agent's template saves with Save changes, and @ember's
-with Save beside it, or Save instructions. Try it asks an agent with the template as the page has it,
-saved or not. Use Ember's own puts Ember's back, which Ember keeps as its own, so that it changes as
-Ember's does in later releases, where a modified template stays as it was saved. So a template modified
-before `{{cards}}` came along doesn't tell its model how to show a card until `{{cards}}` is added to
-it, though a card the model writes anyway still shows, while one with `{{cards}}` in it gets what Ember
-says of cards in the release it runs. While it's modified, What Ember adds around them is marked
-Modified.
-
 ### People's agents
 
 Members can have agents of their own: each a bot with its own name, shown wherever its name is as
@@ -1141,7 +789,7 @@ Ember starts, to 10. Lowering it turns nobody's agents off; it stops them making
 - **Making one.** Your agents, on a person's profile, makes, renames, gives a new key to and deletes
   their agents, for anyone but a guest. Making one, and giving one a new key, take the person's current
   password, as changing their email address does, so holding their session isn't enough to make a key
-  that speaks in their rooms. Its name is unique among everyone, in any capitals, as an AI agent's is,
+  that speaks in their rooms. Its name is unique among everyone, in any capitals, as a chat bot's is,
   and nobody can take it while the agent is on.
 - **Its picture** is the one chat bots start with until its person gives it one. In Your agents, the
   picture beside each agent changes it, and Remove picture brings the first one back. It takes what a
@@ -1167,302 +815,15 @@ Ember starts, to 10. Lowering it turns nobody's agents off; it stops them making
   keys don't work either. An administrator sees everyone's agents, with whose each is and its rooms,
   under People's agents, and can turn any off. An agent turned off, or deleted, keeps its messages,
   still shown as its person's agent's; it can't be turned on again, but its person can make another.
-- **Mentions and replies.** Anyone in a room with an agent can mention it, as anyone. @ember and the
-  AI agents never answer a bot, so they don't answer a person's agent either. A person's agent has no
+- **Mentions and replies.** Anyone in a room with an agent can mention it, as anyone. A person's agent has no
   webhook: where a chat bot's webhook delivers is an administrator's choice, and a member choosing an
   address for Ember to call is a different question, so webhooks stay with administrators' chat bots. An
   agent reads what's new with `GET /bot/rooms/<room id>/messages?after=<message id>` instead.
 
-The badge that follows an AI agent's name follows a person's agent's too, with whose it is after it,
+An Agent badge follows a person's agent's name, with whose it is after it,
 in the same places: its messages, a DM with it alone in the sidebar and the room's header, the mention
 prompt, New direct message, and its profile. The bot API's messages and a room's download say whose it
 is too ([bot API](bot-api.md), [Downloading a room's messages](#downloading-a-rooms-messages)).
-
-### Apps
-
-An app is another service's [MCP](https://modelcontextprotocol.io) server: the tools it offers, at an
-address. On the AI assistant tab, under Agents, an administrator connects one with **Connect an app**,
-while Ember AI is on: a name, the server's address, which the service's documentation gives and which
-often ends in `/mcp`, and a token, if the server takes one. Ember asks the server for its tools then,
-over Streamable HTTP, and connects the app only once it has answered, so a wrong address or token is
-said on its field, in words about what the server did: it asked for a sign-in, didn't take the token,
-has no MCP server there, sent the address on to another, took longer than 20 seconds, or answered
-with more than 4 MB. A server that asks for a sign-in is connected by [signing in to it](#signing-in-to-an-app).
-
-An administrator picks the tools each agent may use, and an agent calls one only once someone allows
-that call, on a card in the room, unless the administrator has that agent's calls of the tool always
-allowed, which counts in open rooms alone: in a DM or a private room every call asks first, so that
-nothing said there goes to an app unless someone in it allows it.
-
-- **The address** is an `https` one, or `http` on `localhost`, for a server you're developing, with no
-  name and password in it. Ember asks only that address: it follows no redirect, and it looks the name
-  up first and refuses one that resolves to a private address, as [link previews](#security-notes) do,
-  so a server can't send Ember, or the token, anywhere else. Ember's own address is refused too, the
-  one you're using and any other it knows reaches it, at any port: its MCP server, for
-  [outside AI](#outside-ai), would have the agents read what your sign-in to it reads, DMs and private
-  rooms too, for whoever asks them. An app connected at one before isn't called.
-- **The token** goes to the server with every request, as `Authorization: Bearer`. Ember keeps it
-  encrypted, as it keeps Ember AI's API token, and never shows it again: the app's page says only that
-  it has one. Type another to replace it, or check **Send no token** to stop sending one. Either has
-  Ember ask the server again before it saves, as another address does. The token goes only to the
-  address it was given for, so another address needs it typed again, or **Send no token**.
-- **The tools** show on the app's page, each by its name there, with its title and what the server
-  says it does, which is the server's word and not Ember's. Ember keeps up to 100, each with a name of
-  letters, digits, `_`, `-` and `.`, a description up to 1,500 characters and a schema of what it takes
-  up to 8,000, and the page says how many more the server has. **Read its tools again** asks the
-  server again, and leaves the app as it was if the server doesn't answer.
-- **Remove app** forgets the app, its token or sign-in, and its tools. Up to 10 apps can be connected,
-  and they're kept while Ember AI is off.
-- **An agent's tools** are picked on its page, and @ember's on its own, in the **Tools** card: every
-  connected app's tools, by app, each with a checkbox, up to 20 an agent. A pick is saved as it's made.
-  An agent is given nothing that isn't picked for it, and anyone who can ask the agent could have it
-  use what is, with the token its app was connected with, so pick for the rooms the agent is in. Ember
-  keeps each pick with the tool as its server described it then: when Ember reads the app's tools again
-  and the server describes one another way, in its name, title, description or what it takes, that
-  tool is set aside for every agent that had it, and its page says so, until an administrator picks it
-  again. One its server describes as it did again, before that agent's picks are next saved, comes
-  back by itself, as it's the tool that was picked. A pick is of the tool as the page showed it, so one made on a page that loaded before the
-  tool changed is refused, and the page shows the tools as they are now. Removing an app takes its
-  tools from every agent.
-- **A tool set aside** is flagged where an administrator looks: the Apps card says on the app's row
-  how many of its picked tools are set aside, and the app's page names each, with the agents that had
-  it, linked to their pages, and whether the server changed it or no longer has it. Ember also finds
-  a change as it goes to call a tool: it then reads the app's tools again, so the tool is set aside
-  from that call on, without waiting for an administrator to read them. An app whose server has
-  come to have no tools Ember can use keeps none, which its page and the agents' say.
-- **A call** is the model's to ask for and a person's to allow. Claude, GPT and Grok, which can
-  search their room, are given an agent's picked tools beside that search, each named for its app and
-  described in the app's own words, marked as the app's; Workers AI's models aren't given them. It never has an app's address or token: it names a tool
-  and what to call it with, and Ember shows whoever asked a card, where the answer would go, saying
-  which agent wants to use which app, the tool, and everything it would be called with, exactly as
-  it would go: each field by name, a short value on its line, longer text quoted under it with its
-  line breaks, and only nested data, such as a list of objects, as JSON. As Slack shows an app's
-  ephemeral message, the card says "Only visible to you", and nobody else in the room sees it: it
-  isn't one of the room's messages, so it's in nobody's unread messages, search or history. A tab
-  shows it until it reconnects, and again after that while the call still waits.
-  **Allow once** runs that call and no other, and **Deny** tells the model it wasn't allowed; either
-  is for whoever asked alone, and the card then says they answered. The answer, and any card the
-  tool answers with, go to the room as ever. The answer goes on from there, and waits again at the
-  next call, up to 20 calls an answer, all within the time and tokens its levels give it. While a
-  call runs, the room's typing line names it after the agent's name, as in "Recap is using Linear:
-  list_issues", or "Recap is searching this room", "is reading this room" or "is reading a thread" while it
-  reads the room; nothing of that is kept. A model whose
-  provider then won't go on from a call is asked once more without the tools, told what each call came
-  to, so that its answer still says what a call did. A call nobody
-  answers in 15 minutes isn't run: its card says so in place of its buttons, and Ember forgets the
-  answer that waited. A call with more than 3,000 characters to show is never asked for,
-  so nobody allows what they couldn't read. As it runs a call, Ember asks the server for the tool
-  again, and doesn't call one that's no longer picked for the agent or that the server describes
-  another way than when it was picked. What the tool answers goes to the model as text, cut at 8,000
-  characters, and is the app's word: Ember passes on no pictures or files from it.
-- **A tool's card** is the app's own. A server built for Slack's assistant can answer a call with
-  [Block Kit](https://docs.slack.dev/ai/slackbot-mcp-client/returning-rich-responses) beside its
-  text, in `_meta.slack.blocks`, and Ember tells every server it takes that, by the name Slack's
-  client gives it (`io.slack/block-kit`). The room is shown those blocks as a card from the agent,
-  before its answer, ending in a line that says which app and tool it's from, and the model is told
-  the room has seen it. Ember shows such a card whole or not at all, as Slack does: one with more
-  than 50 blocks, or with a block Ember doesn't draw (a field to type in, a menu, a data table, a
-  chart, a container, a file), isn't shown, and the agent answers from the tool's text, as it does for
-  a server that sends no card. Its pictures are fetched by each reader's app from the addresses the
-  server gave, as a bot's card's are.
-- **A button on a tool's card** calls a tool when its `action_id` is `tool:` and the tool's name, with
-  the JSON object its `value` writes, as Slack has it. Ember keeps such a button only for a tool of
-  the same app that's picked for the agent, and drops any other button that isn't a link. Anyone in
-  the room can click it, and the click is its own leave: nobody is asked first, as the call is the
-  one the app's card offered, not one a model wrote, and it goes to no model. The card the tool
-  answers with takes the clicked one's place, saying who clicked which button, and what a tool only
-  says is posted beside the card. A call that fails tells whoever clicked why, in the server's words,
-  cut short. One click is answered at a time on a card. Agents' own answers still get no buttons
-  that act.
-- **Always allow** is an administrator's, for one agent and one tool: a box under each picked tool in
-  the agent's Tools card. That agent's calls of that tool in rooms open to everyone are then made at
-  once, with nobody asked, for anyone who can ask the agent, so keep it for tools that only read, or
-  whose every use you'd allow. In a DM or a private room each call asks first all the same, and one
-  the agent was about to make when its room was made private isn't made, nor one for a question
-  deleted meanwhile. Nothing is posted for such a call: the room sees only the typing line say which
-  app and tool the agent is using while it runs, and then the answer, and the tool's card, if it
-  answers with one. The Worker's log keeps a line for each, with the agent's and the app's ids and
-  the tool's name, not what it was called with. Uncheck the box and the tool asks first again, from
-  the next call. It ends by itself when the tool is taken from
-  the agent, or when Ember finds its server has changed it: from then on the tool asks first, even
-  once the server describes it as it did, until you check the box again.
-
-Reading an app's tools and calling one run in a Durable Object of its own, `AppConnector`, apart from the rooms and
-the workspace, with the protocol's own client, pinned to one version. Only JSON comes back, and none
-of a server's code runs in Ember.
-
-#### Signing in to an app
-
-Many services' MCP servers take no token you could paste: they sign you in, with OAuth, as the
-protocol has it. When a server answers Connect an app by asking for a sign-in, the token's field says
-so and offers **Sign in to** its host. Ember then finds where the server signs people in, sends your
-browser there, and connects the app once you've allowed it and the service has sent you back. The
-app's page says who signed in, and when, in place of a token.
-
-- **It's one sign-in for the app**, made by an administrator and used for every agent given the
-  app's tools, as a token is. So what an agent can do there is what the administrator who signed in
-  can, for anyone who can ask the agent: sign in as an account made for Ember where the service lets
-  you, and pick tools with that in mind. Each person can add [their own](#each-persons-own-sign-in),
-  for their direct conversation with an agent.
-- **Ember finds the sign-in from the server**, as the protocol says to: the server names its
-  authorization server, which describes itself. Ember says who it is with a document it serves at
-  `/oauth/client.json` where the authorization server reads one, and otherwise registers itself
-  there. It asks for the access the server says it needs, proves each sign-in with PKCE, and names
-  the server's address as what the tokens are for, so they're no good anywhere else.
-- **A service that does neither wants Ember registered there by you.** The form then says so, and
-  asks for a **Client ID** and a **Client secret**. Register Ember with the service as an OAuth app
-  (a "connected app" or "integration", by some services' names), giving it the **Redirect address**
-  the form shows, `https://<your Ember>/account/apps/signed-in`, as where it sends people back, and
-  type the client ID it gives you, with its secret if it gives one. Ember signs in as that client,
-  shows its ID on the app's page from then on, and keeps what the service knows it by encrypted,
-  for that app alone, never showing the secret again. Signing in again uses the same client without
-  asking, even after the sign-in has ended; type another ID, or another secret, to change it, or
-  clear the ID to have the service come to know Ember by itself. A secret the service doesn't take
-  is said once your browser is back, and changes nothing.
-- **An app that has a token can be signed in to instead.** When its server takes the token no
-  longer, saving it or reading its tools again says so and offers **Sign in to** its host. The
-  sign-in then takes the token's place. Ember signs in at the address the app is connected at, so
-  nothing is offered while the form has another: to sign in to an app somewhere else, remove it
-  and connect it there.
-- **Every address in it is checked** as the server's own is: `https` only, unless the server is one
-  you're developing on `localhost`, each looked up first and refused where it resolves to a private
-  address, with no redirect followed. An authorization server that says it's another service's, or
-  describes a sign-in for another address than the server's, is refused.
-- **You come back to Ember signed in**, at `/account/apps/signed-in`, which takes the code out of the
-  address at once. A sign-in is finished only by the administrator who began it, once, within ten
-  minutes; Ember keeps what it needs to finish it encrypted until then.
-- **The tokens are kept encrypted**, for that app alone, and never shown. An access token that's
-  about to end is replaced first, with the token the service gave for that, one request at a time,
-  so a token that's replaced as it's used is never sent twice.
-- **A sign-in ends** when the service won't give another token: it was taken back there, or the
-  service gave none to renew with. Ember then asks the server nothing: a call of its tools tells the
-  model so, the app's page and its row on the AI assistant tab say so, and **Sign in again** on the
-  app's page restores it, keeping the app and every agent's picks. A service that couldn't be reached
-  for a new token ends nothing: Ember goes on with the token it has.
-- **A server can ask for more than the sign-in allows.** When it refuses a call, or a read of its
-  tools, and names the access that would allow it (OAuth's `insufficient_scope`), the call isn't
-  run, the model is told that an administrator has to sign in again, and the app's page and its row
-  say what the server asked for. **Sign in again** then asks the service for that as well as for
-  what the sign-in had, which the service shows you before you allow it. Nothing is asked for on
-  Ember's own: more access is only ever given by an administrator, at the service.
-- **A signed-in app keeps its address** and takes no token, since its sign-in is to the server there.
-  To move it, remove it and connect it again.
-- **Removing a signed-in app takes the sign-in back at the service**, where the service says how
-  (a revocation endpoint, as RFC 7009 has it): Ember sends back the token that renews the sign-in
-  and the access token, as the client it signed in as, once the app is gone, waiting at most ten
-  seconds. The tab then says whether the service took them back. Where it didn't, couldn't be
-  reached, or doesn't say how, remove Ember's access at the service yourself. A sign-in replaced
-  by signing in again isn't taken back: the service decides what becomes of the last one.
-
-#### Each person's own sign-in
-
-Anyone but a guest can sign in themselves to an app Ember signs in to, under **Apps** on their
-profile, which lists those apps while Ember AI is on. It's the same sign-in at the same service, as
-the same client, made as them, and kept beside Ember's, sealed for that app and that person alone.
-
-- **It's used in one place:** their direct conversation with @ember or an agent, the two of them
-  alone. A call the agent makes of that app's tools there goes as them, with their sign-in.
-  Everywhere else, and for everyone who hasn't signed in themselves, calls go with the sign-in the
-  administrator made, as before.
-- **Every call as a person asks them first**, on a card that says the call goes as them. What an
-  administrator always allows an agent was said of Ember's sign-in, and doesn't cover theirs.
-- **Which tools an agent has is still the administrator's pick.** A person's sign-in changes whose
-  account a call acts as, not what the agent may call.
-- **Their sign-in ends, or wants more, for them alone.** Once it has ended, the call isn't made with
-  Ember's instead: the model says they have to sign in again, and their profile says so, with
-  **Sign in again**, or **Sign out** to go back to the shared one. When the app's server asks for
-  more access than their sign-in has, their profile says so, and signing in again asks for it.
-- **Sign out forgets it and takes it back at the service**, where the service says how, as removing
-  an app does. Removing the app forgets everyone's sign-in to it and takes back up to 20 of them
-  there too, saying it couldn't take everything back when there were more. Removing or banning
-  someone forgets theirs, without asking the service.
-
-### Outside AI
-
-An AI app, such as Claude or ChatGPT, can connect to Ember and read it as one of the people in it,
-and send messages as them if they let it, in the rooms open to everyone, and in their direct messages
-and private rooms only if they let it into those too. Ember is an
-[MCP](https://modelcontextprotocol.io) server for that, at `/mcp` on its own address, the other way
-round from [Apps](#apps), where Ember's agents call other services' servers. It's off until an
-administrator turns on **Outside AI** on the AI assistant tab, which is there whether or not Ember AI
-is on, and until then nothing about it answers: `/mcp`, and the addresses below, answer 404.
-
-To connect an app, someone gives it Ember's address ending in `/mcp`, which the card and their profile
-show, as a custom connector or MCP server. The app sends their browser to a page of Ember's, which
-they sign in to if they aren't, and which asks whether to connect it: it names the app, says what it
-could do as them, and says which site the browser goes back to, which is what tells whose app it is,
-since the name is only what the app calls itself. **Allow** connects it. **Don't allow** goes back
-with nothing.
-
-- **What a connected app can do** is read the rooms open to everyone that the person who connected
-  it is in: list them, read a room's messages 40 at a time and a thread's, and search for words
-  across those rooms, the ones they've hidden too, as their own search does. It sees nothing they
-  don't. Its tools are `list_rooms`, `read_room`, `read_thread` and `search_messages`, each marked as
-  only reading.
-- **It can catch up on what's new.** `list_rooms` says which rooms have messages the person hasn't
-  read. `read_room` reads a room's newest 40 messages, the 40 before a message (`before`), or the 40
-  after one (`after`), oldest first. Each answer gives `older` and `newer`, the ids to pass as `before`
-  and `after` to read on in either direction, or null at the room's start or when nothing is newer. An
-  app that remembers the last message it saw in a room reads only what's new by passing its id as
-  `after`, and again with each `newer` until it's null. `before` and `after` can't be given together.
-  A message sent only to a thread isn't in the room, so reading forwards skips it as reading backwards
-  does. If the message named as `after` isn't in the room, because it was deleted or is another room's,
-  `read_room` refuses and says so, rather than guess where to read on from and miss messages without
-  telling the app. The app then reads the room's newest messages without `after` and carries on from
-  the last.
-- **It can send messages as them, if they let it.** The page that asks has a box for that, ticked
-  unless they clear it, and their profile says which apps can. `send_message` posts Markdown to a room
-  of theirs it reaches, or as a reply in a thread, and everyone there sees it as theirs, marked "via" and the
-  app's name beside theirs, as the page that asks says. The name is what the app registered as, cut
-  to 100 characters, and the message keeps it after the app is disconnected. `read_room`,
-  `read_thread` and `search_messages` give it as `sent_via`, and so does the bot API's message JSON,
-  so one app can tell another's messages from a person's. It mentions nobody and goes to no bot, so
-  it calls neither @ember, an agent nor a bot's webhook, even in a direct message with one, and one
-  person's apps send at most 20 messages a minute between them. An app that asks for nothing by name only
-  reads.
-- **Their direct messages and private rooms are theirs to let it into.** The page that asks has a
-  box for them, left clear unless they tick it, as Slack's scopes keep direct messages and private
-  channels apart from channels. Ticked, the app lists, reads, searches and, if it may send, sends in
-  those too. Clear, it can do none of that there, and a room that's made private is out of its reach
-  from then on, though they're still in it. Ember gives them only to an answer that says the box was
-  ticked, so a page that doesn't show the box never gives them. Apps connected before Ember asked
-  are kept out of them until they're connected again, and the profile says which apps can use them.
-- **Your profile lists the apps connected as you**, under **AI apps**, with when each was connected
-  and last asked Ember anything, and **Disconnect**, which ends what that app was given at once. One
-  person has at most 20.
-- **Guests can't connect one**, as they have no account of their own to act as. Removing or banning
-  someone ends every connection of theirs.
-- **Turning Outside AI off disconnects every app**, and forgets the apps that registered, after
-  asking the administrator first. Turning it on again starts afresh.
-
-How an app signs in is OAuth 2.1, as MCP's
-[authorization](https://modelcontextprotocol.io/specification/draft/basic/authorization) has it,
-with Ember as the authorization server:
-
-- `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-authorization-server` say
-  where, and a request to `/mcp` without a token answers 401 pointing at the first.
-- The scopes are `read`, `write`, for sending, and `private`, for direct messages and private rooms,
-  which gives no tools of its own. A request without a token names all three, and the page that asks
-  gives `write` unless it's cleared and `private` only if it's ticked. An app that asks for `private`
-  alone is asked to read with it.
-- An app names itself by the address of a Client ID Metadata Document, which Ember reads from a
-  public address only, or registers itself at `/oauth/register`, 10 times an hour from one network at
-  most. Either way it's a public client, with no secret, and proves itself with PKCE (S256).
-- The browser goes back only to an `https` address the app gave, or to `http` on the person's own
-  computer, at any port, for an app that runs there. An app that's opened by a scheme of its own,
-  such as `cursor://`, can't connect yet.
-- An access token lasts an hour, and a refresh token is replaced each time it's used and lasts 90 days
-  unused. Using a refresh token that was replaced, however long ago, or a code twice, ends that
-  connection, as either means it was copied. Ember keeps only a keyed digest of each, made with
-  `SESSION_SECRET`, so its database holds nothing an app could sign in with.
-- A token works only at the address the app said it was for, when it asked to connect or when it
-  exchanged its code, so one given for another Ember, or for this one at another address, is
-  refused. An app that never says is bound to none: its tokens are still only this Ember's.
-
-Requests to `/mcp` are answered in a Durable Object of their own, `OutsideAi`, apart from the rooms and
-the workspace, as an app's tools are read in `AppConnector`: reading a request and checking it takes
-more CPU time than a Worker's request gets on Workers Free. It keeps nothing, and each request has a
-new one.
 
 ### Huddles
 
@@ -1621,7 +982,7 @@ marks the room unread, unless it's a reply sent there from the thread too, which
 huddle whose message has been deleted has no thread, and says so.
 
 A direct message has a huddle too, with the headphones at its top and its mark on its row in the
-sidebar, when there's someone in it to huddle with, which a bot or an AI agent isn't, nor anyone who
+sidebar, when there's someone in it to huddle with, which a bot isn't, nor anyone who
 can no longer sign in. Starting one there invites the others in it. Wherever they have Ember open,
 an invitation shows in the window's corner, under the header, whatever page they're on: who invites
 them, over Decline and Join. It rings for half a minute, in one of a browser's tabs at a time, and
@@ -1748,7 +1109,7 @@ repository secrets, and skips without them:
 - `CLOUDFLARE_ACCOUNT_ID`: under Account details on the Workers & Pages overview.
 
 The first deploy makes the Worker's `SESSION_SECRET` and VAPID key pair, and later ones keep them;
-they go up with the deploy, never in its logs, as the account's ID does, for Set up Ember AI to fill
+they go up with the deploy, never in its logs, as the account's ID does, for Set up huddles to fill
 in. A public repository's Actions logs are public too, so
 the workflow prints no setup link and makes no setup token: the Worker takes its token from an
 `EMBER_SETUP_TOKEN` repository secret, if you add one (`openssl rand -hex 32`) before the first
@@ -1889,7 +1250,7 @@ What a self-hoster should know, beyond keeping the setup password and link to th
 - A Resend API key pasted into Set up email is kept encrypted, and never shown again, even to
   administrators: Membership says only that Ember has one. Make it a key with Sending access, as Resend
   suggests, so that one that got out could do no more than send email. A Turnstile secret key given in
-  Set up Turnstile, an API token given in Set up Ember AI, an SFU app's secret given in Set up
+  Set up Turnstile, an SFU app's secret given in Set up
   huddles, and a Memberful app's secret and API key and its webhook's secret key given in Set up
   Memberful, are kept the same way.
 - A code to reset a password goes to the account's email address, so whoever reads mail there can
@@ -1917,12 +1278,6 @@ What a self-hoster should know, beyond keeping the setup password and link to th
 - Custom CSS runs on every page for everyone, so it's an administrator's to write, like the rest of
   the workspace, and `EMBER_RECOVERY_TOKEN` can take over any account, so keep it set only while
   resetting a password, as above.
-- While [Outside AI](#outside-ai) is on, an AI app someone connects sees the open rooms they're in,
-  and their direct messages and private rooms only if they tick those, and writes as them if they
-  let it send, until they disconnect it on their profile, and whoever runs that app can read it too.
-  What it sends is marked with the app's name, but the name is only the app's own word, since anyone
-  can register an app under any name, so the page that asks them names the site their browser goes
-  back to.
 - `/api/health` tells strangers only whether Ember is up; administrators and whoever sends the
   recovery token hear the rest. QR codes (`/qr_code/<id>`) are drawn for people signed in.
 
@@ -1954,25 +1309,6 @@ pages had them in October 2026:
 - **Email**, if Ember sends it: Resend's free plan sends 3,000 emails a month, at most 100 a day, and
   Cloudflare Email Service includes 3,000 a month on Workers Paid, as [Sending email](#sending-email)
   says.
-- **Ember AI**, if it's on: its models are paid for with AI Gateway's credits, at each provider's own
-  per-token prices, plus a 5% fee on the credits bought: for a million tokens read and a million
-  written, from $0.10 and $0.50 on Claude Haiku 5.5 or GPT-6 Luna to $10 and $50 on GPT-6 Astra, as the
-  model menu says. Workers AI's models are free up to 10,000 Neurons a day on either plan, and Workers
-  Paid bills past that at each model's own prices, which the menu says too, in Neurons at $0.011 per
-  1,000. AI Gateway's credits pay for them instead once Unified billing is chosen under Workers AI
-  Billing in the default gateway's settings, which also opens the models Cloudflare otherwise runs only
-  on Workers Paid. Thinking counts as output, as the answer does, so the [dials](#ember-ai) bound what
-  one answer costs: at most 3,000 tokens out at Off and Short, 6,000 at Low and Medium, and 38,000 at
-  High and Long. Picking a model asks it a test question, then again at each Thinking level, each at
-  most 2,000 tokens out. Each person's questions cost what the model they pick does, so add to the
-  Models list only the models you're happy to pay for, and each [agent's](#ai-agents) what its own
-  model does at its own dials, whose most its page says. While Search the web is on, an answer can also
-  search up to 5 times, which Anthropic charges $10 per 1,000 searches for and OpenAI
-  its own price per search, and Cloudflare's Web Search API, for Grok and Workers AI's models, $0.25 per 1,000
-  with its default provider, Ceramic.ai, paid with AI Gateway's credits. The results and pages it reads
-  count as input, up to about 10,000 tokens a page. An answer that searches its room, which Claude,
-  GPT and Grok can, up to 5 times, has its model read the conversation again after each round of
-  searches, with what they found.
 - **Huddles**, if they're on: Cloudflare's Realtime SFU charges for what it sends to the people in a
   huddle, and nothing for what they send it. The first 1,000 GB a month are free, and it's $0.05 per GB
   after that, as its page had it in November 2026. A voice is about 50 kbps to each person who hears
@@ -1993,9 +1329,7 @@ pages had them in October 2026:
 
 Cloudflare's pages have the details: [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/),
 [Durable Objects pricing](https://developers.cloudflare.com/durable-objects/platform/pricing/),
-[R2 pricing](https://developers.cloudflare.com/r2/pricing/),
-[Workers AI pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/),
-[AI Gateway's Unified Billing](https://developers.cloudflare.com/ai-gateway/features/unified-billing/) and
+[R2 pricing](https://developers.cloudflare.com/r2/pricing/) and
 [Realtime SFU pricing](https://developers.cloudflare.com/realtime/sfu/pricing/).
 
 ## Storage: Durable Object SQLite or D1
