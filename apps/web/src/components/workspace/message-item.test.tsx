@@ -1366,10 +1366,15 @@ describe("React to a message", () => {
     expect(within(tray).getAllByRole("button").map((b) => b.textContent)).toEqual(["😂Face with tears of joy", "😮Face with open mouth", "😢Crying face", "🙏Folded hands", "🎉Party popper", "Next reactions"]);
     // Next reactions turns the tray to its last page, which New boost ends, focusing its first reaction.
     await user.click(within(tray).getByRole("button", { name: "Next reactions" }));
-    expect(within(tray).getAllByRole("button").map((b) => b.textContent)).toEqual(["🙌Raising hands", "💯Hundred points", "✅Check mark", "👀Eyes", "🤔Thinking face", "New boost"]);
+    expect(within(tray).getAllByRole("button").map((b) => b.textContent)).toEqual(["Previous reactions", "🙌Raising hands", "✅Check mark", "👀Eyes", "🤔Thinking face", "New boost"]);
     expect(within(tray).getByRole("button", { name: "Raising hands" })).toHaveFocus();
-    await user.click(within(tray).getByRole("button", { name: "Hundred points" }));
-    expect(actions.boost).toHaveBeenCalledWith("m1", "💯");
+    // Previous reactions turns it back, the bar staying open.
+    await user.click(within(tray).getByRole("button", { name: "Previous reactions" }));
+    expect(within(tray).getAllByRole("button").map((b) => b.textContent)).toEqual(["😂Face with tears of joy", "😮Face with open mouth", "😢Crying face", "🙏Folded hands", "🎉Party popper", "Next reactions"]);
+    expect(within(tray).getByRole("button", { name: "Face with tears of joy" })).toHaveFocus();
+    await user.click(within(tray).getByRole("button", { name: "Next reactions" }));
+    await user.click(within(tray).getByRole("button", { name: "Check mark" }));
+    expect(actions.boost).toHaveBeenCalledWith("m1", "✅");
     expect(screen.queryByRole("group", { name: "Message actions" })).not.toBeInTheDocument();
     expect(optionsOn("Hello")).toHaveFocus();
   });

@@ -2416,8 +2416,9 @@ export function usernameFrom(name: string): string {
 export const EMAIL_ADDRESS_TOO_LONG = `Email address must be at most ${MAX_EMAIL_ADDRESS_LENGTH} characters`;
 
 /**
- * The reactions: the first three are quick reactions, the rest sit in the tray, a page of five at a time.
- * Spark's thirteen, by how often people reach for each (OSphera/spark#8): Ember's were 👍 👏 👋, then 💪 ❤️ 😂 🎉 🔥.
+ * The reactions: the first three are quick reactions, the rest sit in the tray, five on its first page and
+ * four on each after. Spark's twelve, by how often people reach for each (OSphera/spark#8, #9): Ember's were
+ * 👍 👏 👋, then 💪 ❤️ 😂 🎉 🔥.
  */
 export const REACTIONS = [
   ["👍", "Thumbs up"],
@@ -2429,7 +2430,6 @@ export const REACTIONS = [
   ["🙏", "Folded hands"],
   ["🎉", "Party popper"],
   ["🙌", "Raising hands"],
-  ["💯", "Hundred points"],
   ["✅", "Check mark"],
   ["👀", "Eyes"],
   ["🤔", "Thinking face"],

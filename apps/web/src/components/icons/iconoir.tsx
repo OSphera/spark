@@ -831,6 +831,14 @@ export function NavArrowDown(props: IconoirIconProps) {
   );
 }
 
+export function NavArrowLeft(props: IconoirIconProps) {
+  return (
+    <IconoirIcon name="nav-arrow-left" {...props}>
+      <path d="M15 6L9 12L15 18" {...LINE} />
+    </IconoirIcon>
+  );
+}
+
 export function NavArrowRight(props: IconoirIconProps) {
   return (
     <IconoirIcon name="nav-arrow-right" {...props}>

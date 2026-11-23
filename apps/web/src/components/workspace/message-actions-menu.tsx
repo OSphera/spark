@@ -15,7 +15,7 @@ import {
 } from "react";
 import { QUICK_REACTION_COUNT, REACTIONS, type Message, type StoredFile } from "@ember/protocol";
 import type { DisplayNode } from "@ember/richtext/dom";
-import { ChatPlusIn, Copy, Download, Edit, Emoji, MessageText, MoreHoriz, NavArrowRight, QuoteMessage, ShareAndroid, Trash, TriangleFlag, UserXmark } from "@/components/icons/iconoir";
+import { ChatPlusIn, Copy, Download, Edit, Emoji, MessageText, MoreHoriz, NavArrowLeft, NavArrowRight, QuoteMessage, ShareAndroid, Trash, TriangleFlag, UserXmark } from "@/components/icons/iconoir";
 import { PageLink } from "@/components/page-link";
 import { ShareButton } from "@/components/share-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -49,10 +49,15 @@ const ACTION =
 const PANEL = "rounded-[11px] border border-message-border bg-background shadow-[0_1px_3px_#0000001a]";
 
 /**
- * Spark (OSphera/spark#8): the tray's reactions, a page of five at a time, as wide as Ember's tray of five and
- * New boost, so the menu keeps its size and place: Next reactions ends each page but the last, which New boost ends.
+ * Spark (OSphera/spark#8, #9): the tray's reactions in pages six buttons wide, as Ember's tray of five and New
+ * boost was, so the menu keeps its size and place. Next reactions ends each page but the last, which New boost
+ * ends, and Previous reactions starts each but the first, so the first page holds five and the others four.
  */
-const TRAY_PAGES = ((rest: ReadonlyArray<(typeof REACTIONS)[number]>) => Array.from({ length: Math.ceil(rest.length / 5) }, (_, page) => rest.slice(page * 5, page * 5 + 5)))(REACTIONS.slice(QUICK_REACTION_COUNT));
+const TRAY_PAGES = ((rest: ReadonlyArray<(typeof REACTIONS)[number]>) => {
+  const pages = [rest.slice(0, 5)];
+  for (let at = 5; at < rest.length; at += 4) pages.push(rest.slice(at, at + 4));
+  return pages;
+})(REACTIONS.slice(QUICK_REACTION_COUNT));
 
 /** An item of More actions: its icon, as the bar draws it, then its name, the panel's whole width. */
 const ITEM =
@@ -209,7 +214,7 @@ export function MessageActionsMenu({ message, nodes, row, threaded, editable, th
 
   const focusFirstReaction = () => {
     focusingTray.current = false;
-    tray.current?.querySelector("button")?.focus({ preventScroll: true });
+    tray.current?.querySelector<HTMLButtonElement>("button:not([data-turn])")?.focus({ preventScroll: true });
   };
 
   const focusFirstAction = () => {
@@ -227,10 +232,10 @@ export function MessageActionsMenu({ message, nodes, row, threaded, editable, th
     setTrayPage(0);
   };
 
-  // Next reactions turns the tray to its next page in place, whose first reaction takes focus.
-  const nextTrayPage = () => {
+  // Next and Previous reactions turn the tray's page in place, whose first button takes focus.
+  const turnTrayPage = (by: number) => {
     focusingTray.current = true;
-    setTrayPage((page) => Math.min(page + 1, TRAY_PAGES.length - 1));
+    setTrayPage((page) => Math.min(Math.max(page + by, 0), TRAY_PAGES.length - 1));
   };
 
   // Opening More actions keeps the bar open and makes it Message options' bar, so Escape shuts More
@@ -311,6 +316,8 @@ export function MessageActionsMenu({ message, nodes, row, threaded, editable, th
 
   const clickedElsewhere = useEffectEvent((event: Event) => {
     const target = event.target as Node;
+    // Spark: what the click itself took away, as turning the tray's page takes its arrows, was in the bar.
+    if (!target.isConnected) return;
     if (!container.current?.contains(target) && !boostTrigger.current?.contains(target)) close();
   });
 
@@ -511,14 +518,21 @@ export function MessageActionsMenu({ message, nodes, row, threaded, editable, th
           >
             <span className="mx-[3px] mb-[5px] block text-[11px] leading-normal font-medium text-muted-foreground">More reactions</span>
             <div className="flex flex-wrap">
+              {trayPage > 0 && (
+                <ActionTooltip label="Previous reactions">
+                  <button type="button" data-turn className={ACTION} onClick={() => turnTrayPage(-1)}>
+                    <NavArrowLeft />
+                    <span className="sr-only">Previous reactions</span>
+                  </button>
+                </ActionTooltip>
+              )}
               {TRAY_PAGES[trayPage]!.map(([emoji, title]) => (
                 <Reaction key={emoji} emoji={emoji} title={title} onClick={() => react(emoji)} />
               ))}
               {trayPage < TRAY_PAGES.length - 1 ? (
                 <ActionTooltip label="Next reactions">
-                  <button type="button" className={ACTION} onClick={nextTrayPage}>
-                    {/* The click lands on the button, not the arrow, which the next page's New boost replaces: a click on what's gone would read as one elsewhere, closing the bar. */}
-                    <NavArrowRight className="pointer-events-none" />
+                  <button type="button" className={ACTION} onClick={() => turnTrayPage(1)}>
+                    <NavArrowRight />
                     <span className="sr-only">Next reactions</span>
                   </button>
                 </ActionTooltip>

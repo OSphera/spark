@@ -44,6 +44,10 @@ test.describe("React to a message", () => {
     await (await grace.actions(text)).getByRole("button", { name: "More reactions" }).click();
     const tray = grace.message(text).getByRole("group", { name: "More reactions" });
     await expect(tray.getByRole("button")).toHaveText(["😂Face with tears of joy", "😮Face with open mouth", "😢Crying face", "🙏Folded hands", "🎉Party popper", "Next reactions"]);
+    // Its pages turn both ways, the bar staying open.
+    await tray.getByRole("button", { name: "Next reactions" }).click();
+    await expect(tray.getByRole("button")).toHaveText(["Previous reactions", "🙌Raising hands", "✅Check mark", "👀Eyes", "🤔Thinking face", "New boost"]);
+    await tray.getByRole("button", { name: "Previous reactions" }).click();
     await tray.getByRole("button", { name: "Party popper" }).click();
     await expect(reactions(ada, text).getByRole("img", { name: "Grace boosted 🎉" })).toBeVisible();
   });
