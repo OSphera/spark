@@ -62,7 +62,7 @@ export function BotsPage({ onFailed }: { onFailed: (error: unknown) => void }) {
   const [bots, setBots] = useState<Bot[] | null>(null);
   const people = useContext(PeopleContext);
   const { failed } = useAdministratorsOnly(onFailed);
-  useTitle("Chat bots");
+  useTitle("Agents");
 
   useEffect(() => {
     let stopped = false;
@@ -89,21 +89,21 @@ export function BotsPage({ onFailed }: { onFailed: (error: unknown) => void }) {
         <header className={cn(SECTION_HEADING, "grid grid-cols-[1fr_auto] items-center gap-x-3 upto-500px:grid-cols-1")}>
           {/* The globe sits beside the heading. */}
           <div className="flex items-center gap-2">
-            <h1 id="chat-bots-heading" className={TITLE}>Chat bots</h1>
+            <h1 id="chat-bots-heading" className={TITLE}>Agents</h1>
             <TranslationButton translations="chat_bots" />
           </div>
           <p className="col-span-full mt-1.5 max-w-prose text-muted-foreground">
-            Chat bots let other apps and services post in your rooms, and reply when people talk to them.
-            Each of a bot's rooms gets two addresses, one for posting text or a file and one that takes a Slack incoming webhook's payload.
-            Give a bot a webhook URL, and Ember sends it every message that @mentions it or is sent to it in a DM, then posts whatever it answers within 30 seconds.
+            Agents let other apps and services post in your rooms, and reply when people talk to them.
+            Each of an agent's rooms gets two addresses, one for posting text or a file and one that takes a Slack incoming webhook's payload.
+            Give an agent a webhook URL, and Spark sends it every message that @mentions it or is sent to it in a DM, then posts whatever it answers within 30 seconds.
           </p>
           <PageLink
             href={NEW_BOT_PATH}
-            aria-label="Add a chat bot"
+            aria-label="Add an agent"
             className={cn(TITLE_LINK, "col-start-2 row-start-1 upto-500px:col-start-auto upto-500px:row-start-auto upto-500px:mt-4 upto-500px:justify-self-start")}
           >
             <Plus className="size-[18px]" />
-            <span>Add a chat bot</span>
+            <span>Add an agent</span>
           </PageLink>
         </header>
         {/* One card, as wide as the heading, with a row for each bot, as the AI assistant tab lists its agents. */}

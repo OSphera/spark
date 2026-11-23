@@ -2159,15 +2159,15 @@ describe("Chat bots page", () => {
       "GET /api/account/bots/b1": () => Response.json({ bot: { ...bot, webhookUrl: null } }),
     });
     const { user } = showWorkspace("/account/bots");
-    expect(await screen.findByRole("heading", { level: 1, name: "Chat bots" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Agents" })).toBeInTheDocument();
     expect(railCurrent()).toEqual(["Workspace"]);
 
     await user.click(await screen.findByRole("link", { name: "Edit Build Bot" }));
-    expect(await screen.findByRole("textbox", { name: "Bot name" })).toHaveValue("Build Bot");
-    expect(document.title).toBe("Edit bot");
+    expect(await screen.findByRole("textbox", { name: "Agent name" })).toHaveValue("Build Bot");
+    expect(document.title).toBe("Edit agent");
     expect(railCurrent()).toEqual(["Workspace"]);
     await user.click(screen.getByRole("link", { name: "Go Back" }));
-    expect(await screen.findByRole("heading", { level: 1, name: "Chat bots" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Agents" })).toBeInTheDocument();
     await user.click(screen.getByRole("link", { name: "Go Back" }));
     expect(await communitySettings()).toBeInTheDocument();
   });

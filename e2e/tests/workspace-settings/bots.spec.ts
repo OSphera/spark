@@ -43,16 +43,16 @@ async function openBots(page: Page) {
   await useOwnAddress(page);
   await page.goto("/account/edit");
   await signInAsAdministrator(page);
-  await page.getByRole("link", { name: "Chat bots" }).click();
+  await page.getByRole("link", { name: "Agents" }).click();
   await expect(page).toHaveURL(/\/account\/bots$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Chat bots" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Agents" })).toBeVisible();
 }
 
 /** Adds a bot named `name`, from the bots page, back to which it goes. A server kept from an earlier run may have bots already. */
 async function addBot(page: Page, name: string, webhookUrl = "") {
-  await page.getByRole("link", { name: "Add a chat bot" }).click();
+  await page.getByRole("link", { name: "Add an agent" }).click();
   await expect(page).toHaveURL(/\/account\/bots\/new$/);
-  await page.getByRole("textbox", { name: "Bot name" }).fill(name);
+  await page.getByRole("textbox", { name: "Agent name" }).fill(name);
   await page.getByRole("textbox", { name: "Webhook URL", exact: true }).fill(webhookUrl);
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page).toHaveURL(/\/account\/bots$/);
@@ -143,14 +143,14 @@ test.describe("Add and edit a bot", () => {
 
     await botNamed(page, name).getByRole("link", { name: `Edit ${name}` }).click();
     await expect(page).toHaveURL(/\/account\/bots\/[^/]+\/edit$/);
-    await expect(page.getByRole("textbox", { name: "Bot name" })).toHaveValue(name);
+    await expect(page.getByRole("textbox", { name: "Agent name" })).toHaveValue(name);
     await expect(page.getByRole("textbox", { name: "Webhook URL", exact: true })).toHaveValue("https://ci.example.com/hook");
     // Its settings give the same commands, a room at a time.
     const incoming = page.getByRole("region", { name: "Incoming" });
     await incoming.getByRole("combobox", { name: "Room" }).selectOption({ label: "general" });
     await expect(incoming.getByRole("group", { name: "general", exact: true }).getByRole("textbox", { name: "curl command for posting messages" })).toHaveValue(command);
     const renamed = `Deploy Bot ${crypto.randomUUID().slice(0, 8)}`;
-    await page.getByRole("textbox", { name: "Bot name" }).fill(renamed);
+    await page.getByRole("textbox", { name: "Agent name" }).fill(renamed);
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page).toHaveURL(/\/account\/bots$/);
     await expect(botNamed(page, renamed)).toBeVisible();
@@ -160,8 +160,8 @@ test.describe("Add and edit a bot", () => {
   test("the administrator keeps a bot to the rooms chosen on its form, which its row then names alone, and puts it in every room again", async ({ page }) => {
     await openBots(page);
     const name = `Uptime Bot ${crypto.randomUUID().slice(0, 8)}`;
-    await page.getByRole("link", { name: "Add a chat bot" }).click();
-    await page.getByRole("textbox", { name: "Bot name" }).fill(name);
+    await page.getByRole("link", { name: "Add an agent" }).click();
+    await page.getByRole("textbox", { name: "Agent name" }).fill(name);
     const rooms = page.getByRole("region", { name: "Rooms" });
     await expect(rooms.getByRole("radio", { name: "Every room" })).toBeChecked();
     await rooms.getByRole("radio", { name: "Only the rooms I choose" }).check();
@@ -190,12 +190,12 @@ test.describe("Add and edit a bot", () => {
   test("the administrator gives a bot an avatar from its form, shown on the bots page as the variant the browser made, and a new one", async ({ page }) => {
     await openBots(page);
     const name = `Build Bot ${crypto.randomUUID().slice(0, 8)}`;
-    await page.getByRole("link", { name: "Add a chat bot" }).click();
-    const preview = page.getByRole("img", { name: "Bot avatar" });
+    await page.getByRole("link", { name: "Add an agent" }).click();
+    const preview = page.getByRole("img", { name: "Agent avatar" });
     // Campfire's default bot picture, until one is chosen.
     await expect(preview).toHaveAttribute("src", /svg/);
-    await page.getByRole("textbox", { name: "Bot name" }).fill(name);
-    await page.getByLabel("Upload bot avatar").setInputFiles(await drawnPicture(page, "robot.png", 1200, 800));
+    await page.getByRole("textbox", { name: "Agent name" }).fill(name);
+    await page.getByLabel("Upload agent avatar").setInputFiles(await drawnPicture(page, "robot.png", 1200, 800));
     await expect(preview).toHaveAttribute("src", /^blob:/);
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page).toHaveURL(/\/account\/bots$/);
@@ -209,7 +209,7 @@ test.describe("Add and edit a bot", () => {
     await expect(preview).toHaveAttribute("src", first);
     // An avatar's address changes with the second it was given.
     await nextSecond();
-    await page.getByLabel("Upload bot avatar").setInputFiles(await drawnPicture(page, "robot.png", 300, 600));
+    await page.getByLabel("Upload agent avatar").setInputFiles(await drawnPicture(page, "robot.png", 300, 600));
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page).toHaveURL(/\/account\/bots$/);
     await expect(avatar).not.toHaveAttribute("src", first);
@@ -227,7 +227,7 @@ test.describe("Generate a new bot key", () => {
 
     await botNamed(page, name).getByRole("link", { name: `Edit ${name}` }).click();
     page.once("dialog", (dialog) => {
-      expect(dialog.message()).toBe("Are you sure you want to change the bot key? All usage of this bot must be updated.");
+      expect(dialog.message()).toBe("Are you sure you want to change the agent key? All usage of this agent must be updated.");
       void dialog.accept();
     });
     await page.getByRole("button", { name: "Generate a new key" }).click();
@@ -248,12 +248,12 @@ test.describe("Delete a bot", () => {
     const settings = new URL(page.url()).pathname;
 
     page.once("dialog", (dialog) => {
-      expect(dialog.message()).toBe("Are you sure you want to permanently remove this bot from the account? This can’t be undone.");
+      expect(dialog.message()).toBe("Are you sure you want to permanently remove this agent from the account? This can’t be undone.");
       void dialog.accept();
     });
-    await page.getByRole("button", { name: "Delete this chat bot" }).click();
+    await page.getByRole("button", { name: "Delete this agent" }).click();
     await expect(page).toHaveURL(/\/account\/bots$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Chat bots" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Agents" })).toBeVisible();
     await expect(botNamed(page, name)).toHaveCount(0);
 
     expect((await page.goto(settings))?.status()).toBe(404);
@@ -719,7 +719,7 @@ test.describe("Chat bots page", () => {
       await expect(member.getByRole("alert")).toHaveText("Only administrators can manage bots");
       await expect(member).toHaveURL(/\/account\/edit$/);
       await expect(member.getByRole("heading", { level: 1, name: "Basic community settings" })).toBeVisible();
-      await expect(member.getByRole("link", { name: "Chat bots" })).toHaveCount(0);
+      await expect(member.getByRole("link", { name: "Agents" })).toHaveCount(0);
     }
     await member.context().close();
   });
@@ -731,10 +731,10 @@ test.describe("Chat bots page", () => {
     const header = async (on: Page) => {
       const main = on.getByRole("main");
       const [heading, explainer, add, bot] = [
-        main.getByRole("heading", { level: 1, name: "Chat bots" }),
-        main.getByText(/^Chat bots let other apps and services post in your rooms/),
-        main.getByRole("link", { name: "Add a chat bot" }),
-        main.getByRole("list", { name: "Chat bots" }),
+        main.getByRole("heading", { level: 1, name: "Agents" }),
+        main.getByText(/^Agents let other apps and services post in your rooms/),
+        main.getByRole("link", { name: "Add an agent" }),
+        main.getByRole("list", { name: "Agents" }),
       ];
       await expect(bot).toBeVisible();
       return { heading: await box(heading), explainer: await box(explainer), add: await box(add), bot: await box(bot) };
@@ -823,7 +823,7 @@ test.describe("A bot's profile", () => {
     await page.goto("/account/bots");
     await botNamed(page, name).getByRole("link", { name: `Edit ${name}` }).click();
     page.once("dialog", (dialog) => void dialog.accept());
-    await page.getByRole("button", { name: "Delete this chat bot" }).click();
+    await page.getByRole("button", { name: "Delete this agent" }).click();
     await expect(page).toHaveURL(/\/account\/bots$/);
 
     await page.goto(profile);

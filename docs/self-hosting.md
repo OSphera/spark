@@ -783,7 +783,7 @@ Members can have agents of their own: each a bot with its own name, shown wherev
 that person's, such as "Pete's agent", which posts and reads through the [bot API](bot-api.md) with
 its key. It's for a member whose AI works for them, outside Ember, to take part under its own name
 rather than theirs. It's off until an administrator turns it on: People's agents, at the bottom of the
-Chat bots page in workspace settings, sets how many agents each person may have, from 0, as every
+Agents page in workspace settings, sets how many agents each person may have, from 0, as every
 Ember starts, to 10. Lowering it turns nobody's agents off; it stops them making more.
 
 - **Making one.** Your agents, on a person's profile, makes, renames, gives a new key to and deletes
@@ -1217,7 +1217,7 @@ What a self-hoster should know, beyond keeping the setup password and link to th
 - Workers Logs record each request's address, which for Campfire's bot API, when the key is in the
   address, and for the Slack-compatible webhooks holds the bot's key, and for the join link its code.
   A bot that sends its key as `Authorization: Bearer <bot key>` to `/bot/rooms/<room id>/messages`, as the
-  Chat bots page's commands do, leaves none in a log ([the bot API](bot-api.md)); only the
+  Agents page's commands do, leaves none in a log ([the bot API](bot-api.md)); only the
   Slack-compatible webhook has to keep its key in its address. Reset key and Regenerate join link are
   the remedies if a log is shared, and
   `"logs": { "invocation_logs": false }` under `observability` in `wrangler.jsonc` drops the

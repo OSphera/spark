@@ -25,7 +25,7 @@ export const YOUR_AGENTS_EXPLAINED =
 export const KEY_SHOWN_ONCE = "Copy this key now. Ember keeps only a digest of it, so it can't show it again.";
 
 /** What a row says of an agent's picture: the one chat bots start with, until its person gives it one. */
-export const pictureSaid = (agent: PersonalAgent) => (agent.avatar ? "You gave it this picture." : "It has the picture chat bots start with. Choose another.");
+export const pictureSaid = (agent: PersonalAgent) => (agent.avatar ? "You gave it this picture." : "It has the picture agents start with. Choose another.");
 
 /** What a row says of when an agent's key was last used. */
 export const keyUsed = (usedAt: string | null) =>

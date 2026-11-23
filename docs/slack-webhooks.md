@@ -1,7 +1,7 @@
 # Slack-compatible webhooks
 
 Tools that post to Slack, such as Prometheus Alertmanager, Grafana or a CI pipeline, can post to a
-room instead. The Chat bots page gives each of a bot's rooms a Slack-compatible webhook URL,
+room instead. The Agents page gives each of a bot's rooms a Slack-compatible webhook URL,
 `https://<your Worker>/rooms/<room id>/<bot key>/slack`, which takes what a Slack incoming webhook
 takes, as JSON or as a form's `payload` field:
 

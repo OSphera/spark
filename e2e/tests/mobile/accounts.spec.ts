@@ -278,7 +278,7 @@ test("a bot's settings fit the phone", async ({ page, screenIsFine }) => {
   await signInAsAdministrator(page);
   // From the bots page, as the Worker answers its 404 page for a bot it doesn't have.
   await page.getByRole("link", { name: `Edit ${BOT.name}` }).click();
-  await expect(page.getByRole("textbox", { name: "Bot name" })).toHaveValue(BOT.name);
+  await expect(page.getByRole("textbox", { name: "Agent name" })).toHaveValue(BOT.name);
   await expect(page.getByRole("button", { name: "Generate a new key" })).toBeVisible();
   await screenIsFine();
   // Rooms, then Incoming, whose menu names a room as long as names go, then Outgoing, each scrolled to.

@@ -1,7 +1,7 @@
 # Bot API
 
 A bot posts to the rooms it's in, reads them, and edits, deletes and boosts its own messages with the
-bot's key. The Chat bots page shows the key of a bot an administrator made; a person's own agent's key
+bot's key. The Agents page shows the key of a bot an administrator made; a person's own agent's key
 is shown once, on their profile under Your agents, when the agent is made or given a new key
 ([People's agents](self-hosting.md#peoples-agents)). The key goes in an `Authorization` header, at an
 address with no key in it, so a request log has nothing to record:

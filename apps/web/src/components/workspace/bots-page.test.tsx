@@ -59,7 +59,7 @@ const listedAs = ({ id, name, bio, role, status, avatarUrl }: Bot, changes: Part
 
 /** Each bot the page lists, once they've loaded: the list's own items, and not its bots' rooms. */
 async function listed(count: number): Promise<HTMLElement[]> {
-  const bots = () => [...(screen.queryByRole("list", { name: "Chat bots" })?.children ?? [])] as HTMLElement[];
+  const bots = () => [...(screen.queryByRole("list", { name: "Agents" })?.children ?? [])] as HTMLElement[];
   await waitFor(() => expect(bots()).toHaveLength(count));
   return bots();
 }
@@ -88,16 +88,16 @@ afterEach(() => {
 describe("Chat bots page", () => {
   it("is the Chat bots page, saying what bots do, with Add a chat bot, and Go Back to workspace settings", () => {
     showPage();
-    expect(document.title).toBe("Chat bots");
-    expect(screen.getByRole("heading", { level: 1, name: "Chat bots" })).toBeInTheDocument();
+    expect(document.title).toBe("Agents");
+    expect(screen.getByRole("heading", { level: 1, name: "Agents" })).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Chat bots let other apps and services post in your rooms, and reply when people talk to them. " +
-          "Each of a bot's rooms gets two addresses, one for posting text or a file and one that takes a Slack incoming webhook's payload. " +
-          "Give a bot a webhook URL, and Ember sends it every message that @mentions it or is sent to it in a DM, then posts whatever it answers within 30 seconds.",
+        "Agents let other apps and services post in your rooms, and reply when people talk to them. " +
+          "Each of an agent's rooms gets two addresses, one for posting text or a file and one that takes a Slack incoming webhook's payload. " +
+          "Give an agent a webhook URL, and Spark sends it every message that @mentions it or is sent to it in a DM, then posts whatever it answers within 30 seconds.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Add a chat bot" })).toHaveAttribute("href", "/account/bots/new");
+    expect(screen.getByRole("link", { name: "Add an agent" })).toHaveAttribute("href", "/account/bots/new");
     expect(screen.getByRole("link", { name: "Go Back" })).toHaveAttribute("href", "/account/edit");
   });
 
@@ -198,7 +198,7 @@ describe("Chat bots page", () => {
   it("follows a rename elsewhere, keeping the bots in order, and drops a bot deleted elsewhere, as the people directory hears of them", async () => {
     const { showPeople } = showPage();
     await listed(2);
-    const names = () => [...screen.getByRole("list", { name: "Chat bots" }).children].map((bot) => bot.querySelector("strong")?.textContent);
+    const names = () => [...screen.getByRole("list", { name: "Agents" }).children].map((bot) => bot.querySelector("strong")?.textContent);
 
     showPeople(new Map([listedAs(BUILD_BOT, { name: "Zulu Bot" }), listedAs(DEPLOY_BOT)]));
     await waitFor(() => expect(names()).toEqual(["Deploy Bot", "Zulu Bot"]));
@@ -257,7 +257,7 @@ describe("Translation buttons", () => {
   it("has a translation button for Chat bots once an administrator shows them, giving the page's name and first sentence", () => {
     showPage({ ...account, hideTranslationButtons: false });
     expect(screen.getByText("Translate")).toBeInTheDocument();
-    expect(screen.getByText("Chat bots. Chat bots let other apps and services post in your rooms, and reply when people talk to them.")).toBeInTheDocument();
+    expect(screen.getByText("Agents. Agents let other apps and services post in your rooms, and reply when people talk to them.")).toBeInTheDocument();
   });
 
   it("has none while they're hidden", () => {

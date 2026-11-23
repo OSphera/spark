@@ -40,7 +40,7 @@ test.describe("Make or revoke administrators", () => {
 
     // Their page follows without being loaded again: the rail's Admin, the administrators' pages, and crowns.
     await expect(rail.getByRole("link", { name: "Admin" })).toBeVisible();
-    await expect(grace.getByRole("navigation", { name: "Community settings" }).getByRole("link", { name: "Chat bots" })).toBeVisible();
+    await expect(grace.getByRole("navigation", { name: "Community settings" }).getByRole("link", { name: "Agents" })).toBeVisible();
     await expect(grace.getByRole("button", { name: "Regenerate join link" })).toBeVisible();
     await expect(gracesPeople.getByRole("list", { name: "Admins" }).getByRole("listitem").filter({ hasText: name }).getByRole("checkbox")).toBeDisabled();
 
@@ -49,7 +49,7 @@ test.describe("Make or revoke administrators", () => {
     await row.locator("label").click();
     await expect(row.getByRole("checkbox", { name: "Role: Member" })).not.toBeChecked();
     await expect(rail.getByRole("link", { name: "Workspace" })).toBeVisible();
-    await expect(grace.getByRole("link", { name: "Chat bots" })).toHaveCount(0);
+    await expect(grace.getByRole("link", { name: "Agents" })).toHaveCount(0);
     await expect(grace.getByRole("checkbox")).toHaveCount(0);
     await grace.context().close();
   });

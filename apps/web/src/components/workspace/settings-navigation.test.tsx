@@ -122,11 +122,11 @@ describe("Community settings page", () => {
 describe("Chat bots page", () => {
   it("links administrators to Chat bots, after workspace settings' sections, and members not at all", () => {
     const { rerender } = render(<SettingsNavigation section="chat-bots" administrator />);
-    expect(screen.getByRole("link", { name: "Chat bots" })).toHaveAttribute("href", "/account/bots");
-    expect(current()).toHaveTextContent("Chat bots");
-    expect(links().map((link) => link.textContent)).toEqual(["General", "Rooms and permissions", "Membership", "Domain settings", "Chat bots", "Huddles", "Custom styles"]);
+    expect(screen.getByRole("link", { name: "Agents" })).toHaveAttribute("href", "/account/bots");
+    expect(current()).toHaveTextContent("Agents");
+    expect(links().map((link) => link.textContent)).toEqual(["General", "Rooms and permissions", "Membership", "Domain settings", "Agents", "Huddles", "Custom styles"]);
     rerender(<SettingsNavigation section="community-settings" administrator={false} />);
-    expect(screen.queryByRole("link", { name: "Chat bots" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Agents" })).not.toBeInTheDocument();
   });
 });
 
@@ -144,7 +144,7 @@ describe("Set up huddles", () => {
     expect(huddles).toHaveAttribute("href", "/account/edit#huddles-settings");
     expect(huddles.querySelector("svg")).toHaveClass("iconoir-headset");
     expect(huddles.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
-    expect(links()[links().indexOf(screen.getByRole("link", { name: "Chat bots" })) + 1]).toBe(huddles);
+    expect(links()[links().indexOf(screen.getByRole("link", { name: "Agents" })) + 1]).toBe(huddles);
     expect(current()).toBe(huddles);
     expect(workspaceSectionOf("#huddles-settings")).toBe("huddles-settings");
     rerender(<SettingsNavigation section="community-settings" administrator={false} />);

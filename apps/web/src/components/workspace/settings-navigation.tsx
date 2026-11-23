@@ -86,7 +86,7 @@ const LINKS: SectionLink[] = [
 /** And the sections only administrators use. */
 const ADMINISTRATOR_LINKS: SectionLink[] = [
   { section: "domain-settings", href: workspaceSectionPath("domain-settings"), icon: Internet, label: "Domain settings" },
-  { section: "chat-bots", href: BOTS_PATH, icon: BrainElectricity, label: "Chat bots" },
+  { section: "chat-bots", href: BOTS_PATH, icon: BrainElectricity, label: "Agents" },
   { section: "huddles-settings", href: workspaceSectionPath("huddles-settings"), icon: Headset, label: "Huddles" },
   { section: "custom-styles", href: CUSTOM_STYLES_PATH, icon: Palette, label: "Custom styles" },
 ];

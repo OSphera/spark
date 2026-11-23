@@ -21,13 +21,13 @@ import { PageHeading, Panel, SettingsPage } from "./settings-page";
 // once they've saved.
 
 /** What Delete bot asks first, in the browser's own dialog. */
-export const CONFIRM_DELETE_BOT = "Are you sure you want to permanently remove this bot from the account? This can’t be undone.";
+export const CONFIRM_DELETE_BOT = "Are you sure you want to permanently remove this agent from the account? This can’t be undone.";
 
 /** What Generate a new key asks first. */
-export const CONFIRM_NEW_KEY = "Are you sure you want to change the bot key? All usage of this bot must be updated.";
+export const CONFIRM_NEW_KEY = "Are you sure you want to change the agent key? All usage of this agent must be updated.";
 
 /** What Rooms says of the bot. */
-export const ROOMS_EXPLAINED = "Where apps can post as the bot, and people can mention it. To put it in a private room, use that room's settings.";
+export const ROOMS_EXPLAINED = "Where apps can post as the agent, and people can mention it. To put it in a private room, use that room's settings.";
 
 /**
  * The bot form's fields as typed: the bot's name, where its webhook delivers, "" for nowhere, and
@@ -103,7 +103,7 @@ export function NewBotPage({ me, rooms, onFailed }: { me: Me; rooms: SidebarRoom
   const photo = useChosenPhoto();
   const { sendAway, failed } = useAdministratorsOnly(onFailed);
   const [saving, send] = useSending(failed);
-  useTitle("New chat bot");
+  useTitle("New agent");
 
   // Before the form paints, so anyone else never sees it.
   useLayoutEffect(() => {
@@ -150,7 +150,7 @@ export function BotSettingsPage({ botId, rooms, onMissing, onFailed }: SettingsP
   const administratorsOnly = useAdministratorsOnly(onFailed);
   const failed = (error: unknown) => (isMissing(error) ? onMissing() : administratorsOnly.failed(error));
   const [busy, send] = useSending(failed);
-  useTitle("Edit bot");
+  useTitle("Edit agent");
 
   useEffect(() => {
     let stopped = false;
@@ -193,7 +193,7 @@ export function BotSettingsPage({ botId, rooms, onMissing, onFailed }: SettingsP
             />
             <hr className="my-8 w-full" />
             <div className="flex flex-wrap items-center justify-between gap-x-[1ch] gap-y-4">
-              <DeleteButton label="Delete this chat bot" text="Delete bot" disabled={busy} onClick={remove} />
+              <DeleteButton label="Delete this agent" text="Delete agent" disabled={busy} onClick={remove} />
               <button type="button" aria-label="Generate a new key" disabled={busy} onClick={newKey} className={NEGATIVE_BUTTON}>
                 <RefreshDouble className="size-[1.3em] shrink-0" />
                 <span className="truncate">Generate a new key</span>
@@ -248,13 +248,13 @@ function BotForm({ avatar, saved, rooms, photo, fields, onChange, saving, onSave
 
   return (
     <form onSubmit={save} className={AUTH_FORM}>
-      <PageHeading title="Chat bot setup">Connect another app or service to your workspace as a bot.</PageHeading>
+      <PageHeading title="Agent setup">Connect another app or service to your workspace as an agent.</PageHeading>
       <AvatarField src={avatar} photo={photo} disabled={saving} />
-      <Field id="user_name" label="Bot name" translation="bot_name">
+      <Field id="user_name" label="Agent name" translation="bot_name">
         <Input
           id="user_name"
           autoComplete="name"
-          placeholder="Name the bot"
+          placeholder="Name the agent"
           maxLength={MAX_USER_NAME_LENGTH}
           autoFocus
           required
@@ -272,7 +272,7 @@ function BotForm({ avatar, saved, rooms, photo, fields, onChange, saving, onSave
             Outgoing
           </h2>
           <p id="bot-outgoing-description" className={NOTE}>
-            Optional. Ember sends every message that @mentions the bot or is sent to it in a DM to this webhook URL, then posts whatever it answers within 30 seconds.
+            Optional. Spark sends every message that @mentions the agent or is sent to it in a DM to this webhook URL, then posts whatever it answers within 30 seconds.
           </p>
         </div>
         <Field id="user_webhook_url" label="Webhook URL" translation="webhook_url">
@@ -366,7 +366,7 @@ function Incoming({ saved }: { saved: FormProps["saved"] }) {
         <h2 id="bot-incoming-heading" className="text-base font-semibold">
           Incoming
         </h2>
-        <p className={NOTE}>Apps post in a room as the bot at two addresses the room gives it, one for text or a file and one that takes a Slack incoming webhook's payload.</p>
+        <p className={NOTE}>Apps post in a room as the agent at two addresses the room gives it, one for text or a file and one that takes a Slack incoming webhook's payload.</p>
       </div>
       {saved && room ? (
         <>
@@ -387,7 +387,7 @@ function Incoming({ saved }: { saved: FormProps["saved"] }) {
         </>
       ) : (
         <p className={cn(NOTE, "rounded-[10px] border border-dashed border-muted-foreground px-[1ch] py-4 text-center")}>
-          {saved ? "It isn't in any rooms, so it has no addresses yet." : "Each room's addresses appear once you save the bot, which puts it in its rooms."}
+          {saved ? "It isn't in any rooms, so it has no addresses yet." : "Each room's addresses appear once you save the agent, which puts it in its rooms."}
         </p>
       )}
     </section>
@@ -418,9 +418,9 @@ function AvatarField({ src, photo, disabled }: { src: string; photo: PhotoChoice
             onChange={photo.choose}
             className="absolute inset-0 size-full cursor-pointer rounded-full opacity-0 disabled:cursor-default"
           />
-          <span className="sr-only">Upload bot avatar</span>
+          <span className="sr-only">Upload agent avatar</span>
         </span>
-        <img src={photo.preview ?? src} alt="Bot avatar" width={48} height={48} className="aspect-square size-9 rounded-full object-cover touch:size-11" />
+        <img src={photo.preview ?? src} alt="Agent avatar" width={48} height={48} className="aspect-square size-9 rounded-full object-cover touch:size-11" />
       </label>
       {photo.refusal && (
         <p role="alert" className="text-[0.8rem] text-destructive">

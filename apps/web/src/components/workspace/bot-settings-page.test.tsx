@@ -81,7 +81,7 @@ const showNewBot = (me = ada, shown = account) => showAt("/account/bots/new", ({
 const showSettings = () =>
   showAt(`/account/bots/${BOT.id}/edit`, ({ onMissing, onFailed }) => <BotSettingsPage botId={BOT.id} rooms={SIDEBAR} onMissing={onMissing} onFailed={onFailed} />);
 
-const nameField = () => screen.getByRole("textbox", { name: "Bot name" });
+const nameField = () => screen.getByRole("textbox", { name: "Agent name" });
 const roomsCard = () => screen.getByRole("region", { name: "Rooms" });
 const everyRoom = () => screen.getByRole("radio", { name: "Every room" });
 const chosenRooms = () => screen.getByRole("radio", { name: "Only the rooms I choose" });
@@ -91,8 +91,8 @@ const incoming = () => screen.getByRole("region", { name: "Incoming" });
 const outgoing = () => screen.getByRole("region", { name: "Outgoing" });
 const urlField = () => screen.getByRole("textbox", { name: "Webhook URL" });
 const saveButton = () => screen.getByRole("button", { name: "Save changes" });
-const avatar = () => screen.getByRole("img", { name: "Bot avatar" });
-const avatarField = () => screen.getByLabelText("Upload bot avatar");
+const avatar = () => screen.getByRole("img", { name: "Agent avatar" });
+const avatarField = () => screen.getByLabelText("Upload agent avatar");
 const robot = () => new File(["robot"], "robot.png", { type: "image/png" });
 /** The name field, once the bot has loaded into it. */
 const loaded = async () => {
@@ -126,14 +126,14 @@ afterEach(() => {
 describe("Add and edit a bot", () => {
   it("adds a bot with the bot form, titled New chat bot, with Go Back to the bots page", () => {
     showNewBot();
-    expect(document.title).toBe("New chat bot");
-    expect(screen.getByRole("heading", { level: 1, name: "Chat bot setup" })).toBeInTheDocument();
-    expect(screen.getByText("Connect another app or service to your workspace as a bot.")).toBeInTheDocument();
+    expect(document.title).toBe("New agent");
+    expect(screen.getByRole("heading", { level: 1, name: "Agent setup" })).toBeInTheDocument();
+    expect(screen.getByText("Connect another app or service to your workspace as an agent.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Go Back" })).toHaveAttribute("href", "/account/bots");
 
     expect(nameField()).toHaveFocus();
     expect(nameField()).toBeRequired();
-    expect(nameField()).toHaveAttribute("placeholder", "Name the bot");
+    expect(nameField()).toHaveAttribute("placeholder", "Name the agent");
     expect(nameField()).toHaveAttribute("autocomplete", "name");
     expect(urlField()).toHaveAttribute("type", "url");
     expect(urlField()).toHaveAttribute("placeholder", "Webhook URL");
@@ -144,13 +144,13 @@ describe("Add and edit a bot", () => {
   it("says what comes in, the addresses each room gives the bot once it's added, and what goes out, the webhook URL, which is optional", () => {
     showNewBot();
     expect(incoming()).toHaveTextContent(
-      "Apps post in a room as the bot at two addresses the room gives it, one for text or a file and one that takes a Slack incoming webhook's payload." +
-        "Each room's addresses appear once you save the bot, which puts it in its rooms.",
+      "Apps post in a room as the agent at two addresses the room gives it, one for text or a file and one that takes a Slack incoming webhook's payload." +
+        "Each room's addresses appear once you save the agent, which puts it in its rooms.",
     );
     expect(within(incoming()).queryAllByRole("textbox")).toEqual([]);
     expect(within(outgoing()).getByRole("textbox", { name: "Webhook URL" })).toBe(urlField());
     expect(urlField()).toHaveAccessibleDescription(
-      "Optional. Ember sends every message that @mentions the bot or is sent to it in a DM to this webhook URL, then posts whatever it answers within 30 seconds.",
+      "Optional. Spark sends every message that @mentions the agent or is sent to it in a DM to this webhook URL, then posts whatever it answers within 30 seconds.",
     );
     // Name, then its rooms, then in, then out, then Save changes.
     expect(nameField().compareDocumentPosition(roomsCard())).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
@@ -248,7 +248,7 @@ describe("Add and edit a bot", () => {
 
   it("shows a bot's name and webhook URL to change, titled Edit bot, with Go Back to the bots page", async () => {
     showSettings();
-    expect(document.title).toBe("Edit bot");
+    expect(document.title).toBe("Edit agent");
     expect(screen.getByRole("link", { name: "Go Back" })).toHaveAttribute("href", "/account/bots");
     expect(await loaded()).toHaveFocus();
     expect(urlField()).toHaveValue(BOT.webhookUrl);
@@ -415,8 +415,8 @@ describe("Delete a bot", () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
     const { user } = showSettings();
     await loaded();
-    const remove = screen.getByRole("button", { name: "Delete this chat bot" });
-    expect(remove).toHaveTextContent("Delete bot");
+    const remove = screen.getByRole("button", { name: "Delete this agent" });
+    expect(remove).toHaveTextContent("Delete agent");
 
     await user.click(remove);
     expect(confirm).toHaveBeenLastCalledWith(CONFIRM_DELETE_BOT);
@@ -432,12 +432,12 @@ describe("Delete a bot", () => {
     serve({ sent: () => new Promise((resolve) => (fail = () => resolve(refused(500, "Something went wrong")))) });
     const { onFailed, user } = showSettings();
     await loaded();
-    await user.click(screen.getByRole("button", { name: "Delete this chat bot" }));
-    for (const name of ["Save changes", "Delete this chat bot", "Generate a new key"]) expect(screen.getByRole("button", { name })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Delete this agent" }));
+    for (const name of ["Save changes", "Delete this agent", "Generate a new key"]) expect(screen.getByRole("button", { name })).toBeDisabled();
 
     fail();
     await waitFor(() => expect(onFailed).toHaveBeenCalledWith(expect.objectContaining({ status: 500 })));
-    for (const name of ["Save changes", "Delete this chat bot", "Generate a new key"]) expect(screen.getByRole("button", { name })).toBeEnabled();
+    for (const name of ["Save changes", "Delete this agent", "Generate a new key"]) expect(screen.getByRole("button", { name })).toBeEnabled();
     expect(location.pathname).toBe(`/account/bots/${BOT.id}/edit`);
   });
 });
