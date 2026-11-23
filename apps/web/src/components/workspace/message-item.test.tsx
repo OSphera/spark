@@ -294,7 +294,7 @@ describe("Download and share files", () => {
   it("offers Download in place of Quote among a file message's actions", async () => {
     const { user } = show(fileMessage(), { me: grace });
     await user.click(optionsOn("Q3 report.pdf"));
-    expect(barNames()).toEqual(["👍Thumbs up", "👏Clapping", "👋Waving hand", "More reactions", "Reply in thread", "Download", "Copy link", "Block Ada", "Report message"]);
+    expect(barNames()).toEqual(["👍Thumbs up", "❤️Red heart", "🙂Slightly smiling face", "More reactions", "Reply in thread", "Download", "Copy link", "Block Ada", "Report message"]);
     const download = within(actionBar()).getByRole("link", { name: "Download" });
     expect(download).toHaveAttribute("href", report.downloadUrl);
     expect(download).toHaveAttribute("download", "");
@@ -519,7 +519,7 @@ describe("Edit a message", () => {
   it("puts Edit last, as Slack does, and Delete in the editor", async () => {
     const { user } = show(message({ creator: grace }), { administrator: true });
     await user.click(optionsOn("Hello"));
-    expect(barNames()).toEqual(["👍Thumbs up", "👏Clapping", "👋Waving hand", "More reactions", "Reply in thread", "Quote", "Copy link", "Block Grace", "Report message", "Edit"]);
+    expect(barNames()).toEqual(["👍Thumbs up", "❤️Red heart", "🙂Slightly smiling face", "More reactions", "Reply in thread", "Quote", "Copy link", "Block Grace", "Report message", "Edit"]);
   });
 
   it("edits in place of the message, starting from its text, and Ctrl or Cmd+Enter saves", async () => {
@@ -642,7 +642,7 @@ describe("Message action bar", () => {
     await user.click(options);
     expect(options).toHaveAttribute("aria-expanded", "true");
     expect(options).toHaveAttribute("aria-controls", actionBar().id);
-    expect(barNames()).toEqual(["👍Thumbs up", "👏Clapping", "👋Waving hand", "More reactions", "Reply in thread", "Quote", "Copy link", "Block Ada", "Report message"]);
+    expect(barNames()).toEqual(["👍Thumbs up", "❤️Red heart", "🙂Slightly smiling face", "More reactions", "Reply in thread", "Quote", "Copy link", "Block Ada", "Report message"]);
 
     await user.click(options);
     expect(options).toHaveAttribute("aria-expanded", "false");
@@ -651,8 +651,8 @@ describe("Message action bar", () => {
 
   it("closes the actions after a reaction and hands focus to Message options", async () => {
     const { actions, user } = show(message());
-    await pressAction(user, "Clapping");
-    expect(actions.boost).toHaveBeenCalledWith("m1", "👏");
+    await pressAction(user, "Red heart");
+    expect(actions.boost).toHaveBeenCalledWith("m1", "❤️");
     expect(optionsOn("Hello")).toHaveAttribute("aria-expanded", "false");
     expect(optionsOn("Hello")).toHaveFocus();
   });
@@ -680,7 +680,7 @@ describe("Message action bar", () => {
     const more = within(actionBar()).getByRole("button", { name: "More reactions" });
     expect(more).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("group", { name: "More reactions" })).toBeVisible();
-    expect(within(screen.getByRole("group", { name: "More reactions" })).getByRole("button", { name: "Muscle" })).toHaveFocus();
+    expect(within(screen.getByRole("group", { name: "More reactions" })).getByRole("button", { name: "Face with tears of joy" })).toHaveFocus();
 
     await user.keyboard("{Escape}");
     expect(more).toHaveAttribute("aria-expanded", "false");
@@ -797,7 +797,7 @@ describe("Message action bar", () => {
     withMouse();
     const { article } = show(message(), { me: grace });
     fireEvent.pointerEnter(article, { pointerType: "mouse" });
-    expect(barNames()).toEqual(["👍Thumbs up", "👏Clapping", "👋Waving hand", "More reactions", "Reply in thread"]);
+    expect(barNames()).toEqual(["👍Thumbs up", "❤️Red heart", "🙂Slightly smiling face", "More reactions", "Reply in thread"]);
   });
 
   it("names each button in a tooltip the moment the pointer reaches it, and shuts it as the pointer leaves", async () => {
@@ -809,11 +809,15 @@ describe("Message action bar", () => {
       await user.hover(control);
       named.push(screen.getByRole("tooltip").textContent);
     }
-    expect(named).toEqual(["Thumbs up", "Clapping", "Waving hand", "More reactions", "Reply in thread", "Edit", "More actions"]);
+    expect(named).toEqual(["Thumbs up", "Red heart", "Slightly smiling face", "More reactions", "Reply in thread", "Edit", "More actions"]);
     await user.unhover(optionsOn("Hello"));
     expect(screen.queryByRole("tooltip")).not.toBeInTheDocument();
 
     await user.click(within(actionBar()).getByRole("button", { name: "More reactions" }));
+    const next = within(screen.getByRole("group", { name: "More reactions" })).getByRole("button", { name: "Next reactions" });
+    await user.click(next);
+    // New boost takes Next reactions' place on the last page, so the pointer comes back to it.
+    await user.unhover(next);
     await user.hover(within(screen.getByRole("group", { name: "More reactions" })).getByRole("button", { name: "New boost" }));
     expect(screen.getByRole("tooltip")).toHaveTextContent("New boost");
   });
@@ -1349,9 +1353,9 @@ describe("React to a message", () => {
     const { actions, user } = show(message(), { me: grace });
     await user.click(optionsOn("Hello"));
     const quick = within(actionBar()).getByRole("group", { name: "Quick reactions" });
-    expect(within(quick).getAllByRole("button").map((b) => b.textContent)).toEqual(["👍Thumbs up", "👏Clapping", "👋Waving hand"]);
-    await user.click(within(quick).getByRole("button", { name: "Clapping" }));
-    expect(actions.boost).toHaveBeenCalledWith("m1", "👏");
+    expect(within(quick).getAllByRole("button").map((b) => b.textContent)).toEqual(["👍Thumbs up", "❤️Red heart", "🙂Slightly smiling face"]);
+    await user.click(within(quick).getByRole("button", { name: "Red heart" }));
+    expect(actions.boost).toHaveBeenCalledWith("m1", "❤️");
   });
 
   it("keeps the other reactions and New boost in a tray", async () => {
@@ -1359,9 +1363,13 @@ describe("React to a message", () => {
     await pressAction(user, "More reactions");
     const tray = screen.getByRole("group", { name: "More reactions" });
     expect(tray).toHaveTextContent(/^More reactions/);
-    expect(within(tray).getAllByRole("button").map((b) => b.textContent)).toEqual(["💪Muscle", "❤️Red heart", "😂Face with tears of joy", "🎉Party popper", "🔥Fire", "New boost"]);
-    await user.click(within(tray).getByRole("button", { name: "Fire" }));
-    expect(actions.boost).toHaveBeenCalledWith("m1", "🔥");
+    expect(within(tray).getAllByRole("button").map((b) => b.textContent)).toEqual(["😂Face with tears of joy", "😮Face with open mouth", "😢Crying face", "🙏Folded hands", "🎉Party popper", "Next reactions"]);
+    // Next reactions turns the tray to its last page, which New boost ends, focusing its first reaction.
+    await user.click(within(tray).getByRole("button", { name: "Next reactions" }));
+    expect(within(tray).getAllByRole("button").map((b) => b.textContent)).toEqual(["🙌Raising hands", "💯Hundred points", "✅Check mark", "👀Eyes", "🤔Thinking face", "New boost"]);
+    expect(within(tray).getByRole("button", { name: "Raising hands" })).toHaveFocus();
+    await user.click(within(tray).getByRole("button", { name: "Hundred points" }));
+    expect(actions.boost).toHaveBeenCalledWith("m1", "💯");
     expect(screen.queryByRole("group", { name: "Message actions" })).not.toBeInTheDocument();
     expect(optionsOn("Hello")).toHaveFocus();
   });
@@ -1385,7 +1393,7 @@ describe("React to a message", () => {
     const add = screen.getByRole("button", { name: "Add a boost" });
     await user.click(add);
     expect(optionsOn("Hello")).toHaveAttribute("aria-expanded", "true");
-    expect(within(screen.getByRole("group", { name: "More reactions" })).getByRole("button", { name: "Muscle" })).toHaveFocus();
+    expect(within(screen.getByRole("group", { name: "More reactions" })).getByRole("button", { name: "Face with tears of joy" })).toHaveFocus();
     // Clicking it again leaves them open.
     await user.click(add);
     expect(optionsOn("Hello")).toHaveAttribute("aria-expanded", "true");
@@ -1418,6 +1426,7 @@ describe("Custom reactions", () => {
   /** Opens New boost's form on the message, from its bar's tray. */
   async function newBoost(user: UserEvent) {
     await pressAction(user, "More reactions");
+    await user.click(screen.getByRole("button", { name: "Next reactions" }));
     await user.click(screen.getByRole("button", { name: "New boost" }));
   }
 

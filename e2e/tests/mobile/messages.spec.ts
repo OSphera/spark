@@ -23,8 +23,8 @@ test("message actions open with a tap and fit the phone", async ({ page, room, p
   const tray = page.getByRole("group", { name: "More reactions" });
   await expect(tray).toBeVisible();
   await screenIsFine();
-  await tray.getByRole("button", { name: "Fire" }).tap();
-  await expect(message.getByRole("list", { name: "Reactions" }).getByRole("button", { name: "🔥" })).toBeVisible();
+  await tray.getByRole("button", { name: "Folded hands" }).tap();
+  await expect(message.getByRole("list", { name: "Reactions" }).getByRole("button", { name: "🙏" })).toBeVisible();
   // A reaction closes the bar, and focus goes back to Message options.
   await expect(actions).toBeHidden();
   await expect(options).toBeFocused();
@@ -48,10 +48,11 @@ test("Add a boost, New boost's form and Delete this boost fit the phone", async 
   await page.getByRole("group", { name: "Message actions" }).getByRole("button", { name: "Thumbs up" }).tap();
   await message.getByRole("button", { name: "Add a boost" }).tap();
   const tray = page.getByRole("group", { name: "More reactions" });
-  await expect(tray.getByRole("button", { name: "Muscle" })).toBeFocused();
+  await expect(tray.getByRole("button", { name: "Face with tears of joy" })).toBeFocused();
   await screenIsFine({ denseTargets: [REACTION_PILLS] });
 
   // The form fits, and leaves the message its width.
+  await tray.getByRole("button", { name: "Next reactions" }).tap();
   await tray.getByRole("button", { name: "New boost" }).tap();
   const field = message.getByRole("textbox", { name: "Custom reaction" });
   await expect(field).toBeFocused();

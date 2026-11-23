@@ -374,7 +374,7 @@ test.describe("Message action bar", () => {
     const ada = await members.signIn("Ada", { context: { viewport: { width: 1311, height: 900 } } });
     await ada.send("Name your buttons.");
     const actions = await ada.actions("Name your buttons.");
-    for (const [role, name] of [["button", "Clapping"], ["button", "More reactions"], ["link", "Reply in thread"], ["button", "Edit"]] as const) {
+    for (const [role, name] of [["button", "Red heart"], ["button", "More reactions"], ["link", "Reply in thread"], ["button", "Edit"]] as const) {
       const control = actions.getByRole(role, { name });
       await control.hover();
       // The last button's may still be fading out beside it.
@@ -448,7 +448,7 @@ test.describe("Message action bar", () => {
     expect(Math.abs((await box(quick)).y - quickBefore.y)).toBeLessThan(1);
     expect((await box(tray)).y).toBeGreaterThan(quickBefore.y);
     // The tray opens at its first reaction, as Reply in thread and Edit follow More reactions on the bar.
-    await expect(tray.getByRole("button", { name: "Muscle" })).toBeFocused();
+    await expect(tray.getByRole("button", { name: "Face with tears of joy" })).toBeFocused();
     // The click shut the tooltip that named More reactions as the pointer reached it, which takes Escape until it has faded.
     await expect(ada.page.getByRole("tooltip")).toHaveCount(0);
     await ada.page.keyboard.press("Escape");
@@ -463,8 +463,8 @@ test.describe("Message action bar", () => {
     await ada.page.keyboard.press("Enter");
     await expect(actions).toBeVisible();
     await more.press("Enter");
-    await tray.getByRole("button", { name: "Fire" }).press("Enter");
-    await expect(message.getByRole("list", { name: "Reactions" })).toContainText("🔥");
+    await tray.getByRole("button", { name: "Folded hands" }).press("Enter");
+    await expect(message.getByRole("list", { name: "Reactions" })).toContainText("🙏");
     await expect(actions).toBeHidden();
     await expect(message.getByRole("button", { name: "Message options" })).toBeFocused();
 

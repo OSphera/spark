@@ -282,12 +282,12 @@ describe("What can be done to a huddle's message", () => {
   it("offers reactions, Reply in thread and Copy link, with nothing to quote, copy or report, and Edit only to whoever can delete it", async () => {
     const { article, user } = show(huddleMessage(), { live: going("ada") });
     await user.click(options(article));
-    expect(barNames()).toEqual(["👍Thumbs up", "👏Clapping", "👋Waving hand", "More reactions", "Reply in thread", "Copy link"]);
+    expect(barNames()).toEqual(["👍Thumbs up", "❤️Red heart", "🙂Slightly smiling face", "More reactions", "Reply in thread", "Copy link"]);
     cleanup();
 
     const starter = show(huddleMessage(), { me: ada!, live: going("ada") });
     await starter.user.click(options(starter.article));
-    expect(barNames()).toEqual(["👍Thumbs up", "👏Clapping", "👋Waving hand", "More reactions", "Reply in thread", "Copy link", "Edit"]);
+    expect(barNames()).toEqual(["👍Thumbs up", "❤️Red heart", "🙂Slightly smiling face", "More reactions", "Reply in thread", "Copy link", "Edit"]);
     cleanup();
 
     withMouse();

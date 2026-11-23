@@ -15,7 +15,7 @@ import {
 } from "react";
 import { QUICK_REACTION_COUNT, REACTIONS, type Message, type StoredFile } from "@ember/protocol";
 import type { DisplayNode } from "@ember/richtext/dom";
-import { ChatPlusIn, Copy, Download, Edit, Emoji, MessageText, MoreHoriz, QuoteMessage, ShareAndroid, Trash, TriangleFlag, UserXmark } from "@/components/icons/iconoir";
+import { ChatPlusIn, Copy, Download, Edit, Emoji, MessageText, MoreHoriz, NavArrowRight, QuoteMessage, ShareAndroid, Trash, TriangleFlag, UserXmark } from "@/components/icons/iconoir";
 import { PageLink } from "@/components/page-link";
 import { ShareButton } from "@/components/share-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -47,6 +47,12 @@ const ACTION =
 
 /** The bar and the tray of more reactions. */
 const PANEL = "rounded-[11px] border border-message-border bg-background shadow-[0_1px_3px_#0000001a]";
+
+/**
+ * Spark (OSphera/spark#8): the tray's reactions, a page of five at a time, as wide as Ember's tray of five and
+ * New boost, so the menu keeps its size and place: Next reactions ends each page but the last, which New boost ends.
+ */
+const TRAY_PAGES = ((rest: ReadonlyArray<(typeof REACTIONS)[number]>) => Array.from({ length: Math.ceil(rest.length / 5) }, (_, page) => rest.slice(page * 5, page * 5 + 5)))(REACTIONS.slice(QUICK_REACTION_COUNT));
 
 /** An item of More actions: its icon, as the bar draws it, then its name, the panel's whole width. */
 const ITEM =
@@ -112,6 +118,7 @@ export interface MessageActionsHandle {
 export function MessageActionsMenu({ message, nodes, row, threaded, editable, threadPath, onReact, onQuote, onEdit, onDelete, onNewBoost, block, onReport, ref }: Props) {
   const [open, setOpen] = useState(false);
   const [trayOpen, setTrayOpen] = useState(false);
+  const [trayPage, setTrayPage] = useState(0);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [rendered, setRendered] = useState(false);
   // Whether hovering opened the bar, which leaving then closes, unless Message options pinned it.
@@ -149,6 +156,7 @@ export function MessageActionsMenu({ message, nodes, row, threaded, editable, th
     boostTrigger.current = null;
     setOpen(false);
     setTrayOpen(false);
+    setTrayPage(0);
     setActionsOpen(false);
   };
 
@@ -216,6 +224,13 @@ export function MessageActionsMenu({ message, nodes, row, threaded, editable, th
     focusingTray.current = !trayOpen;
     setActionsOpen(false);
     setTrayOpen(!trayOpen);
+    setTrayPage(0);
+  };
+
+  // Next reactions turns the tray to its next page in place, whose first reaction takes focus.
+  const nextTrayPage = () => {
+    focusingTray.current = true;
+    setTrayPage((page) => Math.min(page + 1, TRAY_PAGES.length - 1));
   };
 
   // Opening More actions keeps the bar open and makes it Message options' bar, so Escape shuts More
@@ -240,6 +255,7 @@ export function MessageActionsMenu({ message, nodes, row, threaded, editable, th
       setOpen(true);
       setActionsOpen(false);
       setTrayOpen(true);
+      setTrayPage(0);
       // An open bar with its tray showing doesn't render again, so its reaction is focused here.
       if (open && trayOpen) focusFirstReaction();
     },
@@ -369,7 +385,7 @@ export function MessageActionsMenu({ message, nodes, row, threaded, editable, th
     place();
     if (open && trayOpen && focusingTray.current) focusFirstReaction();
     if (open && actionsOpen && focusingActions.current) focusFirstAction();
-  }, [open, trayOpen, actionsOpen, overlapping]);
+  }, [open, trayOpen, trayPage, actionsOpen, overlapping]);
 
   const pinned = open && overlapping;
 
@@ -495,15 +511,25 @@ export function MessageActionsMenu({ message, nodes, row, threaded, editable, th
           >
             <span className="mx-[3px] mb-[5px] block text-[11px] leading-normal font-medium text-muted-foreground">More reactions</span>
             <div className="flex flex-wrap">
-              {REACTIONS.slice(QUICK_REACTION_COUNT).map(([emoji, title]) => (
+              {TRAY_PAGES[trayPage]!.map(([emoji, title]) => (
                 <Reaction key={emoji} emoji={emoji} title={title} onClick={() => react(emoji)} />
               ))}
-              <ActionTooltip label="New boost">
-                <button type="button" className={ACTION} onClick={newBoost}>
-                  <ChatPlusIn />
-                  <span className="sr-only">New boost</span>
-                </button>
-              </ActionTooltip>
+              {trayPage < TRAY_PAGES.length - 1 ? (
+                <ActionTooltip label="Next reactions">
+                  <button type="button" className={ACTION} onClick={nextTrayPage}>
+                    {/* The click lands on the button, not the arrow, which the next page's New boost replaces: a click on what's gone would read as one elsewhere, closing the bar. */}
+                    <NavArrowRight className="pointer-events-none" />
+                    <span className="sr-only">Next reactions</span>
+                  </button>
+                </ActionTooltip>
+              ) : (
+                <ActionTooltip label="New boost">
+                  <button type="button" className={ACTION} onClick={newBoost}>
+                    <ChatPlusIn />
+                    <span className="sr-only">New boost</span>
+                  </button>
+                </ActionTooltip>
+              )}
             </div>
           </div>
           <div

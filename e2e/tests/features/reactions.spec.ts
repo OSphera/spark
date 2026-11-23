@@ -13,6 +13,7 @@ async function react(member: Member, text: string, name: string) {
 async function newBoost(member: Member, text: string): Promise<Locator> {
   const bar = await member.actions(text);
   await bar.getByRole("button", { name: "More reactions" }).click();
+  await bar.getByRole("button", { name: "Next reactions" }).click();
   await bar.getByRole("button", { name: "New boost" }).click();
   const field = member.message(text).getByRole("textbox", { name: "Custom reaction" });
   await expect(field).toBeFocused();
@@ -42,7 +43,7 @@ test.describe("React to a message", () => {
 
     await (await grace.actions(text)).getByRole("button", { name: "More reactions" }).click();
     const tray = grace.message(text).getByRole("group", { name: "More reactions" });
-    await expect(tray.getByRole("button")).toHaveText(["💪Muscle", "❤️Red heart", "😂Face with tears of joy", "🎉Party popper", "🔥Fire", "New boost"]);
+    await expect(tray.getByRole("button")).toHaveText(["😂Face with tears of joy", "😮Face with open mouth", "😢Crying face", "🙏Folded hands", "🎉Party popper", "Next reactions"]);
     await tray.getByRole("button", { name: "Party popper" }).click();
     await expect(reactions(ada, text).getByRole("img", { name: "Grace boosted 🎉" })).toBeVisible();
   });
@@ -52,17 +53,17 @@ test.describe("React to a message", () => {
     const grace = await members.signIn("Grace");
     const text = "Agreed?";
     await ada.send(text);
-    await react(grace, text, "Clapping");
+    await react(grace, text, "Red heart");
     await expect(reactions(ada, text).getByRole("listitem")).toHaveCount(1);
-    await react(ada, text, "Clapping");
+    await react(ada, text, "Red heart");
 
     const avatars = reactions(grace, text).getByRole("img");
     await expect(avatars).toHaveCount(2);
-    await expect(avatars.nth(0)).toHaveAccessibleName("Grace boosted 👏");
-    await expect(avatars.nth(1)).toHaveAccessibleName("Ada boosted 👏");
+    await expect(avatars.nth(0)).toHaveAccessibleName("Grace boosted ❤️");
+    await expect(avatars.nth(1)).toHaveAccessibleName("Ada boosted ❤️");
 
-    // A second 👏 from Ada does nothing, so the 👍 after it is the third reaction.
-    await react(ada, text, "Clapping");
+    // A second ❤️ from Ada does nothing, so the 👍 after it is the third reaction.
+    await react(ada, text, "Red heart");
     await react(ada, text, "Thumbs up");
     await expect(avatars.nth(2)).toHaveAccessibleName("Ada boosted 👍");
     await expect(avatars).toHaveCount(3);
@@ -82,7 +83,7 @@ test.describe("React to a message", () => {
     await ada.composer().hover();
     await add.focus();
     await ada.page.keyboard.press("Enter");
-    await expect(tray.getByRole("button", { name: "Muscle" })).toBeFocused();
+    await expect(tray.getByRole("button", { name: "Face with tears of joy" })).toBeFocused();
     // Reacting shut the tooltip that named Thumbs up as the pointer reached it, which takes Escape until it has faded.
     await expect(ada.page.getByRole("tooltip")).toHaveCount(0);
     await ada.page.keyboard.press("Escape");
@@ -90,11 +91,12 @@ test.describe("React to a message", () => {
     await expect(add).toBeFocused();
 
     await add.click();
-    await tray.getByRole("button", { name: "Fire" }).click();
-    await expect(reactions(ada, text).getByRole("button", { name: "🔥" })).toBeVisible();
+    await tray.getByRole("button", { name: "Folded hands" }).click();
+    await expect(reactions(ada, text).getByRole("button", { name: "🙏" })).toBeVisible();
     await expect(message.getByRole("button", { name: "Message options" })).toBeFocused();
 
     await add.click();
+    await tray.getByRole("button", { name: "Next reactions" }).click();
     await tray.getByRole("button", { name: "New boost" }).click();
     await expect(message.getByRole("textbox", { name: "Custom reaction" })).toBeFocused();
     await message.getByRole("button", { name: "Cancel" }).click();
@@ -178,9 +180,9 @@ test.describe("Custom reactions", () => {
     await (await grace.actions(text)).getByRole("button", { name: "Edit" }).click();
     await grace.editor().fill("Redacted!");
     await grace.editor().press("ControlOrMeta+Enter");
-    await react(grace, "Redacted!", "Clapping");
+    await react(grace, "Redacted!", "Red heart");
 
-    await expect(reactions(ada, "Redacted!").getByRole("img", { name: "Grace boosted 👏" })).toBeVisible();
+    await expect(reactions(ada, "Redacted!").getByRole("img", { name: "Grace boosted ❤️" })).toBeVisible();
     await expect(ada.message("Redacted!").getByRole("textbox", { name: "Custom reaction" })).toHaveValue("Hey!");
   });
 });
@@ -192,10 +194,10 @@ test.describe("Take back a reaction", () => {
     const grace = await members.signIn("Grace");
     const text = "Hmm";
     await ada.send(text);
-    await react(grace, text, "Waving hand");
-    await expect(reactions(ada, text).getByRole("img", { name: "Grace boosted 👋" })).toBeVisible();
+    await react(grace, text, "Slightly smiling face");
+    await expect(reactions(ada, text).getByRole("img", { name: "Grace boosted 🙂" })).toBeVisible();
 
-    const mine = reactions(grace, text).getByRole("button", { name: "👋" });
+    const mine = reactions(grace, text).getByRole("button", { name: "🙂" });
     await expect(mine).toHaveAccessibleDescription("Press enter to delete this boost");
     await mine.click();
     const remove = reactions(grace, text).getByRole("button", { name: "Delete this boost" });
