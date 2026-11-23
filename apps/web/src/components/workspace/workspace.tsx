@@ -24,8 +24,6 @@ import { hearHuddle, hearSounds, leaveHuddle, muteHuddle, OPEN_HUDDLE, openHuddl
 import { whenIdle } from "@/lib/idle";
 import { opensFind, opensShortcuts, togglesHuddle, togglesMute } from "@/lib/keyboard";
 import { lastRoomVisited } from "@/lib/last-room";
-import { takeMemberfulFlash } from "@/lib/memberful";
-import { takeSsoFlash } from "@/lib/sso";
 import { loadPage } from "@/lib/page";
 import { updateOf } from "@/lib/release-check";
 import { isQuietWelcome, markedUnread } from "@/lib/room-list";
@@ -467,11 +465,6 @@ export function Workspace({ me, workspaceName, version, onAccountChanged, onSign
     leaveHuddle();
     flash("alert", "Huddles have been turned off in this room.");
   }, [inHuddleUnallowed, flash]);
-  // What connecting a Memberful account, or one at the single sign-on provider, came to, as the address
-  // the browser was sent back to says.
-  useEffect(() => {
-    for (const message of [takeMemberfulFlash(), takeSsoFlash()]) if (message) flash(message.kind, message.text);
-  }, [flash]);
   // A session that's ended goes to sign in; anything else is an alert. Once another person's workspace
   // has taken this one's place, as another tab signing in makes it, what this one's pages hear is
   // about a session already replaced.

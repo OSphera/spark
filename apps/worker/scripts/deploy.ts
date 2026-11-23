@@ -17,8 +17,7 @@
 // one, so there, and wherever its output isn't a terminal's, the deploy makes no setup token, and says
 // so, unless EMBER_SETUP_TOKEN in its environment brings one the deployer keeps as a secret of their
 // own. Workers Builds' log is the account's own, so it can carry the link. The keys of
-// a Memberful custom app, for its members to sign in, in place of any given in Set up Memberful
-// (apps/worker/src/memberful.ts), and of a Turnstile widget, for open sign-up's check, in place of any
+// a Turnstile widget, for open sign-up's check, in place of any
 // given in Set up Turnstile (apps/worker/src/turnstile.ts), go up with every deploy whose environment
 // gives them, as the Preview workflow's does from the repository's secrets. So does the ID of the
 // Cloudflare account the Worker goes to, as CLOUDFLARE_ACCOUNT_ID, which a Worker can't learn by itself,
@@ -97,20 +96,8 @@ const SETUP_TOKEN = /^[0-9a-f]{64}$/;
  */
 const inPublicLog = () => (!!process.env.CI || !process.stdout.isTTY) && !process.env.WORKERS_CI;
 
-/**
- * The keys of a Memberful custom app, and the secret its site signs webhooks with, then the single
- * sign-on provider's issuer and the app registered there, a Turnstile widget's keys, and a Resend API
- * key, which only the deployer can give.
- */
+/** A Turnstile widget's keys, and a Resend API key, which only the deployer can give. */
 const GIVEN_KEYS = [
-  "MEMBERFUL_URL",
-  "MEMBERFUL_CLIENT_ID",
-  "MEMBERFUL_CLIENT_SECRET",
-  "MEMBERFUL_API_KEY",
-  "MEMBERFUL_WEBHOOK_SECRET",
-  "SSO_ISSUER",
-  "SSO_CLIENT_ID",
-  "SSO_CLIENT_SECRET",
   "TURNSTILE_SITE_KEY",
   "TURNSTILE_SECRET_KEY",
   "RESEND_API_KEY",

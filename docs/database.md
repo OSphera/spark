@@ -39,8 +39,7 @@ names its Durable Object, and the Worker asks the Workspace whether someone is a
 wakes the room for their socket. First run creates the account and its administrator, who signs in
 with an email address and password, found through the unique index on `users.email_address`, as do
 the people who join with the join link; where it's allowed, anyone can sign in with just a display
-name instead, and the members of a Memberful site sign in with Memberful, once an administrator lets
-them, found through `identities`, and the people administrators invite, or who ask for a link with an
+name instead, and the people administrators invite, or who ask for a link with an
 address at the workspace's email domains, join with that address. Presence and typing live in each
 room object's memory.
 
@@ -80,8 +79,7 @@ Objects, D1 or speed call for something else.
   `tagline`), so they took no migration and are read with the rest of the account, and so are the
   address its email comes from (`email_from`), the keys of the Turnstile widget an administrator
   gave it (`turnstile_keys`, the secret key sealed), those of the Realtime SFU app huddles run
-  through (`huddles`, the app's secret sealed) and those of the Memberful site whose members sign in
-  (`memberful_keys`, its custom app's secret and API key and its webhook's secret sealed together).
+  through (`huddles`, the app's secret sealed).
   The words and phrases Blocked words keeps out are one more (`blocked_words`), saved without
   touching `updated_at`, since no page shows them: the Workspace checks names, bios and rooms' names
   against them, and each room keeps them in memory to check its messages and files' names against,
@@ -261,8 +259,8 @@ Objects, D1 or speed call for something else.
   changing Campfire's does.
 - **Sessions know which sign-in links they've ended.** Campfire's sign-in links are signed ids of
   their person, which work until they expire. Ours name the session that showed them too, and work
-  only while it's signed in. A new password saved from a profile, and Disconnect Memberful, end the
-  person's other sessions and keep the one that asked, so `sessions.transfers_since` (workspace
+  only while it's signed in. A new password saved from a profile ends the
+  person's other sessions and keeps the one that asked, so `sessions.transfers_since` (workspace
   migration 0064) holds when that was, and a link the session showed before then signs nobody in.
 - **Passwords are scrypt digests.** Campfire keeps bcrypt digests, which Workers could only make
   with bcrypt compiled to WebAssembly. `users.password_digest` holds
@@ -281,10 +279,7 @@ Objects, D1 or speed call for something else.
   someone picked, by which typing @ finds them, or null while they have none, under a unique index,
   which takes any number of nulls. The Worker keeps each in lowercase, without spaces or a leading @,
   so the index tells apart only usernames people would, and refuses one that's @ember's name or an
-  agent's, as an agent can't be named with anyone's username either. Someone new who joins with
-  Memberful starts with one made from their name, or that with the first number from 2 that's free,
-  which one range read of the index finds (`username >= ?1 AND username < ?1 || '{'`, as `{` sorts
-  after every character a username can have). The @ prompt finds the active people whose names
+  agent's, as an agent can't be named with anyone's username either. The @ prompt finds the active people whose names
   contain what's typed, or whose usernames start with it, in the scan it makes anyway, since no
   index serves the middle of a name.
 - **Sessions are kept in memory.** Campfire looks up each request's session in its database. Ours
@@ -704,6 +699,11 @@ Objects, D1 or speed call for something else.
   image's width and height. A page of messages reads no other table for it, and its addresses are
   signed as the page is answered. An upload's row in `blobs` keeps the id the app gave its message
   and, once the room posts it, the message's, so a part sent again answers with the same message.
+- **Spark no longer signs anyone in with Memberful or single sign-on** (OSphera/spark#6). The next
+  three notes describe Ember's tables for them, `identities`, `pending_identities`,
+  `membership_checks`, `membership_catch_ups` and the `identity_*` columns of `sessions`, which stay,
+  since released migrations are never changed. Spark's code leaves them alone, apart from deleting a
+  deleted account's `identities` and `pending_identities` rows.
 - **Accounts elsewhere are linked by their issuer and subject.** Signing in with Memberful links
   someone here to a member of a Memberful site in `identities` (workspace migration 0037), keyed by
   the issuer, the site's origin, and the subject, the member's id there, so a member of another site

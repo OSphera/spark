@@ -2,7 +2,6 @@ import {
   EMAIL_LINK_GONE,
   INVITATION_GONE,
   INVITATIONS_AT_ONCE,
-  MEMBERFUL_SIGN_IN_NEEDED,
   NO_EMAIL_ADDRESSES,
   NOT_AN_EMAIL_ADDRESS,
   PASSWORD_TOO_SHORT,
@@ -11,7 +10,6 @@ import {
   type Invited,
   type Me,
   type NewWorkspace,
-  type ProfileAnswer,
   type ResentInvitation,
   type Sidebar,
   type WorkspaceSettings,
@@ -27,8 +25,6 @@ const hal = { name: "Hal", password: "heuristically" };
 
 /** A Resend API key, as the deployment's secret holds one. */
 const RESEND_KEY = "re_test_only_not_a_key";
-/** The keys of a deployment whose members may sign in with Memberful. */
-const MEMBERFUL_KEYS = { MEMBERFUL_URL: "https://example.memberful.com/", MEMBERFUL_CLIENT_ID: "ember-client-id", MEMBERFUL_CLIENT_SECRET: "ember-client-secret" };
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Sets Ember up with Ada as its administrator, signed in, answering its first room too. */
@@ -47,9 +43,9 @@ async function saveFrom(administrator: Session, emailFrom: string): Promise<void
   expect(response.status, await response.clone().text()).toBe(200);
 }
 
-/** Switches `settings` as `administrator`, as Membership's switches do, on a deployment with Memberful's keys, which has to work. */
+/** Switches `settings` as `administrator`, as Membership's switches do, which has to work. */
 async function turn(administrator: Session, settings: Record<string, boolean>): Promise<void> {
-  const response = await apiWith(MEMBERFUL_KEYS, "/api/account", { method: "PATCH", headers: as(administrator), body: JSON.stringify({ settings }) });
+  const response = await api("/api/account", { method: "PATCH", headers: as(administrator), body: JSON.stringify({ settings }) });
   expect(response.status, await response.clone().text()).toBe(200);
 }
 
@@ -510,34 +506,14 @@ describe("Join with an invitation", () => {
       expect(await count("users")).toBe(2);
     });
 
-    it("works whichever ways to join are on, with every one off, or Memberful members only", async () => {
+    it("works whichever ways to join are on, with every one off", async () => {
       const administrator = await setUp();
       await turn(administrator, { joinLink: false });
       const { link } = await inviteOne(administrator, "hal@example.com");
       expect((await joinWith(tokenIn(link))).status).toBe(201);
 
-      await turn(administrator, { memberfulJoin: true, memberfulSignIn: true });
-      const linus = await inviteOne(administrator, "linus@example.com");
-      expect((await lookUp(tokenIn(linus.link))).status).toBe(200);
-      expect((await joinWith(tokenIn(linus.link), { name: "Linus", password: "a long enough password" })).status).toBe(201);
-    });
-
-    it("lets the people who joined with an invitation sign in with their password while Memberful is members only", async () => {
-      const administrator = await setUp();
-      await joinAsGrace();
-      const { link } = await inviteOne(administrator, "hal@example.com");
-      expect((await joinWith(tokenIn(link))).status).toBe(201);
-      await turn(administrator, { memberfulJoin: true, memberfulSignIn: true });
-
       const signedIn = await signInWithPassword("hal@example.com", hal.password);
       expect(signedIn.status).toBe(201);
-      const member = await signInWithPassword(grace.emailAddress, grace.password);
-      expect(member.status).toBe(403);
-      expect(await member.json()).toEqual({ error: MEMBERFUL_SIGN_IN_NEEDED });
-
-      // Their profile offers Memberful as another way to sign in, rather than one they need.
-      const answer = await apiWith(MEMBERFUL_KEYS, "/api/users/me/profile", { headers: { Cookie: cookieOf(signedIn) } });
-      expect(((await answer.json()) as ProfileAnswer).profile).toMatchObject({ membershipNeeded: false, memberful: { membersOnly: true, connected: null } });
     });
 
     it("takes the invitation to an address off the list when someone joins with it another way, whatever its case", async () => {

@@ -16,7 +16,7 @@ export function reloadPage(): void {
   location.reload();
 }
 
-/** Opens `url`, a page elsewhere, such as the Memberful site's, after this one, which Back comes back to. */
+/** Opens `url`, a page elsewhere, such as an app's sign-in, after this one, which Back comes back to. */
 export function openPage(url: string): void {
   location.assign(url);
 }

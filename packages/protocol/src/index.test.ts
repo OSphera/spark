@@ -50,8 +50,6 @@ import {
   MAX_TURNSTILE_TOKEN_LENGTH,
   MAX_USER_NAME_LENGTH,
   MAX_USERNAME_LENGTH,
-  memberfulProblemOf,
-  memberfulSignInPath,
   MIN_PASSWORD_LENGTH,
   NAVIGATION_ICONS_REFUSED,
   NAVIGATION_SLOTS,
@@ -78,7 +76,6 @@ import {
   parsePasswordReset,
   parsePasswordResetRequest,
   parsePasswordResetWithCode,
-  parseMemberfulDisconnection,
   parseProfileChanges,
   usernameFrom,
   usernameOf,
@@ -405,7 +402,7 @@ describe("One live connection per tab outside the open room", () => {
     const welcome: WorkspaceServerFrame = {
       type: "welcome",
       you: { id: "u1", name: "Ada", administrator: true },
-      account: { name: "Ember", tagline: "", hideTranslationButtons: true, customStyles: "", restrictRoomCreation: false, restrictChannelMentions: false, restrictEveryoneMention: false, warnBeforeNotifying: true, logo: null, customDomain: null, joinLink: true, openSignUp: false, memberfulJoin: false, memberfulSignIn: false, ssoJoin: false, ssoSignIn: false, emailDomainSignUp: false, emailDomains: [], navigationIcons: {}, huddles: false, huddleCameras: true, huddleScreens: true, huddleVideo: "hd" },
+      account: { name: "Ember", tagline: "", hideTranslationButtons: true, customStyles: "", restrictRoomCreation: false, restrictChannelMentions: false, restrictEveryoneMention: false, warnBeforeNotifying: true, logo: null, customDomain: null, joinLink: true, openSignUp: false, emailDomainSignUp: false, emailDomains: [], navigationIcons: {}, huddles: false, huddleCameras: true, huddleScreens: true, huddleVideo: "hd" },
     };
     expect(parseServerFrame<WorkspaceServerFrame>(JSON.stringify(welcome))).toEqual(welcome);
     expect(parseServerFrame<WorkspaceServerFrame>('{"type":7}')).toBeNull();
@@ -879,23 +876,20 @@ describe("Ways to join", () => {
     expect(parseAccountChanges({ settings: { openSignUp: null } })).toBe("Open must be true or false");
   });
 
-  it("lets people in with the join link while its switch is on, but never while Memberful is members only or single sign-on is the only way in", () => {
-    expect(joinsWithLink({ joinLink: true, memberfulSignIn: false, ssoSignIn: false })).toBe(true);
-    expect(joinsWithLink({ joinLink: false, memberfulSignIn: false, ssoSignIn: false })).toBe(false);
-    expect(joinsWithLink({ joinLink: true, memberfulSignIn: true, ssoSignIn: false })).toBe(false);
-    expect(joinsWithLink({ joinLink: true, memberfulSignIn: false, ssoSignIn: true })).toBe(false);
+  it("lets people in with the join link while its switch is on", () => {
+    expect(joinsWithLink({ joinLink: true })).toBe(true);
+    expect(joinsWithLink({ joinLink: false })).toBe(false);
   });
 
-  it("lets anyone sign up while Open is on, but never while Memberful is members only or single sign-on is the only way in", () => {
-    expect(signsUpOpenly({ openSignUp: true, memberfulSignIn: false, ssoSignIn: false })).toBe(true);
-    expect(signsUpOpenly({ openSignUp: false, memberfulSignIn: false, ssoSignIn: false })).toBe(false);
-    expect(signsUpOpenly({ openSignUp: true, memberfulSignIn: true, ssoSignIn: false })).toBe(false);
-    expect(signsUpOpenly({ openSignUp: true, memberfulSignIn: false, ssoSignIn: true })).toBe(false);
+  it("lets anyone sign up while Open is on", () => {
+    expect(signsUpOpenly({ openSignUp: true })).toBe(true);
+    expect(signsUpOpenly({ openSignUp: false })).toBe(false);
   });
 
-  it("takes single sign-on's switches as true or false, beside the other settings", () => {
-    expect(parseAccountChanges({ settings: { ssoJoin: true, ssoSignIn: false } })).toEqual({ settings: { ssoJoin: true, ssoSignIn: false } });
-    expect(parseAccountChanges({ settings: { ssoSignIn: "yes" } })).toBe("SSO only must be true or false");
+  it("takes no switches for Memberful or single sign-on, which Spark doesn't have", () => {
+    for (const setting of ["memberfulJoin", "memberfulSignIn", "ssoJoin", "ssoSignIn"]) {
+      expect(parseAccountChanges({ settings: { [setting]: false } })).toBe(`Unknown setting: ${setting}`);
+    }
   });
 
   it("names why joining went to sign in in the sign-in page's address, and reads only the reasons it knows", () => {
@@ -1008,13 +1002,11 @@ describe("Join with an email domain", () => {
     expect(EMAIL_SIGN_UP_PATH).toBe("/join/email");
   });
 
-  it("lets people in at the email domains while Email domain is on with a domain, but never while Memberful is members only", () => {
-    const on = { emailDomainSignUp: true, emailDomains: ["example.org"], memberfulSignIn: false, ssoSignIn: false };
+  it("lets people in at the email domains while Email domain is on with a domain", () => {
+    const on = { emailDomainSignUp: true, emailDomains: ["example.org"] };
     expect(signsUpWithEmailDomain(on)).toBe(true);
     expect(signsUpWithEmailDomain({ ...on, emailDomainSignUp: false })).toBe(false);
     expect(signsUpWithEmailDomain({ ...on, emailDomains: [] })).toBe(false);
-    expect(signsUpWithEmailDomain({ ...on, memberfulSignIn: true })).toBe(false);
-    expect(signsUpWithEmailDomain({ ...on, ssoSignIn: true })).toBe(false);
   });
 
   it.each([
@@ -1104,29 +1096,6 @@ describe("Join with an email domain", () => {
     ["a token longer than Turnstile's", { emailAddress: "ann@example.org", turnstileToken: "x".repeat(MAX_TURNSTILE_TOKEN_LENGTH + 1) }, "Turnstile's token must be at most 2048 characters"],
   ])("refuses an ask with %s and says why", (_, body, error) => {
     expect(parseEmailLinkRequest(body)).toBe(error);
-  });
-});
-
-describe("Sign in with Memberful", () => {
-  it("takes Memberful and its Members only as true or false, beside the other settings", () => {
-    expect(parseAccountChanges({ settings: { memberfulJoin: true } })).toEqual({ settings: { memberfulJoin: true } });
-    expect(parseAccountChanges({ settings: { memberfulSignIn: true } })).toEqual({ settings: { memberfulSignIn: true } });
-    expect(parseAccountChanges({ settings: { memberfulJoin: false, memberfulSignIn: false, restrictRoomCreation: true } })).toEqual({
-      settings: { memberfulJoin: false, memberfulSignIn: false, restrictRoomCreation: true },
-    });
-    expect(parseAccountChanges({ settings: { memberfulJoin: "on" } })).toBe("Memberful must be true or false");
-    expect(parseAccountChanges({ settings: { memberfulSignIn: 1 } })).toBe("Members only must be true or false");
-  });
-
-  it("names the page to come back to, if any, in Sign in with Memberful's address", () => {
-    expect(memberfulSignInPath(null)).toBe("/auth/memberful");
-    expect(memberfulSignInPath("/rooms/general?x=1#y")).toBe("/auth/memberful?return_to=%2Frooms%2Fgeneral%3Fx%3D1%23y");
-  });
-
-  it("reads only the problems it knows from the sign-in page's address", () => {
-    expect(memberfulProblemOf("membership")).toBe("membership");
-    expect(memberfulProblemOf("refused")).toBe("refused");
-    for (const value of [null, "", "toString", "Membership", "constructor"]) expect(memberfulProblemOf(value)).toBeNull();
   });
 });
 
@@ -1284,25 +1253,6 @@ describe("Usernames", () => {
     expect(usernameFrom("Maximiliana Wolfeschlegelsteinhausen")).toHaveLength(MAX_USERNAME_LENGTH - 4);
     expect(usernameFrom("李白")).toBe("member");
     expect(usernameFrom(" ")).toBe("member");
-  });
-});
-
-describe("Disconnect Memberful", () => {
-  it("takes your password and this browser's push subscription endpoint as typed, leaving out what isn't sent", () => {
-    const typed = { currentPassword: " ", pushSubscriptionEndpoint: "" };
-    expect(parseMemberfulDisconnection(typed)).toEqual(typed);
-    expect(parseMemberfulDisconnection({ currentPassword: "compiler", name: "Grace" })).toEqual({ currentPassword: "compiler" });
-    expect(parseMemberfulDisconnection({})).toEqual({});
-  });
-
-  it.each([
-    ["no body", null, "Expected a JSON object"],
-    ["a list", [{ currentPassword: "compiler" }], "Expected a JSON object"],
-    ["a password that isn't text", { currentPassword: 12345678 }, "Current password must be text"],
-    ["an endpoint that isn't text", { pushSubscriptionEndpoint: {} }, "Push subscription endpoint must be text"],
-    ["an endpoint longer than a subscription's", { pushSubscriptionEndpoint: "x".repeat(MAX_PUSH_ENDPOINT_LENGTH + 1) }, "Endpoint can't be longer than 2048 characters"],
-  ])("refuses %s and says why", (_, body, error) => {
-    expect(parseMemberfulDisconnection(body)).toBe(error);
   });
 });
 

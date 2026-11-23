@@ -33,8 +33,6 @@ const ada = { name: "Ada Lovelace", emailAddress: "ada@example.com", password: "
 const grace = { name: "Grace Hopper", emailAddress: "grace@example.com", password: "compiler design" };
 
 const FROM = "Ember <ember@example.com>";
-/** The keys of a deployment whose members may sign in with Memberful. */
-const MEMBERFUL_KEYS = { MEMBERFUL_URL: "https://example.memberful.com/", MEMBERFUL_CLIENT_ID: "ember-client-id", MEMBERFUL_CLIENT_SECRET: "ember-client-secret" };
 /** Turnstile's test keys: a site key whose check always passes, and a secret key, which this suite's fake siteverify takes. */
 const TURNSTILE_KEYS = { TURNSTILE_SITE_KEY: "1x00000000000000000000AA", TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA" };
 /** The token Turnstile's test site keys give the page. */
@@ -598,20 +596,6 @@ describe("Reset a forgotten password with an emailed code", () => {
       expect(moved.status).toBe(200);
       await expectWrong(await reset("ada@example.com", code));
       await expectWrong(await reset("ada@lovelace.example", code));
-    });
-
-    it("signs in nobody who signs in with Memberful while it's members only, though their password changes", async () => {
-      const administrator = await setUp();
-      const member = await joinAsGrace();
-      await change(administrator, { settings: { memberfulSignIn: true } }, MEMBERFUL_KEYS);
-      const code = await codeFor(grace.emailAddress);
-
-      const response = await reset(grace.emailAddress, code);
-      expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ user: null } satisfies PasswordResetDone);
-      expect(response.headers.get("Set-Cookie")).toBeNull();
-      expect(await sessionsOf(member.user.id)).toBe(0);
-      expect(await verifyPassword("difference engine", await passwordDigestOf(grace.emailAddress))).toBe(true);
     });
   });
 });

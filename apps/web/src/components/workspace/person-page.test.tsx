@@ -735,7 +735,7 @@ describe("Report people", () => {
   });
 });
 
-describe("Memberful memberships", () => {
+describe("Suspended members", () => {
   const suspended: Person = { ...grace, status: "suspended" };
 
   it("shows members someone suspended for their membership's lapsing as no longer on this account", async () => {
@@ -748,13 +748,13 @@ describe("Memberful memberships", () => {
     expect(directButton("Grace Hopper")).toBeNull();
   });
 
-  it("shows administrators who they are, that they can't sign in until their membership's renewed, and Ban, with no DM button", async () => {
+  it("shows administrators who they are, that they can't sign in, and Ban, with no DM button", async () => {
     serve(found({ ...suspended, emailAddress: "grace@example.com" }));
     showPage(grace, { me: { ...ada, administrator: true } });
     expect(await heading()).toHaveTextContent("Grace Hopper");
     expect(screen.getByText("Wrote the first compiler")).toBeVisible();
     expect(mailLink()).toHaveAttribute("href", "mailto:grace@example.com");
-    expect(screen.getByText("Grace Hopper’s Memberful membership has lapsed, so they can’t sign in until it’s renewed.")).toBeVisible();
+    expect(screen.getByText("Grace Hopper’s membership has lapsed, so they can’t sign in.")).toBeVisible();
     expect(screen.queryByText(/no longer on this account/)).toBeNull();
     expect(directButton("Grace Hopper")).toBeNull();
     expect(screen.getByRole("button", { name: "Ban Grace Hopper" })).toBeVisible();

@@ -38,7 +38,7 @@ const EMAIL_LINK_TOKEN = "Gr-_em".repeat(7) + "D";
 /** Where joining with Ada's email address sends the browser. */
 const ADA_SIGNS_IN = "/session/new?email_address=ada%40example.com";
 /** The workspace as it's set up. */
-const EMBER: Account = { name: "Ember", tagline: "", hideTranslationButtons: true, customStyles: "", restrictRoomCreation: false, restrictChannelMentions: false, restrictEveryoneMention: false, warnBeforeNotifying: true, logo: null, customDomain: null, joinLink: true, openSignUp: false, memberfulJoin: false, memberfulSignIn: false, ssoJoin: false, ssoSignIn: false, emailDomainSignUp: false, emailDomains: [], navigationIcons: {}, huddles: false, huddleCameras: true, huddleScreens: true, huddleVideo: "hd" };
+const EMBER: Account = { name: "Ember", tagline: "", hideTranslationButtons: true, customStyles: "", restrictRoomCreation: false, restrictChannelMentions: false, restrictEveryoneMention: false, warnBeforeNotifying: true, logo: null, customDomain: null, joinLink: true, openSignUp: false, emailDomainSignUp: false, emailDomains: [], navigationIcons: {}, huddles: false, huddleCameras: true, huddleScreens: true, huddleVideo: "hd" };
 /** What the deployment's Set up Ember form suggests. */
 const PLACEHOLDERS = { name: "Grace Hopper", emailAddress: "grace@example.com" };
 const general = { id: "general", name: "general", kind: "open", icon: null };
@@ -139,7 +139,7 @@ function serve({
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const route = `${init?.method ?? "GET"} ${String(input)}`;
     if (route === "GET /api/bootstrap") {
-      return Response.json({ setup, setupAccess, setupPlaceholders: PLACEHOLDERS, guestSignIn, signInWithMemberful: false, signInWithSso: null, account, version: "0.1", vapidPublicKey: null, turnstileSiteKey: null, passwordResetCodes, platform: CHROME_MAC, user: signedIn ? me : null });
+      return Response.json({ setup, setupAccess, setupPlaceholders: PLACEHOLDERS, guestSignIn, account, version: "0.1", vapidPublicKey: null, turnstileSiteKey: null, passwordResetCodes, platform: CHROME_MAC, user: signedIn ? me : null });
     }
     if (route === "POST /api/first_run") {
       [setup, signedIn, rooms] = ["complete", true, firstRooms];
@@ -192,11 +192,6 @@ function serve({
         account,
         joinCode: JOIN_CODE,
         canAdminister: me.administrator,
-        memberfulSite: null,
-        memberfulWebhooks: false,
-        sso: null,
-        memberfulKeys: null,
-        memberfulSiteKept: null,
         turnstile: null,
         assistant: null,
         huddles: null,
@@ -928,8 +923,8 @@ describe("Sign in with email and password", () => {
   });
 });
 
-describe("Sign in with Memberful", () => {
-  it("forgets the page to come back to once it opens signed in, as signing in with Memberful opens that page itself", async () => {
+describe("Coming back signed in", () => {
+  it("forgets the page to come back to once it opens signed in", async () => {
     sessionStorage.setItem("ember:return-to", "/rooms/general");
     history.replaceState(null, "", "/rooms/general");
     serve({ signedIn: true });
@@ -945,28 +940,6 @@ describe("Sign in with Memberful", () => {
     render(<App />);
     expect(await signInPage()).toBeInTheDocument();
     expect(sessionStorage.getItem("ember:return-to")).toBe("/rooms/general");
-  });
-
-  it("welcomes someone new who joined with it, outside the workspace, then goes on to the page they signed in from", async () => {
-    history.replaceState(null, "", "/welcome?return_to=%2Frooms%2Fgeneral");
-    serve({ signedIn: true });
-    render(<App />);
-    expect(await screen.findByRole("heading", { level: 1, name: "Welcome to Ember" })).toBeInTheDocument();
-    expect(screen.queryAllByRole("link", { name: "Your profile" })).toHaveLength(0);
-    const user = userEvent.setup();
-    await waitFor(() => expect(screen.getByLabelText("Username")).toBeEnabled());
-    await user.type(screen.getByLabelText("Username"), "ada");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await roomHeading()).toBeInTheDocument();
-    expect(location.pathname + location.search).toBe("/rooms/general");
-  });
-
-  it("sends someone signed out at the welcome page to sign in, coming back to it after", async () => {
-    history.replaceState(null, "", "/welcome?return_to=%2Frooms%2Fgeneral");
-    serve({ signedIn: false });
-    render(<App />);
-    expect(await signInPage()).toBeInTheDocument();
-    expect(sessionStorage.getItem("ember:return-to")).toBe("/welcome?return_to=%2Frooms%2Fgeneral");
   });
 });
 

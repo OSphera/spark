@@ -17,9 +17,9 @@ import { workspace } from "./workspace";
 // does. Unlike Campfire's, a link works only while that session is still signed in as someone who may
 // show it: the person it's for, or an active administrator. So whatever ends a session, signing out, a
 // password reset, a removal or a ban, ends the links it showed, and losing administrator rights ends the
-// links an administrator showed of others. A new password saved from a profile, and Disconnect Memberful,
-// end their person's other sessions but keep the one that asks, so they end the links it showed until
-// then instead. A link was shown 4 hours before it expires, by the Workspace's clock, which also says
+// links an administrator showed of others. A new password saved from a profile
+// ends its person's other sessions but keeps the one that asks, so it ends the links that one showed
+// until then instead. A link was shown 4 hours before it expires, by the Workspace's clock, which also says
 // when its session's links ended, so the two compare.
 
 /** `User::Transferable::TRANSFER_LINK_EXPIRY_DURATION`. */

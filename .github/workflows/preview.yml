@@ -10,13 +10,7 @@ name: Preview
 # nobody can set the Worker up until a deploy from a terminal, or `wrangler secret put
 # EMBER_SETUP_TOKEN`, gives it a token. EMBER_SETUP_NAME_PLACEHOLDER and EMBER_SETUP_EMAIL_PLACEHOLDER
 # repository variables, if set, are the name and email address its Set up Ember form suggests in place
-# of Kevin Rose's. MEMBERFUL_URL, MEMBERFUL_CLIENT_ID and MEMBERFUL_CLIENT_SECRET repository secrets,
-# if set, are a Memberful custom app's keys, which go up with each deploy so its members can sign in
-# once an administrator turns that on, and MEMBERFUL_API_KEY and MEMBERFUL_WEBHOOK_SECRET the app's
-# API key and its site's webhook secret, with which Ember hears when a membership lapses.
-# SSO_ISSUER, SSO_CLIENT_ID and SSO_CLIENT_SECRET repository secrets, if set, are a single sign-on
-# provider's issuer and the keys of the app registered there, in place of any an administrator sets up
-# on the Single sign-on card.
+# of Kevin Rose's.
 # TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY repository secrets, if set, are a Turnstile widget's
 # keys, with which open sign-up and the forms that email someone check that whoever uses them is a
 # person, in place of any an administrator gave in Set up Turnstile, and a RESEND_API_KEY repository
@@ -79,17 +73,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           # Optional: the setup token for a Worker that has none yet, which its setup link carries.
           EMBER_SETUP_TOKEN: ${{ secrets.EMBER_SETUP_TOKEN }}
-          # Optional: a Memberful custom app's keys, for its members to sign in, and what hearing its
-          # site's webhooks takes, for lapsed members to be signed out.
-          MEMBERFUL_URL: ${{ secrets.MEMBERFUL_URL }}
-          MEMBERFUL_CLIENT_ID: ${{ secrets.MEMBERFUL_CLIENT_ID }}
-          MEMBERFUL_CLIENT_SECRET: ${{ secrets.MEMBERFUL_CLIENT_SECRET }}
-          MEMBERFUL_API_KEY: ${{ secrets.MEMBERFUL_API_KEY }}
-          MEMBERFUL_WEBHOOK_SECRET: ${{ secrets.MEMBERFUL_WEBHOOK_SECRET }}
-          # Optional: a single sign-on provider's issuer and the keys of the app registered there.
-          SSO_ISSUER: ${{ secrets.SSO_ISSUER }}
-          SSO_CLIENT_ID: ${{ secrets.SSO_CLIENT_ID }}
-          SSO_CLIENT_SECRET: ${{ secrets.SSO_CLIENT_SECRET }}
           # Optional: a Turnstile widget's keys, in place of any given in Set up Turnstile, for open sign-up to check that whoever signs up is a person.
           TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
           TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
@@ -107,7 +90,7 @@ jobs:
             if [ -n "${!name}" ]; then vars+=(--var "$name:${!name}"); fi
           done
           # The deploy script adds the secrets the Worker doesn't have yet with its code, as it does
-          # for Deploy to Cloudflare, so no version runs without them, and the Memberful keys given.
+          # for Deploy to Cloudflare, so no version runs without them, and the keys given.
           node apps/worker/scripts/deploy.ts --name "$WORKER_NAME" "${vars[@]}"
           url=$(jq -rn 'first(inputs | select(.type == "deploy") | .targets[]? | select(endswith(".workers.dev")))' "$WRANGLER_OUTPUT_FILE_PATH")
           if [ -z "$url" ]; then

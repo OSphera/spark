@@ -195,7 +195,7 @@ export function HuddlesSteps({ keys, deployedAccountId, changing = false, roomy 
   );
 }
 
-/** One of the steps, as Set up Memberful's are too: its number in a ring, its title, and what to do. */
+/** One of the steps: its number in a ring, its title, and what to do. */
 export function Step({ number, title, roomy, children }: { number: number; title: string; roomy: boolean; children: ReactNode }) {
   const Title = roomy ? "h2" : "h3";
   return (

@@ -33,24 +33,19 @@ import { jsonBodyOf } from "./bodies";
 import { originFor } from "./custom-domain";
 import type { Env } from "./env";
 import { emailLinkDigest, newEmailLink } from "./invitations";
-import { appPage, empty, formAnswer, home, signInFirst, signUpRefusal } from "./pages";
+import { appPage, empty, formAnswer, home, signUpRefusal } from "./pages";
 import { passwordHasher } from "./passwords";
 import { passedTurnstile, turnstileKeysFor } from "./turnstile";
-import { signInNeededWith, workspace, type NameRefusal, type OnlyWay } from "./workspace";
+import { workspace, type NameRefusal } from "./workspace";
 import type { NewPerson } from "./workspace-store";
 
 // Joining with the workspace's join link, as Campfire's UsersController does (`new` and `create`),
 // except that the form posts to /api/join/<code>. Before first run, there's no join code to match yet,
-// so every link is a 404. An administrator can turn the link off, and while Memberful is members only
-// (memberful.ts), or single sign-on the only way in (sso.ts), it's off too: either way it sends people
-// to sign in. Signing up at /join, with no code,
+// so every link is a 404. An administrator can turn the link off, when it sends people to sign in. Signing up at /join, with no code,
 // is Ember's own: anyone may while an administrator lets them, within its limits, and with Turnstile's
 // check while Ember has a widget's keys. So is joining with an invitation's link, whichever ways to join
 // are on, with the address it was sent to, and with a link someone asks Ember to email an address at the
 // workspace's email domains, while an administrator lets those domains in.
-
-/** What the join form answers while Memberful is members only, or single sign-on the only way in: why, and where to go instead. */
-const elsewhereInstead = (way: OnlyWay) => ({ error: signInNeededWith(way), redirect: "/session/new" });
 
 /** What a form for joining answers while its way in is off: why, and the sign-in page, which says so. */
 const signInInsteadOf = (problem: JoiningProblem) => ({ error: JOINING_PROBLEMS[problem], redirect: signInSaying(problem) });
@@ -67,8 +62,7 @@ export const joinCodeOf = (pathname: string) => pathname.match(/^\/join\/([^/]+)
 
 /**
  * `GET /join/<code>`: the join page, which is the app's own, for someone signed out with the current
- * code, unless Memberful is members only, single sign-on the only way in, or the link is off, when it
- * sends them to sign in.
+ * code, unless the link is off, when it sends them to sign in.
  */
 export async function joinPage(request: Request, env: Env, code: string): Promise<Response> {
   if (request.method !== "GET" && request.method !== "HEAD") return empty(404);
@@ -76,7 +70,6 @@ export async function joinPage(request: Request, env: Env, code: string): Promis
   const [session, link] = await Promise.all([authenticate(request, env), workspace(env).joinLink(code)]);
   if (session) return home(request);
   if (link === "not found") return empty(404);
-  if (link === "memberful" || link === "sso" || link === "either") return signInFirst(request);
   if (link === "off") return signInSayingWhy(request, "link_off");
   return pageForJoining(request, env);
 }
@@ -126,14 +119,12 @@ async function pageForJoining(request: Request, env: Env, turnstile = false): Pr
 /**
  * `POST /api/join/<code>`: adds the person the join form describes as a member, in every open room,
  * with the photo it brings, and signs this browser in as them. Someone whose email address is taken
- * goes to sign in with it filled in, and nothing is created. While the link is off, or members sign in
- * with Memberful, it answers 403 before the form is read, and sends them to sign in.
+ * goes to sign in with it filled in, and nothing is created. While the link is off, it answers 403 before the form is read, and sends them to sign in.
  */
 export async function join(request: Request, env: Env, code: string): Promise<Response> {
   const [session, link] = await Promise.all([authenticate(request, env), workspace(env).joinLink(code)]);
   if (session) return signedInAlready();
   if (link === "not found") return formAnswer({ error: "Not found" }, 404);
-  if (link === "memberful" || link === "sso" || link === "either") return formAnswer(elsewhereInstead(link), 403);
   if (link === "off") return formAnswer(signInInsteadOf("link_off"), 403);
 
   const sent = await userFormOf(request);
@@ -148,7 +139,6 @@ export async function join(request: Request, env: Env, code: string): Promise<Re
   const token = newSessionToken();
   const user = await workspace(env).join(code, person, await tokenDigest(token, env.SESSION_SECRET), clientOf(request));
   if (user === "not found") return formAnswer({ error: "Not found" }, 404);
-  if (user === "memberful" || user === "sso" || user === "either") return formAnswer(elsewhereInstead(user), 403);
   if (user === "off") return formAnswer(signInInsteadOf("link_off"), 403);
   if (user === "agent's name" || user === "blocked words") return nameRefused(user, form.name);
   if (!user) return emailAddressTaken(form.emailAddress);

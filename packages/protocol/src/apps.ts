@@ -324,7 +324,7 @@ declare const URL: {
 /** localhost, its subdomains and the loopback addresses, where `wrangler dev` and the tests' stand-ins serve. */
 const LOOPBACK_HOST = /^(?:(?:.+\.)?localhost|127(?:\.\d{1,3}){3}|\[::1\])$/;
 
-/** Whether `hostname` is this computer's, as a Memberful site the browser tests fake is too. */
+/** Whether `hostname` is this computer's. */
 export const isLoopback = (hostname: string) => LOOPBACK_HOST.test(hostname);
 
 // The tools an agent may use. An administrator picks them, for @ember and for each agent, from the

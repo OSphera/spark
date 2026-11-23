@@ -211,30 +211,13 @@ function pathIn(address: string | null, origin: string, isPage: (pathname: strin
 /** The page of the workspace at `origin` that `address` names, its query and fragment included, or "/" for anything else. */
 export const workspacePathIn = (address: string | null, origin: string) => pathIn(address, origin, (pathname) => workspacePageOf(pathname) !== null);
 
-/** Where someone new who joined with Memberful chooses their picture, name and username, before going on. */
-export const WELCOME_PATH = "/welcome";
-
-/**
- * The page at `origin` that signing in comes back to, as `address` names it: a page of the workspace, or
- * the welcome page, which someone whose session ended there comes back to, and which checks the page it
- * goes on to itself, or "/" for anything else.
- */
-export const signInReturnPathIn = (address: string | null, origin: string) =>
-  pathIn(address, origin, (pathname) => pathname === WELCOME_PATH || workspacePageOf(pathname) !== null);
-
-/** The welcome page's address for someone new who goes on to `returnPath`, a page of the workspace, as its `return_to` says. */
-export const welcomePath = (returnPath: string) => (returnPath === "/" ? WELCOME_PATH : `${WELCOME_PATH}?return_to=${encodeURIComponent(returnPath)}`);
-
-/** The page of the workspace at `origin` that the welcome page goes on to, as `search`, its address's query, names it. */
-export const pageAfterWelcome = (search: string, origin: string) => workspacePathIn(new URLSearchParams(search).get("return_to"), origin);
-
 /**
  * Whether the app shows a page at `pathname`: sign-in, the page that asks whether to connect an AI
- * app, the welcome page, or one of the workspace's. The Worker answers setup's, the join link's and
+ * app, or one of the workspace's. The Worker answers setup's, the join link's and
  * open sign-up's addresses itself.
  */
 export const isAppPage = (pathname: string) =>
-  pathname === SIGN_IN_PATH || pathname === OUTSIDE_AUTHORIZE_PATH || pathname === WELCOME_PATH || workspacePageOf(pathname) !== null;
+  pathname === SIGN_IN_PATH || pathname === OUTSIDE_AUTHORIZE_PATH || workspacePageOf(pathname) !== null;
 
 /**
  * What the Worker has the browser fetch with a workspace page, for a browser with a session cookie,
