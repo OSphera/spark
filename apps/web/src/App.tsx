@@ -72,7 +72,8 @@ const isSameAccount = (a: Account, b: Account) =>
   a.huddles === b.huddles &&
   a.huddleCameras === b.huddleCameras &&
   a.huddleScreens === b.huddleScreens &&
-  a.huddleVideo === b.huddleVideo;
+  a.huddleVideo === b.huddleVideo &&
+  a.groupingMinutes === b.groupingMinutes;
 
 export function App() {
   // Undefined until the server says whether Ember is set up.

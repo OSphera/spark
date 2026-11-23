@@ -9,6 +9,7 @@ import type { AssistantSettings, YourAssistant } from "./assistant.ts";
 import { parseBlockedWords } from "./blocked-words.ts";
 import { isActionId, isActionValue, type Card } from "./cards.ts";
 import type { StoredFile } from "./files.ts";
+import { GROUPING_MINUTES_REFUSED, isGroupingMinutes, type GroupingMinutes } from "./grouping.ts";
 import { HUDDLE_VIDEO_REFUSED, isHuddleVideoQuality, type HuddleSounds, type HuddlesSettings, type HuddleVideoQuality, type LiveHuddle, type MessageHuddle } from "./huddles.ts";
 import type { OutsideConnection } from "./outside.ts";
 import type { SsoSettings, SsoStatus } from "./sso.ts";
@@ -722,6 +723,8 @@ export interface Account {
   huddleScreens: boolean;
   /** How sharp cameras and shared screens are in huddles, as the Huddles tab's Video quality says: `DEFAULT_HUDDLE_VIDEO` until an administrator chooses. */
   huddleVideo: HuddleVideoQuality;
+  /** Spark: how many minutes apart someone's messages may be to show as one, as Message grouping says, or absent for `DEFAULT_GROUPING_MINUTES` (grouping.ts). */
+  groupingMinutes?: GroupingMinutes;
 }
 
 /** What `GET /api/account` answers for workspace settings. */
@@ -981,6 +984,7 @@ export interface AccountChanges {
   tagline?: string;
   settings?: AccountSettings;
   huddleVideo?: HuddleVideoQuality;
+  groupingMinutes?: GroupingMinutes;
   customDomain?: string | null;
   navigationIcons?: NavigationIconChanges;
   emailFrom?: string | null;
@@ -2998,11 +3002,12 @@ function navigationIconsOf(data: unknown): NavigationIconChanges | undefined {
  */
 export function parseAccountChanges(data: unknown): AccountChanges | string {
   if (!isJsonObject(data)) return "Expected a JSON object";
-  const { name, tagline, settings, huddleVideo, customDomain, navigationIcons, emailFrom, emailDomains, blockedWords } = data;
+  const { name, tagline, settings, huddleVideo, groupingMinutes, customDomain, navigationIcons, emailFrom, emailDomains, blockedWords } = data;
   if (name !== undefined && (typeof name !== "string" || name.length > MAX_ACCOUNT_NAME_LENGTH)) return `Name must be at most ${MAX_ACCOUNT_NAME_LENGTH} characters`;
   const kept = typeof tagline === "string" ? taglineOf(tagline) : undefined;
   if (tagline !== undefined && (kept === undefined || kept.length > MAX_TAGLINE_LENGTH)) return TAGLINE_TOO_LONG;
   if (huddleVideo !== undefined && !isHuddleVideoQuality(huddleVideo)) return HUDDLE_VIDEO_REFUSED;
+  if (groupingMinutes !== undefined && !isGroupingMinutes(groupingMinutes)) return GROUPING_MINUTES_REFUSED;
   const domain = customDomainOf(customDomain);
   if (customDomain !== undefined && domain === undefined) return CUSTOM_DOMAIN_NOT_A_HOST;
   const icons = navigationIconsOf(navigationIcons);
@@ -3017,6 +3022,7 @@ export function parseAccountChanges(data: unknown): AccountChanges | string {
     ...(name !== undefined && { name }),
     ...(kept !== undefined && { tagline: kept }),
     ...(huddleVideo !== undefined && { huddleVideo }),
+    ...(groupingMinutes !== undefined && { groupingMinutes }),
     ...(domain !== undefined && { customDomain: domain }),
     ...(icons !== undefined && { navigationIcons: icons }),
     ...(from !== undefined && { emailFrom: from }),

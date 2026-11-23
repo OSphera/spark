@@ -18,17 +18,27 @@ const at = (iso: string, creatorId = "u1"): Message => ({
 });
 
 describe("Group messages by author", () => {
-  it("threads a person's messages up to five minutes apart, either way, and no further", () => {
-    const items = timeline([
-      at("2026-10-12T09:00:00"),
-      at("2026-10-12T09:05:00"),
-      at("2026-10-12T09:10:01"),
-      // Before the one above it, as a page can hold a message whose clock ran behind.
-      at("2026-10-12T09:07:00"),
-      at("2026-10-12T09:07:30", "u2"),
-      at("2026-10-12T09:08:00", "u2"),
-    ]);
+  it("threads a person's messages up to the window apart, either way, and no further", () => {
+    const items = timeline(
+      [
+        at("2026-10-12T09:00:00"),
+        at("2026-10-12T09:05:00"),
+        at("2026-10-12T09:10:01"),
+        // Before the one above it, as a page can hold a message whose clock ran behind.
+        at("2026-10-12T09:07:00"),
+        at("2026-10-12T09:07:30", "u2"),
+        at("2026-10-12T09:08:00", "u2"),
+      ],
+      [],
+      5 * 60 * 1000,
+    );
     expect(items.map((i) => i.threaded)).toEqual([false, true, false, true, false, true]);
+  });
+
+  it("groups two minutes apart until an administrator chooses, and never with a window of none", () => {
+    const messages = [at("2026-10-12T09:00:00"), at("2026-10-12T09:02:00"), at("2026-10-12T09:04:01"), at("2026-10-12T09:04:02")];
+    expect(timeline(messages).map((i) => i.threaded)).toEqual([false, true, false, true]);
+    expect(timeline(messages, [], 0).map((i) => i.threaded)).toEqual([false, false, false, false]);
   });
 
   it("threads a message an AI app sent as its author only under another the same app sent, so each run says which", () => {
@@ -44,7 +54,7 @@ describe("Group messages by author", () => {
   });
 
   it("keeps a follow-up just after midnight threaded, under its day's separator", () => {
-    const items = timeline([at("2026-10-12T23:58:00"), at("2026-10-13T00:01:00")]);
+    const items = timeline([at("2026-10-12T23:59:30"), at("2026-10-13T00:00:30")]);
     expect(items.map((i) => [i.firstOfDay, i.threaded])).toEqual([
       [true, false],
       [true, true],

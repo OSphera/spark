@@ -72,6 +72,7 @@ import {
 } from "@ember/protocol/assistant";
 import type { AgentAccess, AgentProfile, AgentRoom } from "@ember/protocol/agents";
 import type { AppId } from "@ember/protocol/apps";
+import { DEFAULT_GROUPING_MINUTES, isGroupingMinutes, type GroupingMinutes } from "@ember/protocol/grouping";
 import { ALL_HUDDLE_SOUNDS, DEFAULT_HUDDLE_VIDEO, isHuddleVideoQuality, PAST_HUDDLES_LISTED, type HuddleSoundChanges, type HuddleSounds, type HuddleVideoQuality, type LiveHuddle, type PastHuddle } from "@ember/protocol/huddles";
 import { DEFAULT_GROUPS_CLAIM, DEFAULT_SSO_NAME } from "@ember/protocol/sso";
 import { SPECIAL_MENTIONS, type SpecialMention } from "@ember/richtext";
@@ -296,6 +297,7 @@ export type AccountChange = Partial<
     | "huddleCameras"
     | "huddleScreens"
     | "huddleVideo"
+    | "groupingMinutes"
     | "customDomain"
     | "otherAddresses"
     | "joinLink"
@@ -1593,6 +1595,9 @@ const sharesHuddleScreens = (settings: Record<string, unknown> | null) => settin
 /** How sharp they have huddles' video, which they keep as `huddle_video`: huddles' own quality until Video quality stores one. */
 const huddleVideoIn = (settings: Record<string, unknown> | null): HuddleVideoQuality => (isHuddleVideoQuality(settings?.huddle_video) ? settings.huddle_video : DEFAULT_HUDDLE_VIDEO);
 
+/** Spark: how far apart their messages may be to group, which they keep as `grouping_minutes`: the default until Message grouping stores one. */
+const groupingMinutesIn = (settings: Record<string, unknown> | null): GroupingMinutes => (isGroupingMinutes(settings?.grouping_minutes) ? settings.grouping_minutes : DEFAULT_GROUPING_MINUTES);
+
 /**
  * How Ember AI asks AI Gateway, which the account's settings keep as `assistant`, `{ account_id,
  * api_token, model, format, models, web_tools, web_tools_asked_at, provider_endpoints_tried_at }`, the
@@ -2688,6 +2693,7 @@ const SET_WARN_BEFORE_NOTIFYING = setSetting("warn_before_notifying");
 const SET_HUDDLE_CAMERAS = setSetting("huddle_cameras");
 const SET_HUDDLE_SCREENS = setSetting("huddle_screens");
 const SET_HUDDLE_VIDEO = setSetting("huddle_video");
+const SET_GROUPING_MINUTES = setSetting("grouping_minutes");
 const SET_CUSTOM_DOMAIN = setSetting("custom_domain");
 const SET_JOIN_LINK = setSetting("join_link");
 const SET_OPEN_SIGN_UP = setSetting("open_sign_up");
@@ -3914,6 +3920,7 @@ export class WorkspaceStore {
       huddleCameras: showsHuddleCameras(settings),
       huddleScreens: sharesHuddleScreens(settings),
       huddleVideo: huddleVideoIn(settings),
+      groupingMinutes: groupingMinutesIn(settings),
       customDomain: customDomainIn(settings),
       joinLink: joinsWithLinkIn(settings),
       openSignUp: signsUpOpenlyIn(settings),
@@ -3963,6 +3970,7 @@ export class WorkspaceStore {
       huddleCameras,
       huddleScreens,
       huddleVideo,
+      groupingMinutes,
       customDomain,
       otherAddresses,
       joinLink,
@@ -3993,6 +4001,7 @@ export class WorkspaceStore {
       ...(huddleCameras === undefined ? [] : [statement(SET_HUDDLE_CAMERAS, JSON.stringify(huddleCameras), now)]),
       ...(huddleScreens === undefined ? [] : [statement(SET_HUDDLE_SCREENS, JSON.stringify(huddleScreens), now)]),
       ...(huddleVideo === undefined ? [] : [statement(SET_HUDDLE_VIDEO, JSON.stringify(huddleVideo), now)]),
+      ...(groupingMinutes === undefined ? [] : [statement(SET_GROUPING_MINUTES, JSON.stringify(groupingMinutes), now)]),
       ...(customDomain === undefined ? [] : [statement(SET_CUSTOM_DOMAIN, JSON.stringify(customDomain), now)]),
       ...(otherAddresses === undefined ? [] : [statement(REMEMBER_OTHER_ADDRESSES, JSON.stringify(otherAddresses))]),
       ...(joinLink === undefined ? [] : [statement(SET_JOIN_LINK, JSON.stringify(joinLink), now)]),

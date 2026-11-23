@@ -1,12 +1,7 @@
 import type { EphemeralMessage, Message, RoomId, UserId } from "@ember/protocol";
+import { groupingWindowMs } from "@ember/protocol/grouping";
 import { displayMarkup, roomMentionContent, type DisplayElement, type DisplayNode, type DisplayPreview, type MentionRoom } from "@ember/richtext/dom";
 import { isPending } from "./room-state";
-
-/**
- * How far apart a person's messages can be, either way, and still group, as Campfire's
- * message_formatter.js has it: five minutes, inclusive.
- */
-const THREAD_WINDOW_MS = 5 * 60 * 1000;
 
 /** A message in the timeline: one of the room's, or, `ephemeral`, one only the reader sees, as the card of a call that waits on them. */
 type Entry = { message: Message; ephemeral?: never } | { message: EphemeralMessage; ephemeral: true };
@@ -117,14 +112,15 @@ const standsApart = ({ message, ephemeral }: Entry) => ephemeral || message.dele
  * The messages as message_formatter.js lays them out, with those only the reader sees, `ephemeral`, among
  * them by when they came. A message is the first of its day when the one above it is from another day.
  * It's threaded, without its author's avatar and name, when the one above it is the same person's from no
- * more than five minutes before or after, even across midnight, when it has a separator and still no
+ * more than `windowMs` before or after (Spark: the workspace's Message grouping, two minutes until an
+ * administrator chooses, where Campfire's message_formatter.js has five; none for Never), even across midnight, when it has a separator and still no
  * header. A message deleted while its thread has replies shows neither its author nor its time, so nothing
  * threads under it, and it threads under nothing. The same goes for a huddle's message, which shows the
  * headphones and what it says of its huddle where its author would be, and for one only the reader sees,
  * which says so under its author. Nor does a message an AI app sent as its author thread under one it
  * didn't, or one under it, since only the header says which app sent it.
  */
-export function timeline(messages: Message[], ephemeral: EphemeralMessage[] = []): TimelineItem[] {
+export function timeline(messages: Message[], ephemeral: EphemeralMessage[] = [], windowMs = groupingWindowMs(undefined)): TimelineItem[] {
   const entries = among(messages, ephemeral);
   return entries.map((entry, index) => {
     const previous = entries[index - 1];
@@ -138,7 +134,8 @@ export function timeline(messages: Message[], ephemeral: EphemeralMessage[] = []
         !standsApart(previous) &&
         before.creator.id === message.creator.id &&
         viaOf(before) === viaOf(message) &&
-        Math.abs(new Date(message.createdAt).getTime() - new Date(before.createdAt).getTime()) <= THREAD_WINDOW_MS,
+        windowMs > 0 &&
+        Math.abs(new Date(message.createdAt).getTime() - new Date(before.createdAt).getTime()) <= windowMs,
     };
   });
 }

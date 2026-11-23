@@ -19,6 +19,7 @@ import {
   type SidebarSection,
   type WorkspaceSettings,
 } from "@ember/protocol";
+import type { GroupingMinutes } from "@ember/protocol/grouping";
 import type { HuddleVideoQuality } from "@ember/protocol/huddles";
 import type { MemberfulSaved } from "@ember/protocol/memberful";
 import { AccountLogo, STOCK_LOGO } from "@/components/account-logo";
@@ -49,6 +50,7 @@ import { EmberVersion } from "./ember-version";
 import { EmailSettings, sendsEmail } from "./email-settings";
 import { EmailSetup } from "./email-setup";
 import { HuddleRelay, HuddlesSettings, HuddleSwitches, HuddleVideo } from "./huddles-settings";
+import { MessageGrouping } from "./message-grouping-settings";
 import { HuddlesSetup } from "./huddles-setup";
 import { InviteByEmail } from "./invite-by-email";
 import { InviteLink } from "./invite-link";
@@ -340,6 +342,7 @@ export function WorkspaceSettingsPage({
   // A switch saves at once, with no notice after, then `settled` is called, as does huddles' video quality.
   const saveSwitch = (settings: AccountSettings, settled: () => void) => saveAtOnce({ settings }, settled);
   const saveHuddleVideo = (huddleVideo: HuddleVideoQuality, settled: () => void) => saveAtOnce({ huddleVideo }, settled);
+  const saveGrouping = (groupingMinutes: GroupingMinutes, settled: () => void) => saveAtOnce({ groupingMinutes }, settled);
   const saveAtOnce = (changes: AccountChanges, settled: () => void) => {
     const answered = askForAccount();
     changeAccount(changes).then(
@@ -565,6 +568,7 @@ export function WorkspaceSettingsPage({
                   Save changes
                 </SubmitButton>
               </form>
+              <MessageGrouping save={saveGrouping} />
             </>
           ) : (
             <>

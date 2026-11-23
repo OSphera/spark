@@ -1,5 +1,6 @@
 import { startTransition, useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { joinsWithLink, type Invitation, type Me, type User } from "@ember/protocol";
+import { groupingWindowMs } from "@ember/protocol/grouping";
 import { ArrowDown } from "@/components/icons/iconoir";
 import { useAccount } from "@/hooks/use-account";
 import { RefusedUnboosts, RoomConnection } from "@/hooks/use-room";
@@ -186,7 +187,8 @@ export function MessageList({
   // messages first, unless it's a permalink's, whose message goes in the middle.
   const [drawnAll, setDrawnAll] = useState(false);
   // Those only the reader sees show among the newest messages, which they came after, once the timeline holds them.
-  const items = timeline(state.messages, state.hasNewer ? [] : state.ephemeral);
+  const groupingMinutes = useAccount().groupingMinutes;
+  const items = timeline(state.messages, state.hasNewer ? [] : state.ephemeral, groupingWindowMs(groupingMinutes));
   const newestFirst = !drawnAll && !state.focus?.messageId && items.length > FIRST_DRAWN;
   const firstNew = newSince === null ? -1 : items.findIndex(({ message, ephemeral }) => !ephemeral && message.createdAt >= newSince && message.creator.id !== me.id);
   // A page that doesn't reach back before `newSince` may have older new messages before it that aren't loaded yet,

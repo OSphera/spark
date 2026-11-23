@@ -1,3 +1,4 @@
+import { DEFAULT_GROUPING_MINUTES } from "@ember/protocol/grouping";
 import { DurableObject } from "cloudflare:workers";
 import {
   ASSISTANT_ID,
@@ -511,6 +512,7 @@ const accountOf = (
     huddleCameras,
     huddleScreens,
     huddleVideo,
+    groupingMinutes,
     updatedAt,
     storedLogo,
   }: JoinableAccount,
@@ -539,6 +541,8 @@ const accountOf = (
   huddleCameras,
   huddleScreens,
   huddleVideo,
+  // Spark: only when an administrator chose another than the default, which pages assume (grouping.ts).
+  ...(groupingMinutes !== undefined && groupingMinutes !== DEFAULT_GROUPING_MINUTES && { groupingMinutes }),
 });
 
 /** The parts of the account that Ember AI's settings are made of. */
@@ -1591,7 +1595,7 @@ export class Workspace extends DurableObject<Env> {
    */
   async changeAccount(
     credentials: Credentials,
-    { name, tagline, settings, huddleVideo, customDomain, navigationIcons, emailFrom, emailDomains, blockedWords }: AccountChanges,
+    { name, tagline, settings, huddleVideo, groupingMinutes, customDomain, navigationIcons, emailFrom, emailDomains, blockedWords }: AccountChanges,
     host: string,
   ): Promise<Account | AccountRefusal | "forbidden" | null> {
     return this.administerAccount(credentials, async (account) => {
@@ -1624,6 +1628,7 @@ export class Workspace extends DurableObject<Env> {
         ...(huddleCameras !== undefined && huddleCameras !== account.huddleCameras && { huddleCameras }),
         ...(huddleScreens !== undefined && huddleScreens !== account.huddleScreens && { huddleScreens }),
         ...(huddleVideo !== undefined && huddleVideo !== account.huddleVideo && { huddleVideo }),
+        ...(groupingMinutes !== undefined && groupingMinutes !== account.groupingMinutes && { groupingMinutes }),
         ...(moving && { customDomain }),
         ...(!sameDomains(otherAddresses, account.otherAddresses) && { otherAddresses }),
         ...(joinLink !== undefined && joinLink !== account.joinLink && { joinLink }),

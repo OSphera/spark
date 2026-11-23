@@ -1134,14 +1134,14 @@ test.describe("Group messages by author", () => {
     await expect(ada.message("Grace replies").getByText("Grace", { exact: true })).toBeVisible();
   });
 
-  test("groups someone's messages up to five minutes apart, past midnight too, under the new day's date", async ({ members, participant }) => {
+  test("groups someone's messages up to two minutes apart, past midnight too, under the new day's date", async ({ members, participant }) => {
     const grace = await participant("Grace");
     const times = new Map<string, string>();
     for (const [text, at] of [
-      ["Before midnight", "2026-10-15T23:52:00Z"],
-      ["Five minutes on", "2026-10-15T23:57:00Z"],
-      ["Past midnight", "2026-10-16T00:02:00Z"],
-      ["Six minutes on", "2026-10-16T00:08:00Z"],
+      ["Before midnight", "2026-10-15T23:57:00Z"],
+      ["Two minutes on", "2026-10-15T23:59:00Z"],
+      ["Past midnight", "2026-10-16T00:01:00Z"],
+      ["Three minutes on", "2026-10-16T00:04:00Z"],
     ] as const) {
       times.set((await grace.say(text)).id, at);
     }
@@ -1149,9 +1149,9 @@ test.describe("Group messages by author", () => {
 
     const named = (text: string) => ada.message(text).getByText("Grace", { exact: true });
     await expect(named("Before midnight")).toBeVisible();
-    await expect(named("Five minutes on")).toHaveCount(0);
+    await expect(named("Two minutes on")).toHaveCount(0);
     await expect(named("Past midnight")).toHaveCount(0);
-    await expect(named("Six minutes on")).toBeVisible();
+    await expect(named("Three minutes on")).toBeVisible();
     await expect(separatorAbove(ada, "Past midnight")).toHaveText("October 16, 2026");
   });
 });
