@@ -50,7 +50,7 @@ import { EmberVersion } from "./ember-version";
 import { EmailSettings, sendsEmail } from "./email-settings";
 import { EmailSetup } from "./email-setup";
 import { HuddleRelay, HuddlesSettings, HuddleSwitches, HuddleVideo } from "./huddles-settings";
-import { MessageGrouping } from "./message-grouping-settings";
+import { MessageGroupingRow } from "./message-grouping-settings";
 import { HuddlesSetup } from "./huddles-setup";
 import { InviteByEmail } from "./invite-by-email";
 import { InviteLink } from "./invite-link";
@@ -181,6 +181,7 @@ export function WorkspaceSettingsPage({
   // changes saves them with the name.
   const [hidingTranslations, setHidingTranslations] = useState<boolean | null>(null);
   const [warning, setWarning] = useState<boolean | null>(null);
+  const [grouping, setGrouping] = useState<GroupingMinutes | null>(null);
   // Where each of Room order and permissions' switches was moved to, while that's saved.
   const [restricting, setRestricting] = useState<Partial<Record<Restriction, boolean>>>({});
   // Set up email, while it's open, with what to go on to once it closes with Ember able to send email.
@@ -285,7 +286,8 @@ export function WorkspaceSettingsPage({
     const hideTranslationButtons = hidingTranslations;
     const warnBeforeNotifying = warning;
     const moved = { ...(hideTranslationButtons !== null && { hideTranslationButtons }), ...(warnBeforeNotifying !== null && { warnBeforeNotifying }) };
-    changeAccount({ ...sent, ...(Object.keys(moved).length > 0 && { settings: moved }) }).then(
+    const groupingMinutes = grouping;
+    changeAccount({ ...sent, ...(Object.keys(moved).length > 0 && { settings: moved }), ...(groupingMinutes !== null && { groupingMinutes }) }).then(
       (account) => {
         answered(account);
         if (!mounted.current) return;
@@ -293,6 +295,7 @@ export function WorkspaceSettingsPage({
         // Unless they've been moved again since.
         setHidingTranslations((hiding) => (hiding === hideTranslationButtons ? null : hiding));
         setWarning((warn) => (warn === warnBeforeNotifying ? null : warn));
+        setGrouping((chosen) => (chosen === groupingMinutes ? null : chosen));
         setSettings((settings) => settings && { ...settings, account });
         // Each shows as it's kept, the tagline with no space at its ends, unless it's been typed over since.
         setTypedName((typed) => (typed === sent.name ? null : typed));
@@ -342,7 +345,6 @@ export function WorkspaceSettingsPage({
   // A switch saves at once, with no notice after, then `settled` is called, as does huddles' video quality.
   const saveSwitch = (settings: AccountSettings, settled: () => void) => saveAtOnce({ settings }, settled);
   const saveHuddleVideo = (huddleVideo: HuddleVideoQuality, settled: () => void) => saveAtOnce({ huddleVideo }, settled);
-  const saveGrouping = (groupingMinutes: GroupingMinutes, settled: () => void) => saveAtOnce({ groupingMinutes }, settled);
   const saveAtOnce = (changes: AccountChanges, settled: () => void) => {
     const answered = askForAccount();
     changeAccount(changes).then(
@@ -562,13 +564,13 @@ export function WorkspaceSettingsPage({
                       aria-describedby="mention-warning-description"
                     />
                   </div>
+                  <MessageGroupingRow saved={account.groupingMinutes} chosen={grouping} onChoose={setGrouping} />
                 </div>
                 {/* On a page of community settings, as wide as it needs, but at least 126px, at the form's end. */}
                 <SubmitButton disabled={saving} className="w-auto min-w-[126px] self-end">
                   Save changes
                 </SubmitButton>
               </form>
-              <MessageGrouping save={saveGrouping} />
             </>
           ) : (
             <>

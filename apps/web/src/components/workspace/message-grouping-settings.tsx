@@ -1,47 +1,32 @@
-import { useState } from "react";
 import { DEFAULT_GROUPING_MINUTES, GROUPING_MINUTES, GROUPING_NAMES, type GroupingMinutes } from "@ember/protocol/grouping";
-import { useAccount } from "@/hooks/use-account";
 
-// Spark (OSphera/spark#2): Message grouping, in Workspace settings beside the other room choices, which
-// saves at once, as huddles' Video quality does: how far apart someone's messages may be for the next to
-// show under the one before, without their name and avatar again.
-
-const CARD = "flex flex-col gap-3 rounded-[10px] border bg-surface px-[2ch] py-4 text-start max-md:px-3";
-const NOTE = "text-[0.8em] text-muted-foreground max-md:text-[12px]";
+// Spark (OSphera/spark#2): Message grouping, a row of General's preferences beside Warn before notifying,
+// saved with them by Save changes: how far apart someone's messages may be for the next to show under the
+// one before, without their name and avatar again.
 
 interface Props {
-  /** Saves the window chosen, then calls `settled`. */
-  save: (minutes: GroupingMinutes, settled: () => void) => void;
+  /** The window the workspace has, or absent for the default. */
+  saved: GroupingMinutes | undefined;
+  /** The window chosen and not yet saved, or null for none. */
+  chosen: GroupingMinutes | null;
+  onChoose: (minutes: GroupingMinutes) => void;
 }
 
-export function MessageGrouping({ save }: Props) {
-  const minutes = useAccount().groupingMinutes ?? DEFAULT_GROUPING_MINUTES;
-  // The window chosen, while that's saved.
-  const [chosen, setChosen] = useState<GroupingMinutes | null>(null);
-
-  const choose = (to: GroupingMinutes) => {
-    if (chosen !== null || to === minutes) return;
-    setChosen(to);
-    save(to, () => setChosen(null));
-  };
-
+export function MessageGroupingRow({ saved, chosen, onChoose }: Props) {
   return (
-    <section aria-labelledby="message-grouping-heading" className={CARD}>
-      <div>
-        <h2 id="message-grouping-heading" className="text-base font-semibold">
-          Message grouping
-        </h2>
-        <p id="message-grouping-description" className={NOTE}>
+    <div id="message-grouping-settings" className="flex items-center gap-x-[1ch] gap-y-4 rounded-[10px] border bg-surface p-5">
+      <div className="min-w-0 flex-1 text-start">
+        <div id="message-grouping-heading">Message grouping</div>
+        <p id="message-grouping-description" className="text-[0.8em] text-muted-foreground max-md:text-[12px]">
           Someone's messages this close together show as one, under their name once.
         </p>
       </div>
       <select
-        value={chosen ?? minutes}
-        disabled={chosen !== null}
-        onChange={(event) => choose(Number(event.target.value) as GroupingMinutes)}
+        value={chosen ?? saved ?? DEFAULT_GROUPING_MINUTES}
+        onChange={(event) => onChoose(Number(event.target.value) as GroupingMinutes)}
         aria-labelledby="message-grouping-heading"
         aria-describedby="message-grouping-description"
-        className="h-9 w-fit min-w-[18ch] rounded-md border bg-background px-2 text-sm disabled:opacity-60 touch:h-11 touch:text-base"
+        className="h-9 w-fit flex-none rounded-md border bg-background px-2 text-sm touch:h-11 touch:text-base"
       >
         {GROUPING_MINUTES.map((each) => (
           <option key={each} value={each}>
@@ -49,6 +34,6 @@ export function MessageGrouping({ save }: Props) {
           </option>
         ))}
       </select>
-    </section>
+    </div>
   );
 }
