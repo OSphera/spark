@@ -6,7 +6,7 @@ Spark is a group chat for small circles, run on your own Cloudflare account. It 
 
 ## With thanks
 
-Spark stands on other people's work, and we're grateful for it. Our deep thanks to [Kevin Rose](https://github.com/kropdx) and NYLLON for Ember, which Spark is built on, and for releasing it under the MIT License, which is what makes a fork like this possible at all. And our thanks to 37signals for [Campfire](https://github.com/basecamp/once-campfire), which Ember grew from, and which they also opened up under the MIT License. Most of Spark is still their work.
+Spark stands on other people's work, and we're grateful for it. Our deep thanks to [Kevin Rose](https://github.com/kropdx) and NYLLON for Ember, which Spark is built on, and for releasing it under the MIT License, which is what makes a fork like this possible at all. And our thanks to 37signals for [Campfire](https://github.com/basecamp/once-campfire), which Ember grew from, and which they also opened up under the MIT License. Thank you, truly.
 
 ## Start with an issue
 
