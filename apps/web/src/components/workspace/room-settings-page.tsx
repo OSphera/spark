@@ -6,7 +6,7 @@ import { useMounted } from "@/hooks/use-mounted";
 import { navigate, roomPath, roomSettingsPath, type Access } from "@/hooks/use-route";
 import { useTitle } from "@/hooks/use-title";
 import { Download, LogOut, Trash } from "@/components/icons/iconoir";
-import { ApiError, changeRoom, deleteRoom, fetchRoomSettings, isSignedOut, leaveRoom, roomExportPath } from "@/lib/api";
+import { ApiError, changeRoom, CONFIRM_LEAVE, deleteRoom, fetchRoomSettings, isSignedOut, leaveRoom, roomExportPath } from "@/lib/api";
 import type { RoomAnswer } from "@/lib/room-list";
 import { HuddlesContext } from "./huddle-button";
 import { AccessSwitch, CheckMark, RoomForm, withChoice } from "./room-form";
@@ -19,9 +19,6 @@ export const isMissing = (error: unknown) => error instanceof ApiError && error.
 
 /** What Delete asks first, in the browser's own dialog. */
 export const CONFIRM_DELETE = "Are you sure you want to delete this room and all messages in it? This can’t be undone.";
-
-/** What Leave asks first, in the browser's own dialog. */
-export const CONFIRM_LEAVE = "Are you sure you want to leave this room? Only someone in it who can change it can add you back.";
 
 const membersOf = (settings: RoomSettings) => new Set(settings.people.flatMap((person) => (person.member ? [person.id] : [])));
 
@@ -87,6 +84,9 @@ export function RoomSettingsPage({ roomId, access, me, askForRoom, onMissing, on
   // The form the page opened on, which the Everyone switch can move away from and back to, or the one
   // last saved.
   const [opened, setOpened] = useState(access);
+  // How many times saving or deleting the room has started here, so that settings loaded again before
+  // one neither undo what it saves nor speak for it.
+  const changesStarted = useRef(0);
   const roomForm = useRef<HTMLFormElement>(null);
   const mounted = useMounted();
   useTitle(settings && `Edit settings for ${settings.room.name}`);
@@ -149,6 +149,7 @@ export function RoomSettingsPage({ roomId, access, me, askForRoom, onMissing, on
     const changes: RoomChanges = access === "open" ? { ...kept, kind: access } : { ...kept, kind: access, memberIds: [...chosen] };
     const leaving = access === "closed" && !chosen.has(me.id);
     const answered = askForRoom();
+    changesStarted.current++;
     return changeRoom(roomId, changes).then((room) => {
       answered(leaving ? { type: "gone", roomId: room.id } : { type: "saved", room });
       // An open room takes in everyone.
@@ -169,11 +170,42 @@ export function RoomSettingsPage({ roomId, access, me, askForRoom, onMissing, on
     }, failed);
   };
 
+  /**
+   * Once the unsaved changes dialog has saved the room with a new section and the page stays, as it does
+   * when signing out fails, the section shows by its name, as the menu then lists it, rather than as one
+   * still to make: the settings load again for it, since what saving answers is the room alone.
+   */
+  const showSectionMade = () => {
+    if (typeof section !== "object" || section === null) return;
+    const made = section;
+    const asked = changesStarted.current;
+    // Once the room is being saved or deleted again, what these settings say is from before that, and how
+    // it goes is that change's to say.
+    const outrun = () => !mounted.current || changesStarted.current !== asked;
+    fetchRoomSettings(roomId).then(
+      (loaded) => {
+        if (outrun()) return;
+        setSettings((settings) => settings && { ...settings, sections: loaded.sections });
+        const sectionId = loaded.section?.id ?? null;
+        setSavedSection(sectionId);
+        // Unless another has been picked since.
+        setSection((picked) => (sameSection(picked, made) ? sectionId : picked));
+      },
+      (error: unknown) => {
+        // As ever, a session that's ended goes to sign in, from any page.
+        if (outrun() && !isSignedOut(error)) return;
+        if (isMissing(error)) onMissing();
+        else onFailed(error);
+      },
+    );
+  };
+
   /** Once `question` is confirmed, has `go` take the room from this person, then from the sidebar. */
   const goOnceConfirmed = (question: string, go: (roomId: RoomId) => Promise<void>) => {
     if (!confirm(question)) return;
     setBusy(true);
     const answered = askForRoom();
+    changesStarted.current++;
     go(roomId).then(() => {
       answered({ type: "gone", roomId });
       // Gone, it goes home, with no alert.
@@ -260,7 +292,7 @@ export function RoomSettingsPage({ roomId, access, me, askForRoom, onMissing, on
           <DeleteButton label={`Delete ${settings.room.name}`} text={settings.room.name} disabled={busy} onClick={() => goOnceConfirmed(CONFIRM_DELETE, deleteRoom)} />
         </Panel>
       )}
-      <UnsavedChanges changed={changed} stays={stays} onSave={send} form={roomForm} />
+      <UnsavedChanges changed={changed} stays={stays} onSave={send} onStayAfterSave={showSectionMade} form={roomForm} />
     </SettingsPage>
   );
 }
