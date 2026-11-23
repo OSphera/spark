@@ -146,8 +146,8 @@ describe("Checking for a newer release", () => {
     }
   });
 
-  it("names a beta for its release, as 0.5 beta 1, and a release without its trailing .0", () => {
-    expect(["0.5.0-beta.1", "0.5.1-beta.12", "1.0.0", "0.10.0", "0.4.2", "0.5.10"].map(releaseNameOf)).toEqual(["0.5 beta 1", "0.5.1 beta 12", "1.0", "0.10", "0.4.2", "0.5.10"]);
+  it("names a release with all three numbers, and a beta for its release, as 0.5.0 beta 1", () => {
+    expect(["0.5.0-beta.1", "0.5.1-beta.12", "1.0.0", "0.10.0", "0.4.2", "0.5.10"].map(releaseNameOf)).toEqual(["0.5.0 beta 1", "0.5.1 beta 12", "1.0.0", "0.10.0", "0.4.2", "0.5.10"]);
     expect(["0.5.0-beta.1", "0.5.0", "0.5.0-rc.1"].map(isBeta)).toEqual([true, false, false]);
   });
 

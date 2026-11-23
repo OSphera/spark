@@ -42,9 +42,9 @@ describe("Rail", () => {
   });
 
   it("shows Spark's version plainly, just above Pause notifications, at the labels' size", () => {
-    render(<Rail me={ada} workspaceName="Analytical Engines" version="1.0" current="home" activity={activityOff} newRelease={null} onNewDirect={() => {}} askForPause={() => () => {}} onFailed={() => {}} />);
-    const version = screen.getByText("1.0", { exact: false });
-    expect(version).toHaveTextContent(/^Spark version 1\.0$/);
+    render(<Rail me={ada} workspaceName="Analytical Engines" version="1.0.0" current="home" activity={activityOff} newRelease={null} onNewDirect={() => {}} askForPause={() => () => {}} onFailed={() => {}} />);
+    const version = screen.getByText("1.0.0", { exact: false });
+    expect(version).toHaveTextContent(/^Spark version 1\.0\.0$/);
     expect(version).toHaveClass("text-[11px]");
     const pause = screen.getByRole("button", { name: "Pause notifications" });
     expect(version.compareDocumentPosition(pause) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
