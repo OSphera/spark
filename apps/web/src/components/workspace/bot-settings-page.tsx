@@ -12,7 +12,7 @@ import { BOTS_PATH, navigate } from "@/hooks/use-route";
 import { useTitle } from "@/hooks/use-title";
 import { changeBot, createBot, deleteBot, fetchBot, isSignedOut, resetBotKey } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { CHOICE, roomsToPick } from "./agent-page";
+import { CHOICE, roomsToPick } from "./bot-rooms";
 import { PostingCommands, useAdministratorsOnly } from "./bots-page";
 import { DeleteButton, isMissing, NEGATIVE_BUTTON } from "./room-settings-page";
 import { PageHeading, Panel, SettingsPage } from "./settings-page";

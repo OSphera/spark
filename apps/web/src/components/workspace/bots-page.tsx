@@ -10,7 +10,7 @@ import { useTitle } from "@/hooks/use-title";
 import { ApiError, fetchBots, isSignedOut } from "@/lib/api";
 import { byName } from "@/lib/people";
 import { cn } from "@/lib/utils";
-import { roomNames } from "./agent-list";
+import { roomNames } from "./bot-rooms";
 import { CopyButton, ROUND_BUTTON } from "./link-buttons";
 import { PersonalAgentsSettings } from "./personal-agents-settings";
 import { Panel, SECTION_HEADING, SettingsPage, TITLE, TITLE_LINK } from "./settings-page";

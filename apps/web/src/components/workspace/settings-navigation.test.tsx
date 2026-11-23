@@ -79,14 +79,14 @@ describe("Community settings page", () => {
     expect(scrolled).not.toHaveBeenCalled();
   });
 
-  it("puts workspace settings, the room forms, the bot and agent pages and Custom styles in their sections, and no other page", () => {
+  it("puts workspace settings, the room forms, the bot pages and Custom styles in their sections, and no other page", () => {
     const sections: [string, SettingsSection | null][] = [
       ["/account/edit", "community-settings"],
       ["/account/edit#community-settings", "community-settings"],
       ["/account/edit#channel-settings", "channel-settings"],
       ["/account/edit#membership-settings", "membership-settings"],
       ["/account/edit#domain-settings", "domain-settings"],
-      ["/account/edit#assistant-settings", "assistant-settings"],
+      ["/account/edit#assistant-settings", "community-settings"],
       ["/account/edit#huddles-settings", "huddles-settings"],
       ["/account/edit#nowhere", "community-settings"],
       ["/rooms/opens/new", "channel-settings"],
@@ -96,12 +96,9 @@ describe("Community settings page", () => {
       ["/account/bots", "chat-bots"],
       ["/account/bots/new", "chat-bots"],
       ["/account/bots/b1/edit", "chat-bots"],
-      ["/account/agents/new", "assistant-settings"],
-      ["/account/agents/a1/edit", "assistant-settings"],
-      ["/account/agents/ember/edit", "assistant-settings"],
-      ["/account/apps/new", "assistant-settings"],
-      ["/account/apps/p1/edit", "assistant-settings"],
-      ["/account/apps/signed-in", "assistant-settings"],
+      ["/account/agents/new", null],
+      ["/account/agents/ember/edit", null],
+      ["/account/apps/p1/edit", null],
       ["/account/custom_styles/edit", "custom-styles"],
       ["/rooms/general", null],
       ["/rooms/directs/d1/edit", null],
@@ -127,33 +124,27 @@ describe("Chat bots page", () => {
     const { rerender } = render(<SettingsNavigation section="chat-bots" administrator />);
     expect(screen.getByRole("link", { name: "Chat bots" })).toHaveAttribute("href", "/account/bots");
     expect(current()).toHaveTextContent("Chat bots");
-    expect(links().map((link) => link.textContent)).toEqual(["General", "Rooms and permissions", "Membership", "Domain settings", "Chat bots", "AI assistant", "Huddles", "Custom styles"]);
+    expect(links().map((link) => link.textContent)).toEqual(["General", "Rooms and permissions", "Membership", "Domain settings", "Chat bots", "Huddles", "Custom styles"]);
     rerender(<SettingsNavigation section="community-settings" administrator={false} />);
     expect(screen.queryByRole("link", { name: "Chat bots" })).not.toBeInTheDocument();
   });
 });
 
-describe("Ember AI", () => {
-  it("links administrators to AI assistant, after Chat bots, and members not at all", () => {
-    const { rerender } = render(<SettingsNavigation section="assistant-settings" administrator />);
-    const assistant = screen.getByRole("link", { name: "AI assistant" });
-    expect(assistant).toHaveAttribute("href", "/account/edit#assistant-settings");
-    expect(assistant.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
-    expect(links()[links().indexOf(screen.getByRole("link", { name: "Chat bots" })) + 1]).toBe(assistant);
-    expect(current()).toBe(assistant);
-    rerender(<SettingsNavigation section="community-settings" administrator={false} />);
+describe("Spark without Ember AI (OSphera/spark#4)", () => {
+  it("links nobody to AI assistant", () => {
+    render(<SettingsNavigation section="community-settings" administrator />);
     expect(screen.queryByRole("link", { name: "AI assistant" })).not.toBeInTheDocument();
   });
 });
 
 describe("Set up huddles", () => {
-  it("links administrators to Huddles, after AI assistant, under the huddle's headset, and members not at all", () => {
+  it("links administrators to Huddles, after Chat bots, under the huddle's headset, and members not at all", () => {
     const { rerender } = render(<SettingsNavigation section="huddles-settings" administrator />);
     const huddles = screen.getByRole("link", { name: "Huddles" });
     expect(huddles).toHaveAttribute("href", "/account/edit#huddles-settings");
     expect(huddles.querySelector("svg")).toHaveClass("iconoir-headset");
     expect(huddles.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
-    expect(links()[links().indexOf(screen.getByRole("link", { name: "AI assistant" })) + 1]).toBe(huddles);
+    expect(links()[links().indexOf(screen.getByRole("link", { name: "Chat bots" })) + 1]).toBe(huddles);
     expect(current()).toBe(huddles);
     expect(workspaceSectionOf("#huddles-settings")).toBe("huddles-settings");
     rerender(<SettingsNavigation section="community-settings" administrator={false} />);

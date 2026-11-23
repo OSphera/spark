@@ -1,6 +1,6 @@
 import { useContext, useId, useMemo, type MouseEvent, type ReactNode } from "react";
 import type { Favorites, LiveHuddle, Me, RoomId, Section, SidebarRoom, SidebarSection, UserId } from "@ember/protocol";
-import { ChatPlusIn, Headset, NavArrowDown, NavArrowRight, StarSolid } from "@/components/icons/iconoir";
+import { ChatPlusIn, Headset, NavArrowDown, StarSolid } from "@/components/icons/iconoir";
 import { RoomIcon } from "@/components/icons/room-icon";
 import { PageLink } from "@/components/page-link";
 import { useAccount } from "@/hooks/use-account";
@@ -70,15 +70,9 @@ interface Props {
   currentRoomId: string | null;
   /** Whether Activity is on, which shows only the rows marked unread. */
   unreadOnly: boolean;
-  /** How many AI agents they can ask, which Available Agents says, under the DMs, while there are any. */
-  agents: number;
-  /** Whether Available Agents is open. */
-  agentsOpen: boolean;
   onSelect: (roomId: string) => void;
   /** Opens New direct message, which the DMs heading's link does in place, from the link that opened it. */
   onNewDirect: (opener: HTMLElement) => void;
-  /** Opens Available Agents, from the row that says how many there are. */
-  onOpenAgents: (opener: HTMLElement) => void;
   /** Called with this person's stars as the server answers them, once a new order for them is saved. */
   onStarred: (favorites: Favorites) => void;
   /** Called with null when the session has expired. */
@@ -105,9 +99,7 @@ interface Props {
  * away, by a dot on their avatar. A room marked unread is bold with a dot at the end of its row, a DM with how many messages
  * have come since in place of the dot, and either with a huddle going on ends its row with who's in it.
  * With Activity on, only the unread rows show, and with none it says everything's read; with it off and
- * nothing to list, it says it found nothing. Under them all, Available Agents says how many AI agents
- * this person can ask, and opens the list of them, as the project's owner chose (2026-11-15), unless
- * there are none, or Activity is on, which leaves Huddles out too.
+ * nothing to list, it says it found nothing. (Spark removed Available Agents, OSphera/spark#4.)
  */
 export function Sidebar({
   workspaceName,
@@ -121,11 +113,8 @@ export function Sidebar({
   onHuddles,
   currentRoomId,
   unreadOnly,
-  agents,
-  agentsOpen,
   onSelect,
   onNewDirect,
-  onOpenAgents,
   onStarred,
   onSessionChanged,
 }: Props) {
@@ -269,7 +258,6 @@ export function Sidebar({
       {empty && (
         <p className="px-[9px] text-[13px] text-muted-foreground">{unreadOnly ? "You’re all caught up. No unread conversations." : "No conversations found."}</p>
       )}
-      {agents > 0 && !unreadOnly && <AgentsRow count={agents} open={agentsOpen} onOpen={onOpenAgents} />}
     </div>
   );
 }
@@ -334,32 +322,6 @@ function HuddlesRow({ current, goingOn }: { current: boolean; goingOn: number })
         </span>
       )}
     </PageLink>
-  );
-}
-
-/**
- * Available Agents: a heading, as the DMs' is, that's a button, with how many AI agents this person can
- * ask on a pill, as the Agent badge's is, and an arrow, since it opens the list of them.
- */
-function AgentsRow({ count, open, onOpen }: { count: number; open: boolean; onOpen: (opener: HTMLElement) => void }) {
-  return (
-    <section aria-label="Agents" className="flex flex-col">
-      <button
-        type="button"
-        // Named in one piece, since a browser reads a space between the parts of a row laid out as this one is.
-        aria-label={`Available Agents, ${count} to ask`}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={(event) => onOpen(event.currentTarget)}
-        className="flex min-h-7 w-full cursor-pointer items-center gap-2 rounded-lg px-[9px] text-start text-xs font-medium text-muted-foreground touch:min-h-11 hover:bg-hover hover:text-foreground aria-expanded:bg-hover aria-expanded:text-foreground"
-      >
-        <span>Available Agents</span>
-        <span aria-hidden="true" className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-foreground/8 px-1.5 text-[11px] leading-none font-semibold tabular-nums text-message-muted">
-          {count}
-        </span>
-        <NavArrowRight className="ml-auto size-[15px]" />
-      </button>
-    </section>
   );
 }
 

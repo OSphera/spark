@@ -186,7 +186,6 @@ function serve({
     }
     if (!signedIn) return Response.json({ error: "Not signed in" }, { status: 401 });
     if (route === "GET /api/me") return Response.json({ user: me });
-    if (route === "POST /api/outside/asks") return Response.json({ name: "Claude", comesBackTo: "claude.example", workspace: account.name, scopes: ["read"] });
     if (route === "GET /api/account")
       return Response.json({
         account,
@@ -1133,27 +1132,14 @@ describe("Reset a forgotten password with an emailed code", () => {
   });
 });
 
-describe("Connecting an AI app", () => {
-  const REQUEST = "/oauth/authorize?response_type=code&client_id=0mgk3x2a9b4c70&state=5f2c01";
-
-  it("asks whether to connect the app whose request the address carries, in place of the workspace", async () => {
-    history.replaceState(null, "", REQUEST);
+describe("Spark without Outside AI (OSphera/spark#4)", () => {
+  it("asks nothing about connecting an AI app at the address its requests came to", async () => {
+    history.replaceState(null, "", "/oauth/authorize?response_type=code&client_id=0mgk3x2a9b4c70&state=5f2c01");
     const fetch = serve({ signedIn: true });
     render(<App />);
-    expect(await screen.findByRole("heading", { level: 1, name: "Connect Claude to Ember?" })).toBeVisible();
-    expect(fetch).toHaveBeenCalledWith("/api/outside/asks", expect.objectContaining({ method: "POST" }));
-    expect(screen.queryAllByRole("link", { name: "Your profile" })).toEqual([]);
-    expect(`${location.pathname}${location.search}`).toBe(REQUEST);
-  });
-
-  it("has someone signed out sign in first, and comes back to the request", async () => {
-    history.replaceState(null, "", REQUEST);
-    serve({ signedIn: false });
-    render(<App />);
-    await signInPage();
-    await signInAsAda();
-    expect(await screen.findByRole("heading", { level: 1, name: "Connect Claude to Ember?" })).toBeVisible();
-    expect(`${location.pathname}${location.search}`).toBe(REQUEST);
+    await waitFor(() => expect(fetch).toHaveBeenCalled());
+    expect(screen.queryByRole("heading", { level: 1, name: /^Connect .* to Ember\?$/ })).not.toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalledWith("/api/outside/asks", expect.anything());
   });
 });
 

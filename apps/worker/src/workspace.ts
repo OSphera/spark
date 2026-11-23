@@ -6435,7 +6435,10 @@ export class Workspace extends DurableObject<Env> {
    * them there, so that what's on its way stops.
    */
   async answererIn(roomId: RoomId, botId: UserId, askerId: UserId): Promise<AssistantAccess | null> {
-    return botId === ASSISTANT_ID ? this.assistantIn(roomId, askerId) : this.agentIn(roomId, botId, askerId);
+    // Spark (OSphera/spark#4): Ember AI is always off, so nothing answers, goes on from a tool's call, or
+    // calls an app's tool from a card, whatever the saved settings say. Layer 2 deletes what's below.
+    void [roomId, botId, askerId];
+    return null;
   }
 
   /**

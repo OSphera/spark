@@ -18,7 +18,6 @@ import {
   type ProfileChanges,
   type SidebarRoom,
 } from "@ember/protocol";
-import { MODEL_NOT_LISTED, type YourAssistant, type YourAssistantChanged, type YourAssistantChanges } from "@ember/protocol/assistant";
 import { MEMBERFUL_WITH_SSO, SSO_CONNECTIONS_PATH, SSO_DISCONNECTED_NOTICE, SSO_WITH_MEMBERFUL, type SsoStatus } from "@ember/protocol/sso";
 import type { HuddleSounds, HuddleSoundsChanged } from "@ember/protocol/huddles";
 import { FlashProvider } from "@/components/flash";
@@ -31,9 +30,7 @@ import { navigate } from "@/hooks/use-route";
 import { CHROME_MAC, SAFARI_MAC } from "@/test-platforms";
 import { pauseEndLabel } from "@/lib/notifications-pause";
 import { PUSH_ON } from "@/test-push";
-import { DEFAULT_MODEL_EXPLAINED } from "./answer-levels";
 import { AVATAR_CHANGED, ProfilePage } from "./profile-page";
-import { NOTHING_CONNECTED } from "./your-outside-ai";
 
 vi.mock("@/lib/previews", () => ({ avatarVariantOf: vi.fn(async () => new Blob(["variant"], { type: "image/webp" })) }));
 
@@ -41,14 +38,6 @@ const ada = { id: "u1", name: "Ada Lovelace", administrator: false };
 /** Ada's avatar as the profile loads it: her initials, until she uploads one. */
 const INITIALS = "/users/t0k3n/avatar?v=1";
 const profile: Profile = { name: "Ada Lovelace", username: null, emailAddress: "ada@example.com", bio: "Wrote the first program", avatarUrl: INITIALS, avatar: false, password: true, membershipNeeded: true, memberful: null, sso: null, assistant: null, apps: [], outsideAi: null };
-/** Ada's levels of @ember's dials while Ember AI is on: where they start, up to Medium thinking, with the one model people can pick, which she leaves to administrators. */
-const LEVELS: YourAssistant = {
-  levels: { thinking: "low", length: "medium" },
-  most: { thinking: "medium", length: "long" },
-  model: null,
-  defaultModel: "@cf/zai-org/glm-4.7-flash",
-  models: [{ id: "@cf/zai-org/glm-4.7-flash", name: "GLM-4.7 Flash", format: "chat" }],
-};
 const account: Account = { name: "Analytical Engines", tagline: "", hideTranslationButtons: true, customStyles: "", restrictRoomCreation: false, restrictChannelMentions: false, restrictEveryoneMention: false, warnBeforeNotifying: true, logo: null, customDomain: null, joinLink: true, openSignUp: false, memberfulJoin: false, memberfulSignIn: false, ssoJoin: false, ssoSignIn: false, emailDomainSignUp: false, emailDomains: [], navigationIcons: {}, huddles: false, huddleCameras: true, huddleScreens: true, huddleVideo: "hd" };
 /** The sign-in links loading and saving the profile give. */
 const [LOADED_LINK, SAVED_LINK] = ["u1.mgk3x2a9.loaded", "u1.mgk3x2b0.saved"];
@@ -60,8 +49,6 @@ interface Answers {
   saved?: () => Response | Promise<Response>;
   /** What saving an avatar answers, rather than the profile with an avatar. */
   uploaded?: () => Response | Promise<Response>;
-  /** What changing your model or levels of @ember's dials answers, rather than `LEVELS` with the changes sent. */
-  leveled?: (changes: YourAssistantChanges) => Response | Promise<Response>;
   /** What disconnecting your Memberful account answers, rather than the profile with none connected. */
   disconnected?: () => Response | Promise<Response>;
   /** What disconnecting your account at the single sign-on provider answers, rather than the profile with none connected. */
@@ -85,7 +72,6 @@ function serve({
   loaded = () => Response.json({ profile, transferId: LOADED_LINK } satisfies ProfileAnswer),
   saved,
   uploaded = () => Response.json({ profile: { ...profile, avatarUrl: UPLOADED, avatar: true }, transferId: SAVED_LINK } satisfies ProfileAnswer),
-  leveled,
   disconnected = () => Response.json({ profile: { ...profile, memberful: NOT_CONNECTED }, transferId: SAVED_LINK } satisfies ProfileAnswer),
   ssoDisconnected = () => Response.json({ profile: { ...profile, sso: SSO_NOT_CONNECTED }, transferId: SAVED_LINK } satisfies ProfileAnswer),
 }: Answers = {}) {
@@ -100,10 +86,6 @@ function serve({
       }
       case `PUT ${AVATAR_PATH}`:
         return uploaded();
-      case "PATCH /api/users/me/assistant": {
-        const changes = JSON.parse(String(init?.body)) as YourAssistantChanges;
-        return leveled ? leveled(changes) : Response.json({ assistant: { ...LEVELS, levels: { ...LEVELS.levels, ...changes } } } satisfies YourAssistantChanged);
-      }
       case `DELETE ${AVATAR_PATH}`:
         return Response.json({ profile: { ...profile, avatarUrl: "/users/t0k3n/avatar?v=3" }, transferId: SAVED_LINK } satisfies ProfileAnswer);
       case `DELETE ${MEMBERFUL_CONNECTIONS_PATH}`:
@@ -968,211 +950,14 @@ describe("Connect single sign-on", () => {
   });
 });
 
-describe("Ember AI on your profile", () => {
-  const section = () => screen.queryByRole("region", { name: "Ember AI" });
-  const dial = (name: string) => within(section()!).getByRole("group", { name });
-  const level = (dialName: string, name: string) => within(dial(dialName)).getByRole("radio", { name });
-  const withLevels = () => serve({ loaded: () => Response.json({ profile: { ...profile, assistant: LEVELS }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-
-  it("has your levels of @ember's dials while Ember AI is on, between the form and your rooms' levels, none above the most allowed", async () => {
-    withLevels();
-    const { showRooms } = showPage();
-    await loaded();
-    showRooms([{ id: "design", name: "Design", kind: "open", icon: null, unread: false, involvement: "mentions" }]);
-    expect(section()).toHaveTextContent("How much @ember thinks before it answers you, and how long its answers are, up to the most an administrator allows.");
-    expect(level("Thinking", "Low")).toBeChecked();
-    expect(dial("Thinking")).toHaveAccessibleDescription("Thinks a little first, up to about 4,000 tokens.");
-    for (const name of ["Off", "Low", "Medium"]) expect(level("Thinking", name)).toBeEnabled();
-    expect(level("Thinking", "High")).toBeDisabled();
-    expect(level("Answer length", "Medium")).toBeChecked();
-    expect(dial("Answer length")).toHaveAccessibleDescription("About 400 words.");
-    expect(level("Answer length", "Long")).toBeEnabled();
-    expect(saveButton().compareDocumentPosition(section()!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(section()!.compareDocumentPosition(screen.getByRole("list", { name: "Conversation notifications" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-  });
-
-  it("saves a level as soon as it's chosen, showing it meanwhile", async () => {
-    withLevels();
-    const { user } = showPage();
-    await loaded();
-    await user.click(level("Thinking", "Medium"));
-    expect(level("Thinking", "Medium")).toBeChecked();
-    await waitFor(() => expect(level("Thinking", "Off")).toBeEnabled());
-    expect(level("Thinking", "Medium")).toBeChecked();
-    expect(dial("Thinking")).toHaveAccessibleDescription("Thinks more first, up to about 16,000 tokens.");
-    await user.click(level("Answer length", "Long"));
-    await waitFor(() => expect(level("Answer length", "Long")).toBeChecked());
-    const sent = vi.mocked(fetch).mock.calls.filter(([path]) => path === "/api/users/me/assistant").map(([, init]) => [init?.method, JSON.parse(String(init?.body))]);
-    expect(sent).toEqual([["PATCH", { thinking: "medium" }], ["PATCH", { length: "long" }]]);
-  });
-
-  it("says why a level wasn't saved, showing it as it was", async () => {
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, assistant: LEVELS }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      leveled: () => Response.json({ error: "Choose a level the dial has." }, { status: 422 }),
-    });
-    const { user, onFailed } = showPage();
-    await loaded();
-    await user.click(level("Thinking", "Off"));
-    await waitFor(() => expect(onFailed).toHaveBeenCalledOnce());
-    expect(level("Thinking", "Low")).toBeChecked();
-    expect(level("Thinking", "Off")).toBeEnabled();
-  });
-
-  it("keeps the levels a dial saved when a save of the profile answers after it, with your levels from before", async () => {
-    let answer = (_: Response) => {};
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, assistant: LEVELS }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      saved: () => new Promise((resolve) => (answer = resolve)),
-    });
-    const { user } = showPage();
-    await loaded();
-    await user.type(field("Name"), " King");
-    await user.click(saveButton());
-    await user.click(level("Thinking", "Medium"));
-    await waitFor(() => expect(level("Thinking", "Off")).toBeEnabled());
-
-    await act(async () => answer(Response.json({ profile: { ...profile, name: "Ada Lovelace King", assistant: LEVELS }, transferId: SAVED_LINK } satisfies ProfileAnswer)));
-    await waitFor(() => expect(saveButton()).toBeEnabled());
-    expect(level("Thinking", "Medium")).toBeChecked();
-  });
-
-  it("has none once Ember AI is turned off, as a save says", async () => {
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, assistant: LEVELS }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      leveled: () => Response.json({ assistant: null } satisfies YourAssistantChanged),
-    });
-    const { user } = showPage();
-    await loaded();
-    await user.click(level("Answer length", "Short"));
-    await waitFor(() => expect(section()).not.toBeInTheDocument());
-  });
-
-  it("has none while Ember AI is off", async () => {
+describe("Spark without AI on your profile (OSphera/spark#4)", () => {
+  it("shows no answer levels, apps or AI apps, even when the profile names them", async () => {
+    const assistant = { levels: { thinking: "low", length: "medium" }, most: { thinking: "medium", length: "long" }, model: null, defaultModel: "@cf/zai-org/glm-4.7-flash", models: [] };
+    const apps = [{ id: "0mgk3x2a9b4c70", name: "Linear", signedInAt: null, ended: false, wantsMore: false }];
+    serve({ loaded: () => Response.json({ profile: { ...profile, assistant, apps, outsideAi: [] }, transferId: LOADED_LINK } as ProfileAnswer) });
     showPage();
     await loaded();
-    expect(section()).not.toBeInTheDocument();
-  });
-
-  it("has no Model menu while people can pick only the one model", async () => {
-    withLevels();
-    showPage();
-    await loaded();
-    expect(within(section()!).queryByRole("combobox")).not.toBeInTheDocument();
-  });
-});
-
-describe("Your model on your profile", () => {
-  const section = () => screen.getByRole("region", { name: "Ember AI" });
-  const menu = () => within(section()).getByRole("combobox", { name: "Model" });
-  /** Ada's model and levels while administrators let people pick from three models, Claude Sonnet 5.5 hers. */
-  const PICKING: YourAssistant = {
-    ...LEVELS,
-    model: "anthropic/claude-sonnet-5.5",
-    models: [
-      { id: "@cf/zai-org/glm-4.7-flash", name: "GLM-4.7 Flash", format: "chat" },
-      { id: "anthropic/claude-sonnet-5.5", name: "Claude Sonnet 5.5", format: "messages" },
-      { id: "openai/gpt-6.1-sol", name: "GPT-6.1 Sol", format: "responses" },
-    ],
-  };
-  const picking = (leveled?: Answers["leveled"]) =>
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, assistant: PICKING }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      leveled:
-        leveled ?? (({ model, ...levels }) => Response.json({ assistant: { ...PICKING, model: model === undefined ? PICKING.model : model, levels: { ...PICKING.levels, ...levels } } })),
-    });
-
-  it("has a Model menu of Default, naming the administrators' choice, then the models they let people pick, set at yours", async () => {
-    picking();
-    showPage();
-    await loaded();
-    expect(section()).toHaveTextContent(
-      "Which model @ember answers you with, how much it thinks first, and how long its answers are, up to the most an administrator allows.",
-    );
-    expect(within(menu()).getAllByRole("option").map((option) => option.textContent)).toEqual(["Default (GLM-4.7 Flash)", "GLM-4.7 Flash", "Claude Sonnet 5.5", "GPT-6.1 Sol"]);
-    expect(menu()).toHaveValue("anthropic/claude-sonnet-5.5");
-    expect(menu()).toHaveAccessibleDescription(DEFAULT_MODEL_EXPLAINED);
-    expect(menu().compareDocumentPosition(within(section()).getByRole("group", { name: "Thinking" }))).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-  });
-
-  it("is set at Default while you leave your model to administrators", async () => {
-    serve({ loaded: () => Response.json({ profile: { ...profile, assistant: { ...PICKING, model: null } }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    showPage();
-    await loaded();
-    expect(menu()).toHaveValue("");
-    expect(within(menu()).getByRole("option", { selected: true })).toHaveTextContent("Default (GLM-4.7 Flash)");
-  });
-
-  it("saves a model as soon as it's picked, Default as following the administrators' choice, and their model picked by name as yours", async () => {
-    picking();
-    const { user } = showPage();
-    await loaded();
-    await user.selectOptions(menu(), "GPT-6.1 Sol");
-    expect(menu()).toHaveValue("openai/gpt-6.1-sol");
-    await waitFor(() => expect(menu()).toBeEnabled());
-    await user.selectOptions(menu(), "Default (GLM-4.7 Flash)");
-    expect(menu()).toHaveValue("");
-    await waitFor(() => expect(menu()).toBeEnabled());
-    // The model administrators chose, picked by name, stays yours once they choose another.
-    await user.selectOptions(menu(), "GLM-4.7 Flash");
-    await waitFor(() => expect(menu()).toBeEnabled());
-    expect(menu()).toHaveValue("@cf/zai-org/glm-4.7-flash");
-    const sent = vi.mocked(fetch).mock.calls.filter(([path]) => path === "/api/users/me/assistant").map(([, init]) => JSON.parse(String(init?.body)));
-    expect(sent).toEqual([{ model: "openai/gpt-6.1-sol" }, { model: null }, { model: "@cf/zai-org/glm-4.7-flash" }]);
-  });
-
-  it("offers only the levels of thinking your model took when it was added, saying which it can't be set to, and each for one that took none, which decides itself", async () => {
-    let yours: YourAssistant = {
-      ...PICKING,
-      model: "openai/gpt-6.1-sol",
-      levels: { thinking: "off", length: "medium" },
-      models: [
-        { id: "@cf/zai-org/glm-4.7-flash", name: "GLM-4.7 Flash", format: "chat" },
-        { id: "openai/gpt-6.1-sol", name: "GPT-6.1 Sol", format: "responses", thinkingLevels: ["low", "medium", "high"] },
-        { id: "xai/grok-4.20-0309-reasoning", name: "Grok 4.20 Reasoning", format: "chat", thinkingLevels: [] },
-      ],
-    };
-    serve({
-      loaded: () => Response.json({ profile: { ...profile, assistant: yours }, transferId: LOADED_LINK } satisfies ProfileAnswer),
-      leveled: ({ model, ...levels }) => {
-        yours = { ...yours, model: model === undefined ? yours.model : model, levels: { ...yours.levels, ...levels } };
-        return Response.json({ assistant: yours } satisfies YourAssistantChanged);
-      },
-    });
-    const { user } = showPage();
-    await loaded();
-    const thinking = () => within(section()).getByRole("group", { name: "Thinking" });
-    const level = (name: string) => within(thinking()).getByRole("radio", { name });
-
-    expect(level("Off")).toBeChecked();
-    expect(level("Off")).toBeDisabled();
-    for (const name of ["Low", "Medium"]) expect(level(name)).toBeEnabled();
-    expect(level("High")).toBeDisabled();
-    expect(thinking()).toHaveAccessibleDescription("GPT-6.1 Sol can't be set to Off, so it thinks at Low instead.");
-    await user.click(level("Low"));
-    await waitFor(() => expect(menu()).toBeEnabled());
-    expect(thinking()).toHaveAccessibleDescription("Thinks a little first, up to about 4,000 tokens. GPT-6.1 Sol can't be set to Off.");
-
-    await user.selectOptions(menu(), "Grok 4.20 Reasoning");
-    await waitFor(() => expect(menu()).toBeEnabled());
-    for (const name of ["Off", "Low", "Medium"]) expect(level(name)).toBeEnabled();
-    expect(thinking()).toHaveAccessibleDescription("Grok 4.20 Reasoning can't be told how much to think, so it decides for itself, up to about 4,000 tokens.");
-
-    // A model added before Ember asked models at each level is offered at every one.
-    await user.selectOptions(menu(), "Default (GLM-4.7 Flash)");
-    await waitFor(() => expect(menu()).toBeEnabled());
-    for (const name of ["Off", "Low", "Medium"]) expect(level(name)).toBeEnabled();
-    expect(thinking()).toHaveAccessibleDescription("Thinks a little first, up to about 4,000 tokens.");
-  });
-
-  it("says why a model wasn't saved, showing yours as it was", async () => {
-    picking(() => Response.json({ error: MODEL_NOT_LISTED }, { status: 422 }));
-    const { user, onFailed } = showPage();
-    await loaded();
-    await user.selectOptions(menu(), "GPT-6.1 Sol");
-    await waitFor(() => expect(onFailed).toHaveBeenCalledOnce());
-    expect(menu()).toHaveValue("anthropic/claude-sonnet-5.5");
-    expect(menu()).toBeEnabled();
+    for (const name of ["Ember AI", "Apps", "AI apps"]) expect(screen.queryByRole("heading", { level: 2, name })).not.toBeInTheDocument();
   });
 });
 
@@ -1329,48 +1114,3 @@ describe("Custom CSS", () => {
   });
 });
 
-describe("AI apps on your profile", () => {
-  const CLAUDE = { id: "0mgk3x2a9b4c70", name: "Claude", comesBackTo: "claude.example", scopes: ["read" as const], connectedAt: "2026-11-14T09:00:00.000Z", usedAt: null };
-
-  it("aren't shown while AI apps can't connect as you", async () => {
-    serve();
-    showPage();
-    await waitFor(() => expect(screen.getByLabelText("Name")).toHaveValue("Ada Lovelace"));
-    expect(screen.queryByRole("heading", { level: 2, name: "AI apps" })).not.toBeInTheDocument();
-  });
-
-  it("lists the AI apps connected as you, as the profile loads them, and as disconnecting one leaves them", async () => {
-    const fetch = serve({ loaded: () => Response.json({ profile: { ...profile, outsideAi: [CLAUDE] }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    const { user } = showPage();
-
-    expect(await screen.findByRole("heading", { level: 2, name: "AI apps" })).toBeVisible();
-    fetch.mockImplementationOnce(async () => Response.json({ connections: [] }));
-    await user.click(screen.getByRole("button", { name: "Disconnect Claude" }));
-    expect(await screen.findByText(NOTHING_CONNECTED)).toBeVisible();
-    expect(fetch).toHaveBeenLastCalledWith(`/api/users/me/outside/${CLAUDE.id}`, expect.objectContaining({ method: "DELETE" }));
-    expect(screen.getByRole("heading", { level: 2, name: "AI apps" })).toBeVisible();
-  });
-});
-
-describe("Apps on your profile", () => {
-  const LINEAR = { id: "0mgk3x2a9b4c70", name: "Linear", signedInAt: "2026-11-14T09:00:00.000Z", ended: false, wantsMore: false };
-
-  it("aren't shown while there's no app to sign in to yourself", async () => {
-    serve();
-    showPage();
-    await waitFor(() => expect(screen.getByLabelText("Name")).toHaveValue("Ada Lovelace"));
-    expect(screen.queryByRole("heading", { level: 2, name: "Apps" })).not.toBeInTheDocument();
-  });
-
-  it("lists the apps you can sign in to yourself, as the profile loads them, and as signing out of one leaves them", async () => {
-    const fetch = serve({ loaded: () => Response.json({ profile: { ...profile, apps: [LINEAR] }, transferId: LOADED_LINK } satisfies ProfileAnswer) });
-    const signedOut = { apps: [{ ...LINEAR, signedInAt: null }], revoked: true };
-    const { user } = showPage();
-
-    expect(await screen.findByRole("heading", { level: 2, name: "Apps" })).toBeVisible();
-    fetch.mockImplementationOnce(async () => Response.json(signedOut));
-    await user.click(screen.getByRole("button", { name: "Sign out of Linear" }));
-    expect(await screen.findByRole("button", { name: "Sign in to Linear" })).toBeVisible();
-    expect(fetch).toHaveBeenLastCalledWith(`/api/users/me/apps/${LINEAR.id}/sign-in`, expect.objectContaining({ method: "DELETE" }));
-  });
-});

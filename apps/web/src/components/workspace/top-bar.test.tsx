@@ -1,4 +1,4 @@
-import { searchPath, type Account, type DirectoryUser, type Me, type Room } from "@ember/protocol";
+import { searchPath, type Account, type Me, type Room } from "@ember/protocol";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
@@ -9,7 +9,6 @@ import { TopBar } from "./top-bar";
 
 const ada: Me = { id: "u1", name: "Ada Lovelace", administrator: false };
 const general: Room = { id: "general", name: "general", kind: "open", icon: null };
-const ember: DirectoryUser = { id: "ember", name: "Ember", bio: null, role: "bot", status: "active", avatarUrl: "/assistant-avatar.svg", agent: true };
 const account: Account = {
   name: "Analytical Engines",
   tagline: "",
@@ -36,20 +35,19 @@ const account: Account = {
   huddleVideo: "hd",
 };
 
-/** The top bar, as Ada sees it on the page at `address`, with @ember to ask while `asked` is. */
-function showBar({ address = "/rooms/general", asked = null as DirectoryUser | null, workspace = account } = {}) {
+/** The top bar, as Ada sees it on the page at `address`. */
+function showBar({ address = "/rooms/general", workspace = account } = {}) {
   history.replaceState(null, "", address);
   const field = createRef<HTMLButtonElement>();
   const openSearch = vi.fn();
-  const onAskEmber = vi.fn();
   render(
     <AccountContext value={workspace}>
       <OpenSearchContext value={openSearch}>
-        <TopBar me={ada} workspaceName={workspace.name} rooms={[general]} field={field} ember={asked} onAskEmber={onAskEmber} />
+        <TopBar me={ada} workspaceName={workspace.name} rooms={[general]} field={field} />
       </OpenSearchContext>
     </AccountContext>,
   );
-  return { bar: screen.getByRole("banner"), field, openSearch, onAskEmber, user: userEvent.setup() };
+  return { bar: screen.getByRole("banner"), field, openSearch, user: userEvent.setup() };
 }
 
 /** What the bar has to press, in order, each by its name. */
@@ -113,14 +111,9 @@ describe("Search field", () => {
   });
 });
 
-describe("Ask @ember", () => {
-  it("ends the bar with @ember's face while you can ask it, which opens your DM with it", async () => {
-    const { bar, onAskEmber, user } = showBar({ asked: ember });
-    expect(controls(bar)).toEqual(["Back", "Forward", "History", "Search Analytical Engines", "Ask @ember"]);
-    const ask = screen.getByRole("button", { name: "Ask @ember" });
-    expect(ask.querySelector("img")).toHaveAttribute("src", "/assistant-avatar.svg");
-    expect(ask).toHaveClass("size-[34px]", "border", "touch:size-11");
-    await user.click(ask);
-    expect(onAskEmber).toHaveBeenCalledOnce();
+describe("Spark without Ask @ember (OSphera/spark#4)", () => {
+  it("ends the bar with the search field", () => {
+    const { bar } = showBar();
+    expect(controls(bar)).toEqual(["Back", "Forward", "History", "Search Analytical Engines"]);
   });
 });

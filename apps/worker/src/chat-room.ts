@@ -1859,7 +1859,9 @@ export class ChatRoom extends DurableObject<Env> {
     // whatever happens next, and the log's next call doesn't wait on push services, bots or models.
     if (pushes.length > 0) this.ctx.waitUntil(this.push(pushes));
     for (const webhook of webhooks) this.ctx.waitUntil(this.deliver(roomId, webhook));
-    for (const question of asks) this.ctx.waitUntil(this.answer(roomId, question));
+    // Spark (OSphera/spark#4): unreachable since Ember AI was removed: questions for @ember and the agents
+    // are never answered (`Workspace.answererIn` answers null), so none is queued.
+    void asks;
     await log.delivered(events.at(-1)!.seq);
     for (const { message } of events) if (message) this.seenBy.delete(message.id);
     return events.length;

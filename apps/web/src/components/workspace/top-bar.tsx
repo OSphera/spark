@@ -1,12 +1,10 @@
 import { useContext, useMemo, type Ref } from "react";
-import { hasFilters, searchOfQuery, type DirectoryUser, type Me, type Room } from "@ember/protocol";
+import { hasFilters, searchOfQuery, type Me, type Room } from "@ember/protocol";
 import { useQuery, useRoute } from "@/hooks/use-route";
 import { HISTORY_BUTTON, HistoryButtons } from "./history-buttons";
 import { HistoryMenu } from "./history-menu";
 import { NavigationIcon } from "./navigation-icon";
 import { OpenSearchContext, SearchLine, searchLabel, useSearchNames } from "./search-box";
-import { ShortcutTooltip } from "./shortcut-tooltip";
-import { UserAvatar } from "./user-avatar";
 
 interface Props {
   me: Me;
@@ -16,20 +14,16 @@ interface Props {
   rooms: readonly Room[];
   /** The search field, which the search box opens over. */
   field: Ref<HTMLButtonElement>;
-  /** @ember, while Ember AI is on and you can ask it, or null. */
-  ember: DirectoryUser | null;
-  /** Opens your DM with @ember. */
-  onAskEmber: () => void;
 }
 
 /**
  * The top bar across the window, after Slack's: Back, Forward and History at the end of the sidebar's
- * column, the search field across the page's, and Ask @ember at its end while Ember AI is on. It's left
+ * column, and the search field across the page's (Spark removed Ask @ember, OSphera/spark#4). It's left
  * out (`no-top-bar:`) at 900px and below, where the drawer starts with the search field, and on a phone
  * in landscape, where the rail keeps Search, and fingers have their own way back, as they do at any
  * width, where Back and Forward are left out.
  */
-export function TopBar({ me, workspaceName, rooms, field, ember, onAskEmber }: Props) {
+export function TopBar({ me, workspaceName, rooms, field }: Props) {
   return (
     <header className="grid h-top-bar shrink-0 grid-cols-[calc(var(--spacing-rail)+env(safe-area-inset-left))_var(--spacing-sidebar)_minmax(0,1fr)] items-center border-b bg-surface no-top-bar:hidden">
       <div className="col-start-2 flex justify-end gap-1 pr-3">
@@ -38,7 +32,6 @@ export function TopBar({ me, workspaceName, rooms, field, ember, onAskEmber }: P
       </div>
       <div className="flex min-w-0 items-center gap-2.5 pr-[max(12px,env(safe-area-inset-right))]">
         <SearchField me={me} workspaceName={workspaceName} rooms={rooms} field={field} />
-        {ember && <AskEmberButton ember={ember} onClick={onAskEmber} />}
       </div>
     </header>
   );
@@ -67,16 +60,5 @@ function SearchField({ me, workspaceName, rooms, field }: Pick<Props, "me" | "wo
       <NavigationIcon slot="search" size={17} className="size-[17px] shrink-0" />
       {showing ? <SearchLine search={shown.search} names={names} className="text-foreground" /> : <span className="truncate">Search {workspaceName}</span>}
     </button>
-  );
-}
-
-/** Ask @ember, with its avatar, as Slack's bar ends with Slackbot's, which opens your DM with it. */
-function AskEmberButton({ ember, onClick }: { ember: DirectoryUser; onClick: () => void }) {
-  return (
-    <ShortcutTooltip label="Ask @ember">
-      <button type="button" aria-label="Ask @ember" onClick={onClick} className="grid size-[34px] shrink-0 place-items-center rounded-[10px] border bg-background hover:bg-hover touch:size-11">
-        <UserAvatar user={ember} className="size-6" />
-      </button>
-    </ShortcutTooltip>
   );
 }

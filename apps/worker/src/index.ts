@@ -100,7 +100,6 @@ import { agentsName } from "@ember/protocol/agents";
 import { BLOCKED_WORDS_REFUSED } from "@ember/protocol/blocked-words";
 import { parseHuddleSoundChanges, type HuddleSoundsChanged, type PastHuddles } from "@ember/protocol/huddles";
 import { AGENT_DIRECT_REFUSED } from "@ember/protocol/personal-agents";
-import { OUTSIDE_AUTHORIZE_PATH } from "@ember/protocol/outside";
 import { parseNewReport, parseReportHandling, type HandledReports, type Reports } from "@ember/protocol/reports";
 import {
   MEMBERFUL_WITH_SSO,
@@ -139,39 +138,8 @@ import {
   tokenDigest,
 } from "./auth";
 import { directoryOf } from "./avatar-tokens";
-import {
-  appPage,
-  beginAppSignIn,
-  beginNewAppSignIn,
-  beginOwnAppSignIn,
-  changeApp,
-  clientDocument,
-  connectApp,
-  disconnectApp,
-  finishAppSignIn,
-  listApps,
-  pickAgentTools,
-  readAppTools,
-  showAgentTools,
-  showApp,
-  signOutOfApp,
-} from "./apps/api";
-import { answerOutsideAsk, changeOutsideAi, describeOutsideAsk, disconnectOutside, isOutsideRegistration, outsideAction, outsideConnectPage } from "./outside/api";
-import { CLIENT_DOCUMENT_PATH } from "./apps/oauth";
-import { agentPage, changeAgent, createAgent, deleteAgent, listAgents, listAvailableAgents, removeAgentAvatar, showAgent, tryAgent } from "./assistant/agents";
-import {
-  addAssistantModel,
-  changeAssistantAvatar,
-  changeAssistantSettings,
-  changeWebSearch,
-  changeYourAssistant,
-  deployedAccountIdOf,
-  forgetAssistant,
-  listOfferedModels,
-  removeAssistantAvatar,
-  removeAssistantModel,
-  saveAssistant,
-} from "./assistant/settings";
+// Spark (OSphera/spark#4): Ember AI's settings routes are gone; huddles still read the deployment's Cloudflare account from here.
+import { deployedAccountIdOf } from "./assistant/settings";
 import { avatarTokenOf, showAvatar, storeAvatar } from "./avatars";
 import type { BanProblem } from "./bans";
 import { BodyTooLarge, jsonBodyOf } from "./bodies";
@@ -1559,43 +1527,7 @@ function apiAction(request: Request, env: Env, pathname: string): (() => Respons
   if (pathname === "/api/account/turnstile_keys" && request.method === "PUT") return () => saveTurnstileKeys(request, env);
   if (pathname === "/api/account/turnstile_keys" && request.method === "DELETE") return () => forgetTurnstileKeys(request, env);
   if (pathname === "/api/account/memberful_keys" && request.method === "PUT") return () => saveMemberfulKeys(request, env);
-  if (pathname === "/api/account/assistant" && request.method === "PUT") return () => saveAssistant(request, env);
-  if (pathname === "/api/account/assistant" && request.method === "DELETE") return () => forgetAssistant(request, env);
-  if (pathname === "/api/account/assistant" && request.method === "PATCH") return () => changeAssistantSettings(request, env);
-  if (pathname === "/api/account/assistant/offered" && request.method === "POST") return () => listOfferedModels(request, env);
-  if (pathname === "/api/account/assistant/models" && request.method === "POST") return () => addAssistantModel(request, env);
-  if (pathname === "/api/account/assistant/models" && request.method === "DELETE") return () => removeAssistantModel(request, env);
-  if (pathname === "/api/account/assistant/web_search" && request.method === "PUT") return () => changeWebSearch(request, env);
-  if (pathname === "/api/account/assistant/avatar" && request.method === "PUT") return () => changeAssistantAvatar(request, env);
-  if (pathname === "/api/account/assistant/avatar" && request.method === "DELETE") return () => removeAssistantAvatar(request, env);
-  if (pathname === "/api/account/agents" && request.method === "GET") return () => listAgents(request, env);
-  if (pathname === "/api/account/agents" && request.method === "POST") return () => createAgent(request, env);
-  if (pathname === "/api/account/agents/trials" && request.method === "POST") return () => tryAgent(request, env, null);
-  // As with people and bots, agents' ids never need percent-encoding, so an encoded segment names none.
-  const agent = pathname.match(/^\/api\/account\/agents\/([^/]+)$/);
-  if (agent && request.method === "GET") return () => showAgent(request, env, agent[1]!);
-  if (agent && request.method === "PATCH") return () => changeAgent(request, env, agent[1]!);
-  if (agent && request.method === "DELETE") return () => deleteAgent(request, env, agent[1]!);
-  const agentAvatar = pathname.match(/^\/api\/account\/agents\/([^/]+)\/avatar$/);
-  if (agentAvatar && request.method === "DELETE") return () => removeAgentAvatar(request, env, agentAvatar[1]!);
-  const agentTrials = pathname.match(/^\/api\/account\/agents\/([^/]+)\/trials$/);
-  if (agentTrials && request.method === "POST") return () => tryAgent(request, env, agentTrials[1]!);
-  const agentTools = pathname.match(/^\/api\/account\/agents\/([^/]+)\/tools$/);
-  if (agentTools && request.method === "GET") return () => showAgentTools(request, env, agentTools[1]!);
-  if (agentTools && request.method === "PUT") return () => pickAgentTools(request, env, agentTools[1]!);
-  if (pathname === "/api/account/apps" && request.method === "GET") return () => listApps(request, env);
-  if (pathname === "/api/account/apps" && request.method === "POST") return () => connectApp(request, env);
-  const app = pathname.match(/^\/api\/account\/apps\/([^/]+)$/);
-  if (app && request.method === "GET") return () => showApp(request, env, app[1]!);
-  if (app && request.method === "PATCH") return () => changeApp(request, env, app[1]!);
-  if (app && request.method === "DELETE") return () => disconnectApp(request, env, app[1]!);
-  if (pathname === "/api/account/app-sign-ins" && request.method === "POST") return () => beginNewAppSignIn(request, env);
-  if (pathname === "/api/account/app-sign-ins/finish" && request.method === "POST") return () => finishAppSignIn(request, env);
-  const appSignIn = pathname.match(/^\/api\/account\/apps\/([^/]+)\/sign-in$/);
-  if (appSignIn && request.method === "POST") return () => beginAppSignIn(request, env, appSignIn[1]!);
-  const appTools = pathname.match(/^\/api\/account\/apps\/([^/]+)\/tools$/);
-  if (appTools && request.method === "POST") return () => readAppTools(request, env, appTools[1]!);
-  if (pathname === "/api/account/outside_ai" && request.method === "PUT") return () => changeOutsideAi(request, env);
+  // Spark (OSphera/spark#4): Ember AI's settings, AI agents, connected apps and Outside AI have no routes, so they answer 404.
   if (pathname === "/api/account/huddles" && request.method === "PUT") return () => saveHuddles(request, env);
   if (pathname === "/api/account/huddles" && request.method === "DELETE") return () => forgetHuddles(request, env);
   if (pathname === "/api/account/huddles/relay" && request.method === "PUT") return () => saveHuddleRelay(request, env);
@@ -1649,23 +1581,14 @@ function apiAction(request: Request, env: Env, pathname: string): (() => Respons
   if (pathname === "/api/sidebar" && request.method === "GET") return () => sidebar(request, env);
   if (pathname === "/api/sidebar/invitation" && request.method === "DELETE") return () => dismissInvitation(request, env);
   if (pathname === "/api/users" && request.method === "GET") return () => directory(request, env);
-  if (pathname === "/api/agents" && request.method === "GET") return () => listAvailableAgents(request, env);
   if (pathname === "/api/autocompletable/users" && request.method === "GET") return () => mentionable(request, env);
   if (pathname === "/api/sidebar/order" && request.method === "PUT") return () => setFavoriteOrder(request, env);
   if (pathname === "/api/users/me/profile" && request.method === "GET") return () => profile(request, env);
   if (pathname === "/api/users/me/profile" && request.method === "PATCH") return () => changeProfile(request, env);
   if (pathname === "/api/users/me" && request.method === "DELETE") return () => deleteAccount(request, env);
-  if (pathname === "/api/users/me/assistant" && request.method === "PATCH") return () => changeYourAssistant(request, env);
   if (pathname === "/api/users/me/huddle-sounds" && request.method === "PATCH") return () => changeHuddleSounds(request, env);
   if (pathname === "/api/users/me/notifications-pause" && request.method === "PUT") return () => pauseNotifications(request, env);
   if (pathname === "/api/huddles" && request.method === "GET") return () => pastHuddles(request, env);
-  const ownAppSignIn = pathname.match(/^\/api\/users\/me\/apps\/([^/]+)\/sign-in$/);
-  if (ownAppSignIn && request.method === "POST") return () => beginOwnAppSignIn(request, env, ownAppSignIn[1]!);
-  if (ownAppSignIn && request.method === "DELETE") return () => signOutOfApp(request, env, ownAppSignIn[1]!);
-  const outsideConnection = pathname.match(/^\/api\/users\/me\/outside\/([^/]+)$/);
-  if (outsideConnection && request.method === "DELETE") return () => disconnectOutside(request, env, outsideConnection[1]!);
-  if (pathname === "/api/outside/asks" && request.method === "POST") return () => describeOutsideAsk(request, env);
-  if (pathname === "/api/outside/answers" && request.method === "POST") return () => answerOutsideAsk(request, env);
   if (pathname === MEMBERFUL_CONNECTIONS_PATH && request.method === "POST") return () => connectMemberful(request, env);
   if (pathname === MEMBERFUL_CONNECTIONS_PATH && request.method === "DELETE") return () => disconnectMemberful(request, env);
   if (pathname === SSO_CONNECTIONS_PATH && request.method === "POST") return () => connectSso(request, env);
@@ -1786,12 +1709,8 @@ async function route(request: Request, env: Env, pathname: string): Promise<Resp
   // Nor is the single sign-on provider's back-channel logout, whose token its keys sign.
   if (pathname === SSO_LOGOUT_PATH) return ssoBackchannelLogout(request, env);
   const write = request.method !== "GET" && request.method !== "HEAD";
-  // Nor is an app's authorization server, reading who Ember is.
-  if (pathname === CLIENT_DOCUMENT_PATH && !write) return clientDocument(request);
+  // Spark (OSphera/spark#4): the AI apps that connected to Ember (Outside AI, its OAuth and MCP endpoint) and apps' client document have no routes here any more.
   // Nor are a room's files, to whoever has the address, whatever their browser.
-  // Nor are the AI apps that connect to Ember, whose requests carry a token of their own, or nothing.
-  const outside = outsideAction(request, env, pathname);
-  if (outside) return write && isOutsideRegistration(pathname) && (await isFromBannedAddress(request, env)) ? tooManyRequests() : outside();
   const file = fileAddressOf(pathname);
   if (file) return write ? notFound(request) : serveFile(request, env, file);
   const action = apiAction(request, env, pathname) ?? botAction(request, env, pathname);
@@ -1829,9 +1748,6 @@ async function route(request: Request, env: Env, pathname: string): Promise<Resp
   const page = write ? null : workspacePageOf(pathname);
   if (page?.page === "person") return personPage(request, env, pathname, page.userId);
   if (page?.page === "bot-settings") return botPage(request, env, pathname, page.userId);
-  if (page?.page === "agent-settings") return agentPage(request, env, pathname, page.agentId);
-  if (page?.page === "app-settings") return appPage(request, env, pathname, page.appId);
-  if (pathname === OUTSIDE_AUTHORIZE_PATH && !write) return outsideConnectPage(request, env, pathname);
   return anyOtherPage(request, env, pathname);
 }
 
