@@ -23,14 +23,14 @@ test.describe("Updates", () => {
 
     // A tab shown again while it's Ember as it's deployed says nothing.
     await ada.page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    await expect(ada.page.getByText("Ember has been updated.")).toHaveCount(0);
+    await expect(ada.page.getByText("Spark has been updated.")).toHaveCount(0);
   });
 
   test("tells a tab left open that Ember has been updated as it's shown again, and reloads it when asked", async ({ members }) => {
     const ada = await members.signIn("Ada");
     await ada.page.route("**/app-version.json", (route) => route.fulfill({ json: UPDATED }));
     await ada.page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    const notice = ada.page.getByRole("status").filter({ hasText: "Ember has been updated." });
+    const notice = ada.page.getByRole("status").filter({ hasText: "Spark has been updated." });
     await expect(notice).toBeVisible();
 
     // The reloaded page is Ember as it's deployed.
@@ -40,14 +40,14 @@ test.describe("Updates", () => {
     await reloaded;
     await expect(ada.composer()).toBeVisible();
     await ada.page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    await expect(ada.page.getByText("Ember has been updated.")).toHaveCount(0);
+    await expect(ada.page.getByText("Spark has been updated.")).toHaveCount(0);
   });
 
   test("keeps it closed once it's closed", async ({ members }) => {
     const ada = await members.signIn("Ada");
     await ada.page.route("**/app-version.json", (route) => route.fulfill({ json: UPDATED }));
     await ada.page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-    const notice = ada.page.getByRole("status").filter({ hasText: "Ember has been updated." });
+    const notice = ada.page.getByRole("status").filter({ hasText: "Spark has been updated." });
     await notice.getByRole("button", { name: "Close" }).click();
     await expect(notice).toHaveCount(0);
     await ada.page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));

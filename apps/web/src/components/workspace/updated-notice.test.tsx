@@ -26,9 +26,9 @@ describe("UpdatedNotice", () => {
     expect(notice()).not.toBeInTheDocument();
   });
 
-  it("says Ember has been updated, and reloads the page when asked", async () => {
+  it("says Spark has been updated, and reloads the page when asked", async () => {
     render(<UpdatedNotice />);
-    expect(notice()).toHaveTextContent("Ember has been updated. Reload");
+    expect(notice()).toHaveTextContent("Spark has been updated. Reload");
     await userEvent.click(screen.getByRole("button", { name: "Reload" }));
     expect(reloadPage).toHaveBeenCalledOnce();
   });
