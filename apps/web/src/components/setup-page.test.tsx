@@ -65,7 +65,7 @@ describe("Set up the workspace", () => {
     expect(screen.getByRole("region", { name: "Set up Spark" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Set up Spark" })).toBeInTheDocument();
     expect(screen.getByText("Create the admin account for your workspace.")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Spark" })).toHaveAttribute("src", "/ember-icon.png");
+    expect(screen.getByRole("img", { name: "Spark" })).toHaveAttribute("src", "/spark-icon.png");
 
     const name = screen.getByLabelText("Name");
     expect(name).toHaveFocus();

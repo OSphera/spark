@@ -2,12 +2,12 @@ import { createHash } from "node:crypto";
 import { expect, test } from "./fixtures";
 
 /**
- * The SHA-256 of each icon the manifest lists: Ember's app icons and, for the shortcuts, Iconoir's plus
+ * The SHA-256 of each icon the manifest lists: Spark's app icons and, for the shortcuts, Iconoir's plus
  * and user, as the project's owner chose, where Campfire lists its add and person (app/assets/images/).
  */
 const ICONS: Record<string, string> = {
-  "/logos/app-icon-192.png": "49ff9160e2e167043fe948e7b78695c1b55270dff701479ebc6f574eedff6126",
-  "/logos/app-icon.png": "d93bfb957863d1aca5ab6ca4e2f81d592e5ed101df6850b89ac792f6f67d88f3",
+  "/logos/app-icon-192.png": "318b48ebb384f9f847f406bd622bb6f12fa7082b70dfb02dbb1576b701d587e2",
+  "/logos/app-icon.png": "9ba5e2ce2333be74be373444ec6b6832c1ca392031476a9046660c114d127489",
   "/shortcuts/plus.svg": "dbd0c9ec345745994d219d9bf30252abe534304e8f006316e14c32c8dbf3fb79",
   "/shortcuts/user.svg": "53e6505904aafd797da6ea432aa148b7858104454e4e9b65895a879e74451ea3",
 };
@@ -83,8 +83,8 @@ test.describe("Installable page head", () => {
         { name: "apple-mobile-web-app-capable", content: "yes" },
         { name: "mobile-web-app-capable", content: "yes" },
         { rel: "manifest", href: "/webmanifest.json" },
-        { rel: "icon", type: "image/png", sizes: "48x48", href: "/logos/app-icon-48.png" },
-        { rel: "apple-touch-icon", href: "/logos/app-icon.png" },
+        { rel: "icon", type: "image/png", href: "/account/logo?size=small" },
+        { rel: "apple-touch-icon", href: "/account/logo" },
       ]);
     }
   });

@@ -30,7 +30,7 @@ test.describe("Workspace logo", () => {
     await page.getByRole("link", { name: "Membership" }).click();
     const member = await join(browser, baseURL!, await page.getByRole("textbox", { name: "Share to invite more people" }).inputValue(), "Grace Hopper");
     await page.getByRole("link", { name: "General", exact: true }).click();
-    await expect(railLogo(member)).toHaveAttribute("src", "/ember-icon.png");
+    await expect(railLogo(member)).toHaveAttribute("src", "/spark-icon.png");
 
     await nextSecond();
     await page.getByLabel("Upload icon").setInputFiles(await drawnPicture(page, "logo.png", 1200, 800));
@@ -60,10 +60,10 @@ test.describe("Workspace logo", () => {
     await remove.click();
     await expect(remove).toHaveCount(0);
     await expect(logo).toHaveAttribute("src", "/logos/app-icon.png");
-    await expect(railLogo(page)).toHaveAttribute("src", "/ember-icon.png");
+    await expect(railLogo(page)).toHaveAttribute("src", "/spark-icon.png");
     await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/account/logo?size=small");
     await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute("href", "/account/logo");
-    await expect(railLogo(member)).toHaveAttribute("src", "/ember-icon.png");
+    await expect(railLogo(member)).toHaveAttribute("src", "/spark-icon.png");
     await member.context().close();
   });
 });

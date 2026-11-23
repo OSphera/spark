@@ -30,7 +30,7 @@ export function InvitationCard({ joinCode, onDismiss }: Props) {
         {logo ? (
           <AccountLogo src={logo} className="size-11 flex-none rounded-[11px] bg-background" />
         ) : (
-          <img src="/ember-icon.png" alt="Spark" width={44} height={44} className="size-11 flex-none object-contain" />
+          <img src="/spark-icon.png" alt="Spark" width={44} height={44} className="size-11 flex-none object-contain" />
         )}
         <div>
           <h2 className="mb-[3px] text-[17px] font-[650] max-md:text-[15px]">Welcome to Spark</h2>

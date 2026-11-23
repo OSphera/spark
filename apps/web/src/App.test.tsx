@@ -845,13 +845,13 @@ describe("Workspace logo", () => {
     serve({ signedIn: true });
     const { unmount } = render(<App />);
     await roomHeading();
-    expect(brand()).toHaveAttribute("src", "/ember-icon.png");
+    expect(brand()).toHaveAttribute("src", "/spark-icon.png");
     await waitFor(() => expect(WorkspaceSocket.all).toHaveLength(1));
     act(() => WorkspaceSocket.all[0]!.receive({ type: "account.updated", account: { ...EMBER, logo: LOGO } }));
     expect(brand()).toHaveAttribute("src", LOGO);
     expect(document.body).toHaveClass("account-has-logo");
     act(() => WorkspaceSocket.all[0]!.receive({ type: "account.updated", account: EMBER }));
-    expect(brand()).toHaveAttribute("src", "/ember-icon.png");
+    expect(brand()).toHaveAttribute("src", "/spark-icon.png");
     expect(document.body).not.toHaveClass("account-has-logo");
     unmount();
   });

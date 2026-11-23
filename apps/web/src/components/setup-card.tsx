@@ -41,7 +41,7 @@ export function SetupCard({ title = SETUP_TITLE, subtitle, problem = null, start
         )}
         <section aria-label={title} className="w-full min-w-0 overflow-hidden rounded-2xl border bg-card text-card-foreground">
           <header className="flex flex-col items-center px-5 pt-5 text-center">
-            <img src="/ember-icon.png" alt="Spark" width={48} height={48} className="mb-4 block size-12 object-contain" />
+            <img src="/spark-icon.png" alt="Spark" width={48} height={48} className="mb-4 block size-12 object-contain" />
             <h1
               ref={heading}
               tabIndex={startsAtTitle ? -1 : undefined}

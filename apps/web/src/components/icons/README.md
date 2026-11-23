@@ -17,7 +17,7 @@ the one the editor paints over Lexxy's, every icon the error pages draw, and the
 | `room-icon.tsx`, `room-icon-label.ts` | A room's icon, from its own file, as a mask in the color of the text around it, or `#` for the default, and what the pickers call it, crediting Iconoir's |
 
 The brand images live in `apps/web/public`, with the icons the web app manifest lists.
-`logos/app-icon.png` and `logos/app-icon-192.png` are Ember's icons: the home-screen icon and the
+`logos/app-icon.png` and `logos/app-icon-192.png` are Spark's icons: the home-screen icon and the
 installed app's. `shortcuts/plus.svg` and `shortcuts/user.svg` are Iconoir's, byte for byte, for the
 installed app's New chat room and My profile shortcuts. The favicon,
 `logos/app-icon-48.png`, is the same image scaled from 512px down to 48px: browsers fetch the favicon
@@ -25,8 +25,9 @@ while the page loads, and in Lighthouse the 121 KB original delayed a room's lar
 390 ms on mobile and 80 ms on desktop. For the same reason, while the workspace has a logo the app
 points the favicon at the logo's 192-pixel variant, and only the Apple touch icon at its 512-pixel
 one (`hooks/use-account-logo.ts`).
-`ember-icon.png` is Ember's flame, on the rail and the sign-in card, scaled from 1254px down to 192px,
-so the page doesn't load 595 KB for a 44px mark.
+`spark-icon.png` is Spark's spark, on the rail and the sign-in card, a 192px rounded tile, so the
+page doesn't load a full-size image for a 44px mark. `logos/app-icon*.png` are the same spark,
+full-bleed, for the OS to round (OSphera/spark#7).
 `assistant-avatar.svg` is @ember's avatar, which the Worker serves as its picture: the flame's outline,
 traced from `logos/app-icon.png`, in white on the app icon's sunset. It fills its square, which the app
 cuts to the circle every bot's avatar is.

@@ -137,7 +137,7 @@ export function Rail({ me, workspaceName, current, activity, newRelease, openRep
         {logo ? (
           <img src={logo} alt="" width={56} height={56} className="size-14 rounded-[inherit] object-cover" />
         ) : (
-          <img src="/ember-icon.png" alt="" width={56} height={56} className="size-14 rounded-[inherit] object-contain" />
+          <img src="/spark-icon.png" alt="" width={56} height={56} className="size-14 rounded-[inherit] object-contain" />
         )}
       </PageLink>
       <RailLink slot="home" label="Home" href="/" current={marked === "home" || marked === "room"} />

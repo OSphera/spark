@@ -245,7 +245,7 @@ describe("Workspace logo", () => {
     const account = { name: "Analytical Engines", tagline: "", hideTranslationButtons: true, customStyles: "", restrictRoomCreation: false, restrictChannelMentions: false, restrictEveryoneMention: false, warnBeforeNotifying: true, logo: null, customDomain: null, joinLink: true, openSignUp: false, memberfulJoin: false, memberfulSignIn: false, ssoJoin: false, ssoSignIn: false, emailDomainSignUp: false, emailDomains: [], navigationIcons: {}, huddles: false, huddleCameras: true, huddleScreens: true, huddleVideo: "hd" as const };
     const { rerender } = render(<AccountContext value={account}>{railAt("home")}</AccountContext>);
     const brand = screen.getByRole("link", { name: "Ember home" });
-    expect(brand.querySelector("img")).toHaveAttribute("src", "/ember-icon.png");
+    expect(brand.querySelector("img")).toHaveAttribute("src", "/spark-icon.png");
     expect(brand).toHaveClass("size-14", "rounded-[10px]");
     expect(brand.querySelector("img")).toHaveClass("size-14", "rounded-[inherit]", "object-contain");
 
