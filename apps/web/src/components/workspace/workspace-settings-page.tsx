@@ -40,10 +40,6 @@ import { HUDDLE_CHAT_TITLE } from "@/lib/huddle-chat";
 import { logoVariantsOf } from "@/lib/previews";
 import { apart } from "@/lib/room-list";
 import { cn } from "@/lib/utils";
-import { AgentList } from "./agent-list";
-import { AppList } from "./app-list";
-import { AssistantSettings } from "./assistant-settings";
-import { AssistantSetup } from "./assistant-setup";
 import { BlockedWordsSettings } from "./blocked-words-settings";
 import { CustomDomainSettings } from "./custom-domain-settings";
 import { EmberVersion } from "./ember-version";
@@ -55,7 +51,6 @@ import { HuddlesSetup } from "./huddles-setup";
 import { InviteByEmail } from "./invite-by-email";
 import { InviteLink } from "./invite-link";
 import { MemberfulSetup } from "./memberful-setup";
-import { OutsideAiSettings } from "./outside-ai-settings";
 import { PeopleList } from "./people-list";
 import { ReportsList } from "./reports-list";
 import { PicturePicker } from "./picture-picker";
@@ -138,10 +133,6 @@ interface Props {
  *   or for members, the links that let people in, then the administrators and members, whom
  *   administrators can make administrators or members and remove.
  * - Domain settings: for administrators, the custom domain Ember answers at.
- * - AI assistant: for administrators, whether Ember's AI agents run on models through Cloudflare AI
- *   Gateway, which Set up Ember AI connects, and while they do, the agents, @ember first, each linking to
- *   its page, and New agent. Then whether AI apps, such as Claude, may connect to Ember as the people in
- *   it (Outside AI).
  * - Huddles: for administrators, whether huddles are on, through the Realtime SFU app whose keys Set up
  *   huddles takes, and while they are, whether people may turn their cameras on in them and share their
  *   screens, and whether huddles have a relay, by the TURN key Set up the relay takes.
@@ -189,7 +180,6 @@ export function WorkspaceSettingsPage({
   const [settingUpTurnstile, setSettingUpTurnstile] = useState(false);
   // Set up Memberful, while it's open, with what to go on to once it has kept the keys.
   const [memberfulSetup, setMemberfulSetup] = useState<{ then?: () => void } | null>(null);
-  const [settingUpAssistant, setSettingUpAssistant] = useState(false);
   const [settingUpHuddles, setSettingUpHuddles] = useState(false);
   // Set up single sign-on, while it's open, with what to go on to once it closes with the provider saved.
   const [ssoSetup, setSsoSetup] = useState<{ then?: () => void } | null>(null);
@@ -415,10 +405,6 @@ export function WorkspaceSettingsPage({
   const showTurnstile = (turnstile: WorkspaceSettings["turnstile"]) => setSettings((settings) => settings && { ...settings, turnstile });
   /** Shows Memberful as Set up Memberful keeps its keys, which only workspace settings shows. */
   const showMemberful = (memberful: MemberfulSaved) => setSettings((settings) => settings && { ...settings, ...memberful });
-  /** Shows Ember AI as Set up Ember AI, or turning it off, changes it, which only workspace settings shows. */
-  const showAssistant = (assistant: WorkspaceSettings["assistant"]) => setSettings((settings) => settings && { ...settings, assistant });
-  /** Shows whether AI apps may connect, as the Outside AI card's switch changes it. */
-  const showOutsideAi = (outsideAi: boolean) => setSettings((settings) => settings && { ...settings, outsideAi });
   /** Shows huddles as Set up huddles, or turning them off, changes them, which only workspace settings shows. */
   const showHuddles = (huddles: WorkspaceSettings["huddles"]) => setSettings((settings) => settings && { ...settings, huddles });
   /** Shows the single sign-on provider as Set up single sign-on, or removing it, changes it, which only workspace settings shows. */
@@ -742,36 +728,6 @@ export function WorkspaceSettingsPage({
             />
           ) : (
             <p className="text-muted-foreground">Community admins manage the community's domain.</p>
-          ))}
-      </Panel>
-      <Panel id="assistant-settings" hidden={section !== "assistant-settings"} aria-labelledby="assistant-settings-heading" className="flex flex-col gap-6">
-        <PageHeading id="assistant-settings-heading" title="AI assistant" className={SECTION_HEADING}>
-          Add AI agents people can ask in the chat.
-        </PageHeading>
-        {settings &&
-          (settings.canAdminister ? (
-            <>
-              <AssistantSettings
-                assistant={settings.assistant}
-                onSetUp={() => setSettingUpAssistant(true)}
-                onStopped={() => showAssistant(null)}
-                onFailed={onFailed}
-              />
-              {settings.assistant && <AgentList assistant={settings.assistant} onFailed={onFailed} />}
-              {settings.assistant && <AppList onFailed={onFailed} />}
-              <OutsideAiSettings on={settings.outsideAi} onChanged={showOutsideAi} onFailed={onFailed} />
-              {settingUpAssistant && (
-                <AssistantSetup
-                  assistant={settings.assistant}
-                  deployedAccountId={settings.cloudflareAccountId}
-                  onSaved={showAssistant}
-                  onClose={() => setSettingUpAssistant(false)}
-                  onFailed={onFailed}
-                />
-              )}
-            </>
-          ) : (
-            <p className="text-muted-foreground">Community admins manage the AI assistant.</p>
           ))}
       </Panel>
       <Panel id="huddles-settings" hidden={section !== "huddles-settings"} aria-labelledby="huddles-settings-heading" className="flex flex-col gap-6">

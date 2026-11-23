@@ -36,7 +36,6 @@ import { avatarVariantOf } from "@/lib/previews";
 import { pushEndpoint } from "@/lib/push";
 import type { RoomAnswer } from "@/lib/room-list";
 import { cn } from "@/lib/utils";
-import { AnswerLevels } from "./answer-levels";
 import { BlockedPeople } from "./blocked-people";
 import { ConversationNotifications } from "./conversation-notifications";
 import { DeleteAccount } from "./delete-account";
@@ -51,8 +50,6 @@ import { SignInLink } from "./sign-in-link";
 import { SingleSignOnConnection } from "./sso-connection";
 import { avatarUrlOf, avatarVersionOf } from "./user-avatar";
 import { YourAgents } from "./your-agents";
-import { YourApps } from "./your-apps";
-import { YourOutsideAi } from "./your-outside-ai";
 
 interface Props {
   me: Me;
@@ -135,8 +132,7 @@ function disconnectsWithNewPassword(memberful: MemberfulStatus | null, sso: SsoS
  * bio, which Save changes saves with the notice "✓", keeping the page, then, while members sign in with
  * Memberful, connecting your Memberful account, or the one you've connected, which Disconnect Memberful
  * unlinks with the notice "Your Memberful account is disconnected.", then, likewise, while members sign
- * in with single sign-on, connecting your account at the provider, then, while Ember AI is on, how much
- * @ember thinks and how long it answers you, then, while huddles are on, which of a huddle's sounds you
+ * in with single sign-on, connecting your account at the provider, then, while huddles are on, which of a huddle's sounds you
  * hear, then your notification level in each of your rooms and DMs, then a sign-in
  * link for you, a new one each time the page loads or saves, then Delete my account, and Log out in
  * the top bar. Go Back returns to the page it was opened from. Your avatar, name, username and bio
@@ -171,11 +167,6 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
   const [sso, setSso] = useState<SsoStatus | null>(null);
   /** Whether you need Memberful, or single sign-on, to sign in while it's the only way in, unlike administrators and the people they invite. */
   const [membershipNeeded, setMembershipNeeded] = useState(true);
-  /** Which model @ember answers you with, how much it thinks and how long its answers are, or null while Ember AI is off. */
-  const [assistant, setAssistant] = useState<Profile["assistant"]>(null);
-  /** The connected apps you can sign in to yourself, each with your sign-in to it, if you've made one. */
-  const [apps, setApps] = useState<Profile["apps"]>([]);
-  const [outsideAi, setOutsideAi] = useState<Profile["outsideAi"]>(null);
   /** Your agents as the profile loaded them, which their own section changes from then on; null while you may have none. */
   const [agents, setAgents] = useState<Profile["agents"] | null>(null);
   const [saving, setSaving] = useState(false);
@@ -203,12 +194,7 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
         setSavedName(answer.profile.name);
         setHasEmailAddress(answer.profile.emailAddress !== null);
         showAnswer(answer);
-        // Only from here and the Ember AI section's own saves, as a save of the profile or a photo can
-        // answer after a change there, with your model and levels from before it.
-        setAssistant(answer.profile.assistant);
-        // The same goes for the Apps section, which signing out there changes.
-        setApps(answer.profile.apps);
-        setOutsideAi(answer.profile.outsideAi);
+        // Spark (OSphera/spark#4): the profile's answer levels, your apps and your outside AI sections are gone.
         setAgents(answer.profile.agents ?? null);
       },
       (error: unknown) => {
@@ -468,9 +454,6 @@ export function ProfilePage({ me, rooms, askForRoom, huddleSounds, askForHuddleS
             onFailed={onFailed}
           />
         )}
-        {assistant && <AnswerLevels assistant={assistant} onChanged={setAssistant} onFailed={onFailed} />}
-        {apps.length > 0 && <YourApps apps={apps} onChanged={setApps} onFailed={onFailed} />}
-        {outsideAi && <YourOutsideAi connections={outsideAi} onChanged={setOutsideAi} onFailed={onFailed} />}
         {agents && <YourAgents agents={agents} rooms={rooms} hasPassword={hasPassword} onFailed={onFailed} />}
         <PauseNotifications meId={me.id} askForPause={askForPause} onFailed={onFailed} />
         {huddleSounds && <HuddleSoundSwitches sounds={huddleSounds} askForSounds={askForHuddleSounds} onFailed={onFailed} />}

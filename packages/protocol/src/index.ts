@@ -139,8 +139,6 @@ export {
   isAppPage,
   KIND_SEGMENTS,
   MAX_ID_LENGTH,
-  NEW_AGENT_PATH,
-  NEW_APP_PATH,
   NEW_BOT_PATH,
   NEW_DIRECT_PATH,
   pageAfterWelcome,

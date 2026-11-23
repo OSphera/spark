@@ -23,9 +23,10 @@ export const RESEND_API_PORT = Number(process.env.E2E_RESEND_PORT ?? 8791);
 export const RESEND_KEY = "re_e2e-only-not-a-key";
 /** Where the siteverify the Turnstile spec fakes listens, which the second server's TURNSTILE_SITEVERIFY_URL names. */
 export const SITEVERIFY_PORT = Number(process.env.E2E_SITEVERIFY_PORT ?? 8792);
-/** Where the AI Gateway the Ember AI spec fakes listens, which the second server's AI_GATEWAY_URL names. */
-export const AI_GATEWAY_PORT = Number(process.env.E2E_AI_GATEWAY_PORT ?? 8793);
-/** The Cloudflare account that AI Gateway knows, and its API token, which the Ember AI spec gives Ember. Neither is real. */
+/**
+ * The Cloudflare account the second server says it's deployed to, which Set up huddles fills in. Named for
+ * the AI Gateway spec Spark removed (OSphera/spark#4); its API token is unused now. Neither is real.
+ */
 export const AI_GATEWAY_ACCOUNT = { accountId: "e2e0e2e0e2e0e2e0e2e0e2e0e2e0e2e0", apiToken: "e2e-only-not-a-cloudflare-api-token" };
 /** Where the Realtime SFU the huddles spec fakes listens, which the second server's REALTIME_SFU_URL names. */
 export const SFU_PORT = Number(process.env.E2E_SFU_PORT ?? 8794);

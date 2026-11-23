@@ -13,7 +13,6 @@ import {
   UPDATING_SPARK,
   type Account,
   type AccountChanges,
-  type AssistantSetup,
   type CopyOnGitHub,
   type DirectoryUser,
   type EmailInvitation,
@@ -27,9 +26,7 @@ import {
   type SidebarSection,
   type WorkspaceSettings,
 } from "@ember/protocol";
-import { formatOf, TOP_LEVELS, modelName, type AssistantChanges, type AssistantSettings, type NewAssistantModel } from "@ember/protocol/assistant";
 import { blockedWordUnmatchable } from "@ember/protocol/blocked-words";
-import type { Agent, Agents } from "@ember/protocol/agents";
 import { RELAY_WITHOUT_HUDDLES, type HuddleRelaySetup, type HuddlesSetup } from "@ember/protocol/huddles";
 import type { MemberfulKeysChange, MemberfulSaved } from "@ember/protocol/memberful";
 import type { Reports } from "@ember/protocol/reports";
@@ -54,8 +51,6 @@ import {
   HOW_TO_ADD_THE_BETA_WORKFLOW,
   HOW_TO_ADD_THE_WORKFLOW,
 } from "./ember-version";
-import { AGENTS_ANSWER, ASSISTANT_EXPLAINED } from "./assistant-settings";
-import { CONFIRM_STOP_OUTSIDE_AI } from "./outside-ai-settings";
 import { CONFIRM_REMOVE } from "./people-list";
 import { workspaceSectionPath, type WorkspaceSection } from "./settings-navigation";
 import { CHANGES_SAVED } from "./settings-page";
@@ -143,28 +138,9 @@ interface Answers {
 /** The workspace's logo once one is uploaded. */
 const LOGO = "/account/logo?v=20261017120000";
 
-/** @ember's avatar while it's Ember's flame. */
-const EMBER_FLAME = "/users/ember.abc/avatar?v=20261101120000";
-
-/** An agent, as the AI assistant tab lists it while Ember AI is on. */
-const RECAP: Agent = {
-  id: "0mgk3x2a9b4c60",
-  name: "Recap",
-  bio: null,
-  role: "bot",
-  status: "active",
-  avatarUrl: "/users/0mgk3x2a9b4c60/avatar?v=1",
-  description: "Sums up threads into decisions and to-dos.",
-  model: "anthropic/claude-sonnet-5.5",
-  modelName: "Claude Sonnet 5.5",
-  webTools: [],
-  access: "everyone",
-  rooms: null,
-};
-
 /** Answers the page's requests as the server would for `settings`, or as `answers` says. */
 function serve(settings: WorkspaceSettings, { saved, regenerated, roleChanged, removed, ordered, logoSaved, sectioned }: Answers = {}) {
-  let { account, emailDomains: keptDomains, email, turnstile, assistant, huddles, outsideAi, sso } = settings;
+  let { account, emailDomains: keptDomains, email, turnstile, huddles, sso } = settings;
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const request = `${init?.method ?? "GET"} ${String(input)}`;
     const person = request.match(/^PATCH \/api\/account\/users\/(.+)$/);
@@ -181,7 +157,7 @@ function serve(settings: WorkspaceSettings, { saved, regenerated, roleChanged, r
     }
     switch (request) {
       case "GET /api/account":
-        return Response.json({ ...settings, account, emailDomains: keptDomains, email, turnstile, assistant, huddles, outsideAi, sso });
+        return Response.json({ ...settings, account, emailDomains: keptDomains, email, turnstile, huddles, sso });
       case "PATCH /api/account": {
         if (saved) return saved();
         const {
@@ -255,46 +231,6 @@ function serve(settings: WorkspaceSettings, { saved, regenerated, roleChanged, r
       case "DELETE /api/account/turnstile_keys":
         turnstile = null;
         return Response.json({ turnstile });
-      case "PUT /api/account/assistant": {
-        const { accountId, model } = JSON.parse(String(init?.body)) as AssistantSetup;
-        assistant = {
-          accountId,
-          model,
-          models: [{ id: model, name: modelName(model), format: formatOf(model) }],
-          most: assistant?.most ?? TOP_LEVELS,
-          webTools: [],
-          instructions: assistant?.instructions ?? "",
-          promptTemplate: assistant?.promptTemplate ?? null,
-          avatarUrl: assistant?.avatarUrl ?? EMBER_FLAME,
-          avatar: assistant?.avatar ?? false,
-        };
-        return Response.json({ assistant, greeting: "Hello, team!" });
-      }
-      case "PATCH /api/account/assistant": {
-        const { model, ...levels } = JSON.parse(String(init?.body)) as AssistantChanges;
-        assistant = assistant && { ...assistant, model: model ?? assistant.model, most: { ...assistant.most, ...levels } };
-        return Response.json({ assistant });
-      }
-      case "POST /api/account/assistant/models": {
-        const { model } = JSON.parse(String(init?.body)) as NewAssistantModel;
-        assistant = assistant && { ...assistant, models: [...assistant.models, { id: model, name: modelName(model), format: formatOf(model) }] };
-        return Response.json({ assistant, greeting: "Hi there!" });
-      }
-      case "DELETE /api/account/assistant/models": {
-        const { model } = JSON.parse(String(init?.body)) as { model: string };
-        assistant = assistant && { ...assistant, models: assistant.models.filter(({ id }) => id !== model) };
-        return Response.json({ assistant });
-      }
-      case "DELETE /api/account/assistant":
-        assistant = null;
-        return Response.json({ assistant });
-      case "GET /api/account/agents":
-        return Response.json({ agents: [RECAP] } satisfies Agents);
-      case "GET /api/account/apps":
-        return Response.json({ apps: [{ id: "0mgk3x2a9b4c70", name: "Linear", url: "https://mcp.linear.example/mcp", toolCount: 23, setAside: 0, signInEnded: false, wantsAccess: false }] });
-      case "PUT /api/account/outside_ai":
-        ({ on: outsideAi } = JSON.parse(String(init?.body)) as { on: boolean });
-        return Response.json({ on: outsideAi });
       case "PUT /api/account/memberful_keys": {
         const { site } = JSON.parse(String(init?.body)) as MemberfulKeysChange;
         return Response.json({ memberfulSite: site, memberfulWebhooks: true, memberfulKeys: "saved", memberfulSiteKept: settings.memberfulSiteKept } satisfies MemberfulSaved);
@@ -484,14 +420,15 @@ describe("Community settings page", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Domain settings" })).toBeInTheDocument();
     expect(screen.getByText("Choose the address people open your community at.")).toBeInTheDocument();
 
-    act(() => navigate(workspaceSectionPath("assistant-settings")));
+    // Spark (OSphera/spark#4): AI assistant is gone, so its fragment shows General.
+    act(() => navigate("/account/edit#assistant-settings"));
     expect(domain()).not.toBeInTheDocument();
-    expect(assistant()).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "AI assistant" })).toBeInTheDocument();
-    expect(screen.getByText("Add AI agents people can ask in the chat.")).toBeInTheDocument();
+    expect(assistant()).not.toBeInTheDocument();
+    expect(community()).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "AI assistant" })).not.toBeInTheDocument();
 
     act(() => navigate(workspaceSectionPath("huddles-settings")));
-    expect(assistant()).not.toBeInTheDocument();
+    expect(community()).not.toBeInTheDocument();
     expect(huddles()).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Huddles" })).toBeInTheDocument();
     expect(screen.getByText("Audio and video chat in your rooms.")).toBeInTheDocument();
@@ -2225,131 +2162,6 @@ describe("Check that people are people with Cloudflare Turnstile", () => {
     showPage(asLinus);
     expect(await joinLink()).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Turnstile" })).not.toBeInTheDocument();
-  });
-});
-
-describe("Ember AI", () => {
-  showingSection("assistant-settings");
-  /** Ember AI on Claude Haiku 5.5, the only model people can pick. */
-  const ON: AssistantSettings = {
-    accountId: "0123456789abcdef0123456789abcdef",
-    model: "anthropic/claude-haiku-5.5",
-    models: [{ id: "anthropic/claude-haiku-5.5", name: "Claude Haiku 5.5", format: "anthropic" }],
-    most: TOP_LEVELS,
-    webTools: [],
-    instructions: "",
-    promptTemplate: null,
-    avatarUrl: EMBER_FLAME,
-    avatar: false,
-  };
-
-  const agentsCard = () => screen.queryByRole("region", { name: "Agents" });
-
-  it("gives administrators the Ember AI card, whose switch sets up Ember AI, then lists the agents under it", async () => {
-    const { user } = showPage();
-    const card = await screen.findByRole("region", { name: "Ember AI" });
-    const assistantSwitch = within(card).getByRole("switch", { name: "Ember AI" });
-    expect(assistantSwitch).not.toBeChecked();
-    expect(card).toHaveTextContent(ASSISTANT_EXPLAINED);
-    expect(agentsCard()).not.toBeInTheDocument();
-    await user.click(assistantSwitch);
-    await user.type(await screen.findByRole("textbox", { name: "Account ID" }), "0123456789abcdef0123456789abcdef");
-    await user.type(screen.getByRole("textbox", { name: "API token" }), "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-Ab");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.selectOptions(await screen.findByRole("combobox", { name: "Model" }), "anthropic/claude-haiku-5.5");
-    await user.click(screen.getByRole("button", { name: "Save" }));
-    expect(await screen.findByText("Hello, team!")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Done" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(card).toHaveTextContent(AGENTS_ANSWER);
-    expect(assistantSwitch).toBeChecked();
-
-    // @ember, on the model it saved, then the agents.
-    await waitFor(() => expect(within(agentsCard()!).getAllByRole("listitem")).toHaveLength(2));
-    const [ember, recap] = within(agentsCard()!).getAllByRole("listitem");
-    expect(ember).toHaveTextContent("Claude Haiku 5.5 · Every room");
-    expect(within(ember!).getByRole("link", { name: "Edit Ember" })).toHaveAttribute("href", "/account/agents/ember/edit");
-    expect(within(recap!).getByRole("link", { name: "Edit Recap" })).toHaveAttribute("href", `/account/agents/${RECAP.id}/edit`);
-    expect(within(agentsCard()!).getByRole("link", { name: "New agent" })).toHaveAttribute("href", "/account/agents/new");
-
-    // Then the apps connected, under the agents.
-    const appsCard = await screen.findByRole("region", { name: "Apps" });
-    expect(agentsCard()!.compareDocumentPosition(appsCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(await within(appsCard).findByRole("link", { name: "Edit Linear" })).toHaveAttribute("href", "/account/apps/0mgk3x2a9b4c70/edit");
-    expect(within(appsCard).getByRole("link", { name: "Connect an app" })).toHaveAttribute("href", "/account/apps/new");
-
-    await user.click(within(card).getByRole("button", { name: "Change" }));
-    expect(await screen.findByRole("textbox", { name: "Account ID" })).toHaveValue("0123456789abcdef0123456789abcdef");
-  });
-
-  it("fills in the Cloudflare account Ember is deployed to when the switch sets up Ember AI", async () => {
-    serve({ ...asAdministrator, cloudflareAccountId: "0123456789abcdef0123456789abcdef" });
-    const { user } = showPage();
-    const card = await screen.findByRole("region", { name: "Ember AI" });
-    await user.click(within(card).getByRole("switch", { name: "Ember AI" }));
-    const accountId = await screen.findByRole("textbox", { name: "Account ID" });
-    expect(accountId).toHaveValue("0123456789abcdef0123456789abcdef");
-    expect(accountId).toHaveAccessibleDescription("Ember is deployed to this account. To ask through another, paste that account's ID.");
-  });
-
-  it("turns Ember AI off once the administrator confirms, taking the agents away", async () => {
-    serve({ ...asAdministrator, assistant: ON });
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    const { user } = showPage();
-    const card = await screen.findByRole("region", { name: "Ember AI" });
-    expect(card).toHaveTextContent(AGENTS_ANSWER);
-    expect(agentsCard()).toBeInTheDocument();
-    await user.click(within(card).getByRole("switch", { name: "Ember AI" }));
-    await waitFor(() => expect(within(card).queryByRole("button", { name: "Change" })).not.toBeInTheDocument());
-    expect(within(card).getByRole("switch", { name: "Ember AI" })).not.toBeChecked();
-    expect(card).toHaveTextContent(ASSISTANT_EXPLAINED);
-    expect(agentsCard()).not.toBeInTheDocument();
-  });
-
-  it("tells members that administrators manage it, with no card", async () => {
-    serve(asMember);
-    showPage(asLinus);
-    expect(await screen.findByText("Community admins manage the AI assistant.")).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Ember AI" })).not.toBeInTheDocument();
-    expect(agentsCard()).not.toBeInTheDocument();
-  });
-});
-
-describe("Outside AI", () => {
-  showingSection("assistant-settings");
-  const card = () => screen.findByRole("region", { name: "Outside AI" });
-
-  it("gives administrators the Outside AI card, whether or not Ember AI is on, whose switch lets AI apps connect", async () => {
-    const { user } = showPage();
-    const outsideSwitch = within(await card()).getByRole("switch", { name: "Let AI apps connect to Ember" });
-    expect(outsideSwitch).not.toBeChecked();
-
-    await user.click(outsideSwitch);
-
-    await waitFor(() => expect(outsideSwitch).toBeChecked());
-    expect(fetch).toHaveBeenCalledWith("/api/account/outside_ai", expect.objectContaining({ method: "PUT", body: JSON.stringify({ on: true }) }));
-    expect(await card()).toHaveTextContent(`${location.origin}/mcp`);
-  });
-
-  it("shows it on once it's on, and off again once an administrator agrees to disconnect every app", async () => {
-    serve({ ...asAdministrator, outsideAi: true });
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-    const { user } = showPage();
-    const outsideSwitch = within(await card()).getByRole("switch", { name: "Let AI apps connect to Ember" });
-    expect(outsideSwitch).toBeChecked();
-
-    await user.click(outsideSwitch);
-
-    await waitFor(() => expect(outsideSwitch).not.toBeChecked());
-    expect(confirm).toHaveBeenCalledExactlyOnceWith(CONFIRM_STOP_OUTSIDE_AI);
-    expect(await card()).not.toHaveTextContent("/mcp");
-  });
-
-  it("isn't shown to members", async () => {
-    serve(asMember);
-    showPage(asLinus);
-    expect(await screen.findByText("Community admins manage the AI assistant.")).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Outside AI" })).not.toBeInTheDocument();
   });
 });
 

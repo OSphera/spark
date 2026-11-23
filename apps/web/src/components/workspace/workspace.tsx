@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useReducer, useRef, useState, type MouseEvent, type ReactNode } from "react";
-import { ASSISTANT_ID, searchOfQuery, startingInvolvement, type Account, type AccountDeletion, type Blocks, type DirectRoom, type Favorites, type Me, type Room, type RoomId, type SavedRoomLayout, type SidebarRoom, type SidebarSection, type User, type UserId } from "@ember/protocol";
+import { searchOfQuery, startingInvolvement, type Account, type AccountDeletion, type Blocks, type DirectRoom, type Favorites, type Me, type Room, type RoomId, type SavedRoomLayout, type SidebarRoom, type SidebarSection, type User, type UserId } from "@ember/protocol";
 import { ALL_HUDDLE_SOUNDS, CAMERAS_OFF, SCREENS_OFF } from "@ember/protocol/huddles";
 import { useFlash } from "@/components/flash";
 import { Xmark } from "@/components/icons/iconoir";
@@ -16,7 +16,6 @@ import { useMounted } from "@/hooks/use-mounted";
 import { useReleaseCheck } from "@/hooks/use-release-check";
 import { ReportingContext, type OpenReport, type ReportTarget } from "@/hooks/use-reporting";
 import { useSidebar } from "@/hooks/use-sidebar";
-import { agentsToAsk, canAsk } from "@/lib/agents";
 import { answerHuddleInvitation, ApiError, changeBlock, dismissInvitation, isSignedOut, startDirect } from "@/lib/api";
 import { invitationsReducer, NO_INVITATIONS } from "@/lib/huddle-invitations";
 import { hasHuddles } from "@/lib/huddle-people";
@@ -30,7 +29,7 @@ import { loadPage } from "@/lib/page";
 import { updateOf } from "@/lib/release-check";
 import { isQuietWelcome, markedUnread } from "@/lib/room-list";
 import { cn } from "@/lib/utils";
-import { afterNavigating, leave, messagePath, navigate, pageMark, roomPath, routeOf, useHash, useRoute, useVisit, type Route } from "@/hooks/use-route";
+import { afterNavigating, messagePath, navigate, pageMark, roomPath, routeOf, useHash, useRoute, useVisit, type Route } from "@/hooks/use-route";
 import { HuddlesContext, joinsNoHuddle, NO_HUDDLES, type Huddles } from "./huddle-button";
 import { MovedNotice } from "./moved-notice";
 import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog";
@@ -74,11 +73,6 @@ const RARE_PAGES = new Set<Route["page"]>([
   "bots",
   "new-bot",
   "bot-settings",
-  "new-agent",
-  "agent-settings",
-  "new-app",
-  "app-settings",
-  "app-signed-in",
   "profile",
   "push-subscriptions",
   "person",
@@ -116,11 +110,6 @@ const RAIL_PAGES = {
   bots: "workspace",
   "new-bot": "workspace",
   "bot-settings": "workspace",
-  "new-agent": "workspace",
-  "agent-settings": "workspace",
-  "new-app": "workspace",
-  "app-settings": "workspace",
-  "app-signed-in": "workspace",
   profile: "profile",
   "push-subscriptions": null,
   person: null,
@@ -357,19 +346,6 @@ export function Workspace({ me, workspaceName, version, onAccountChanged, onSign
     if (route.page === "new-direct") openNewDirect(null);
   }, [route]);
 
-  // Available Agents, while it's open, with the sidebar's row that opened it, which gets focus back, and
-  // how many of them the row says there are, once the people directory lists everyone. On a phone, the
-  // drawer closes as it opens.
-  const [agentsList, setAgentsList] = useState<{ opener: HTMLElement } | null>(null);
-  const openAgents = (opener: HTMLElement) => {
-    setDrawerOpen(false);
-    setAgentsList({ opener });
-  };
-  const agents = useMemo(() => (directory.loaded ? agentsToAsk(directory.people.values(), me) : 0), [directory.loaded, directory.people, me]);
-  // @ember, which the top bar offers to ask while Ember AI is on and it answers you.
-  const listedEmber = directory.people.get(ASSISTANT_ID);
-  const ember = listedEmber?.agent && listedEmber.status === "active" && canAsk(listedEmber, me) ? listedEmber : null;
-
   // Report, while it's open, with what had focus as it opened, which gets it back unless what opened it says what does.
   const [reporting, setReporting] = useState<{ target: ReportTarget; opener: HTMLElement | null; returnFocus?: () => void } | null>(null);
   const openReport = useCallback<OpenReport>(
@@ -518,13 +494,6 @@ export function Workspace({ me, workspaceName, version, onAccountChanged, onSign
       refresh().then(() => mounted.current && setHuddlePreview(roomId), failed);
     },
     [answerInvitation, roomIds, refresh, failed, mounted],
-  );
-  const agentsListFailed = useCallback(
-    (error: unknown) => {
-      setAgentsList(null);
-      failed(error);
-    },
-    [failed],
   );
   const reportFailed = useCallback(
     (error: unknown) => {
@@ -810,11 +779,8 @@ export function Workspace({ me, workspaceName, version, onAccountChanged, onSign
       onHuddles={route.page === "huddles"}
       currentRoomId={currentRoomId}
       unreadOnly={unreadOnly}
-      agents={agents}
-      agentsOpen={agentsList !== null}
       onSelect={select}
       onNewDirect={openNewDirect}
-      onOpenAgents={openAgents}
       onStarred={starredRooms}
       onSessionChanged={onSessionChanged}
     />
@@ -874,20 +840,6 @@ export function Workspace({ me, workspaceName, version, onAccountChanged, onSign
         return rarePage(({ BotSettingsPage }) => (
           <BotSettingsPage key={route.userId} botId={route.userId} rooms={rooms} onMissing={showNotFound} onFailed={failed} />
         ));
-      case "new-agent":
-        return rarePage(({ NewAgentPage }) => <NewAgentPage me={me} rooms={rooms} onFailed={failed} />);
-      case "agent-settings":
-        // @ember's page is its own, with what the Ember AI card held before there were agents.
-        if (route.agentId === ASSISTANT_ID) return rarePage(({ EmberPage }) => <EmberPage me={me} onFailed={failed} />);
-        return rarePage(({ AgentSettingsPage }) => (
-          <AgentSettingsPage key={route.agentId} agentId={route.agentId} me={me} rooms={rooms} onMissing={showNotFound} onFailed={failed} />
-        ));
-      case "new-app":
-        return rarePage(({ NewAppPage }) => <NewAppPage me={me} onFailed={failed} />);
-      case "app-settings":
-        return rarePage(({ AppSettingsPage }) => <AppSettingsPage key={route.appId} appId={route.appId} me={me} onMissing={showNotFound} onFailed={failed} />);
-      case "app-signed-in":
-        return rarePage(({ AppSignedInPage }) => <AppSignedInPage me={me} onFailed={failed} />);
       case "profile":
         return rarePage(({ ProfilePage }) => (
           <ProfilePage
@@ -999,11 +951,6 @@ export function Workspace({ me, workspaceName, version, onAccountChanged, onSign
             workspaceName={workspaceName}
             rooms={rooms ?? NO_ROOMS}
             field={searchField}
-            ember={ember}
-            onAskEmber={() => {
-              // Once the page's guard lets it, as the button on someone's page does, so the DM isn't started for a page kept.
-              if (ember) leave(() => startDirectWith(ember));
-            }}
           />
           <div
             className={cn(
@@ -1104,27 +1051,6 @@ export function Workspace({ me, workspaceName, version, onAccountChanged, onSign
                 }}
                 onLeftOut={(people) => flash("alert", startedWithout(people.map((person) => person.name)))}
                 onFailed={failed}
-              />
-            )}
-            {agentsList && (
-              <RarePage
-                show={({ AvailableAgentsDialog }) => (
-                  <AvailableAgentsDialog
-                    me={me}
-                    rooms={rooms ?? NO_ROOMS}
-                    opener={agentsList.opener}
-                    onClose={(started) => {
-                      setAgentsList(null);
-                      // The dialog kept focus while the page went to the DM it started, whose composer takes it
-                      // now, as opening the DM would give it.
-                      if (started) roomView.current?.focusComposer();
-                    }}
-                    onStartDirect={startDirectWith}
-                    onFailed={agentsListFailed}
-                  />
-                )}
-                loading={null}
-                onFailed={agentsListFailed}
               />
             )}
             <KeyboardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
