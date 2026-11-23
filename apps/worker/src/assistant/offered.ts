@@ -1,4 +1,4 @@
-import { EMBER_REPOSITORY } from "@ember/protocol";
+import { SPARK_REPOSITORY } from "@ember/protocol";
 import {
   ASSISTANT_MODELS,
   isWorkersAiModel,
@@ -51,7 +51,7 @@ const READ_TIMEOUT_MS = 10_000;
 const MAX_FILE_BYTES = 64 * 1024;
 
 /** What the Worker says it is to GitHub. */
-const USER_AGENT = `Ember/${VERSION} (+${EMBER_REPOSITORY})`;
+const USER_AGENT = `Ember/${VERSION} (+${SPARK_REPOSITORY})`;
 
 /** How many models Ember asks the model search for on each page, the most it gives. */
 const PER_PAGE = 100;

@@ -14,7 +14,7 @@ const minutesPast = (minutes: number) => new Date(Date.UTC(2026, 10, 11, 16, min
 const newestIs = (newest: string, checkedAt = minutesPast(Number(newest.split(".")[1]))): ReleaseCheck => ({
   release: "0.1",
   beta: false,
-  newest: { release: newest, version: `${newest}.0`, notes: `https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v${newest}.0`, newer: true },
+  newest: { release: newest, version: `${newest}.0`, notes: `https://github.com/OSphera/spark/releases/tag/v${newest}.0`, newer: true },
   checkedAt,
   newestBeta: null,
   copy: null,
@@ -23,19 +23,19 @@ const newestIs = (newest: string, checkedAt = minutesPast(Number(newest.split(".
 /** And with Ember's tags naming 0.4's `beta`th beta, ahead of that release. */
 const withBeta = (check: ReleaseCheck, beta: number): ReleaseCheck => ({
   ...check,
-  newestBeta: { release: `0.4 beta ${beta}`, version: `0.4.0-beta.${beta}`, notes: `https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v0.4.0-beta.${beta}`, newer: true },
+  newestBeta: { release: `0.4 beta ${beta}`, version: `0.4.0-beta.${beta}`, notes: `https://github.com/OSphera/spark/releases/tag/v0.4.0-beta.${beta}`, newer: true },
 });
 
 /** And while this Ember is 0.5's `release`th beta, its tags name the `newestBeta`th, and GitHub named 0.4, the newest release, `checkedAt`. */
 const onBeta = (release: number, newestBeta: number, checkedAt: string): ReleaseCheck => ({
   release: `0.5 beta ${release}`,
   beta: true,
-  newest: { release: "0.4", version: "0.4.0", notes: "https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v0.4.0", newer: false },
+  newest: { release: "0.4", version: "0.4.0", notes: "https://github.com/OSphera/spark/releases/tag/v0.4.0", newer: false },
   checkedAt,
   newestBeta: {
     release: `0.5 beta ${newestBeta}`,
     version: `0.5.0-beta.${newestBeta}`,
-    notes: `https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v0.5.0-beta.${newestBeta}`,
+    notes: `https://github.com/OSphera/spark/releases/tag/v0.5.0-beta.${newestBeta}`,
     newer: newestBeta > release,
   },
   copy: null,

@@ -613,24 +613,24 @@ describe("Where messages live", () => {
 });
 
 describe("Updates for a copy made with Deploy to Cloudflare", () => {
-  const WORKFLOW = ".github/workflows/update-ember.yml";
+  const WORKFLOW = ".github/workflows/update-spark.yml";
   // Ember's, as the deploy offers it: the copy beside the script, which CI keeps the same as .github's,
   // since a copy's .github keeps its own workflow, or none.
-  const embersWorkflow = readFileSync(new URL("./update-ember.yml", import.meta.url), "utf8");
+  const embersWorkflow = readFileSync(new URL("./update-spark.yml", import.meta.url), "utf8");
 
   /**
    * A checkout of a copy of Ember with this script, cloned from `origin` if one's given, and without the
-   * Update Ember workflow unless `workflow`, as Deploy to Cloudflare's copies are, nor the beta workflow
+   * Update Spark workflow unless `workflow`, as Deploy to Cloudflare's copies are, nor the beta workflow
    * unless `betaWorkflow`: answers the script there.
    */
   function checkout({ origin, workflow = false, betaWorkflow = false }: { origin?: string; workflow?: boolean; betaWorkflow?: boolean } = {}): string {
     const root = path.join(dir, "checkout");
     const scripts = path.join(root, "apps/worker/scripts");
     mkdirSync(scripts, { recursive: true });
-    for (const file of ["deploy.ts", "jsonc.ts", "vapid-keys.ts", "update-ember.yml"]) copyFileSync(new URL(`./${file}`, import.meta.url), path.join(scripts, file));
+    for (const file of ["deploy.ts", "jsonc.ts", "vapid-keys.ts", "update-spark.yml"]) copyFileSync(new URL(`./${file}`, import.meta.url), path.join(scripts, file));
     if (workflow || betaWorkflow) mkdirSync(path.join(root, ".github/workflows"), { recursive: true });
     if (workflow) writeFileSync(path.join(root, WORKFLOW), embersWorkflow);
-    if (betaWorkflow) copyFileSync(new URL("./update-ember-beta.yml", import.meta.url), path.join(root, ".github/workflows/update-ember-beta.yml"));
+    if (betaWorkflow) copyFileSync(new URL("./update-spark-beta.yml", import.meta.url), path.join(root, ".github/workflows/update-spark-beta.yml"));
     spawnSync("git", ["init", "--quiet"], { cwd: root });
     if (origin) spawnSync("git", ["remote", "add", "origin", origin], { cwd: root });
     return path.join(scripts, "deploy.ts");
@@ -643,7 +643,7 @@ describe("Updates for a copy made with Deploy to Cloudflare", () => {
     const script = checkout({ origin: "https://x-access-token:ghs_clone-only@github.com/someone/my-ember.git" });
     const { status, logs } = deploy("no worker", [], { script, env: { CI: "true", WORKERS_CI: "1" } });
     expect(status).toBe(0);
-    expect(logs).toContain("This copy of Ember has no Update Ember workflow, which Deploy to Cloudflare leaves out with the rest of the .github folder");
+    expect(logs).toContain("This copy of Ember has no Update Spark workflow, which Deploy to Cloudflare leaves out with the rest of the .github folder");
     const link = editorLink(logs, "someone/my-ember");
     expect(`${link.origin}${link.pathname}`).toBe("https://github.com/someone/my-ember/new/main");
     expect(link.searchParams.get("filename")).toBe(WORKFLOW);
@@ -667,11 +667,11 @@ describe("Updates for a copy made with Deploy to Cloudflare", () => {
   it.each([
     ["git names no origin", undefined],
     ["the copy is on GitLab", "https://gitlab.com/someone/my-ember.git"],
-    ["the checkout is of Ember's own repository", "https://github.com/NYLLON-SOFTWARE/ember-cloudflare.git"],
+    ["the checkout is of Ember's own repository", "https://github.com/OSphera/spark.git"],
   ])("says where Ember's workflow is when %s, and how to update elsewhere, telling the Worker of no copy", (_, origin) => {
     const { logs } = deploy(EVERY_SECRET, [], { script: checkout({ origin }) });
-    expect(logs).toContain(`On GitHub, add ${WORKFLOW} to it as Ember has it, https://github.com/NYLLON-SOFTWARE/ember-cloudflare/blob/main/${WORKFLOW}`);
-    expect(logs).toContain("elsewhere, update it with apps/worker/scripts/update-ember.ts");
+    expect(logs).toContain(`On GitHub, add ${WORKFLOW} to it as Ember has it, https://github.com/OSphera/spark/blob/main/${WORKFLOW}`);
+    expect(logs).toContain("elsewhere, update it with apps/worker/scripts/update-spark.ts");
     expect(logs).not.toContain("/new/");
     expect(output("deploy-args")).toBe("");
   });
@@ -698,9 +698,9 @@ describe("Updates for a copy made with Deploy to Cloudflare", () => {
 
   it("says nothing of the workflow to a copy that has it, nor when wrangler fails to deploy", () => {
     const origin = "https://github.com/someone/my-ember.git";
-    expect(deploy(EVERY_SECRET, [], { script: checkout({ origin, workflow: true }) }).logs).not.toContain("Update Ember workflow");
+    expect(deploy(EVERY_SECRET, [], { script: checkout({ origin, workflow: true }) }).logs).not.toContain("Update Spark workflow");
     rmSync(path.join(dir, "checkout"), { recursive: true });
-    expect(deploy(EVERY_SECRET, [], { script: checkout({ origin }), deployStatus: 1 }).logs).not.toContain("Update Ember workflow");
+    expect(deploy(EVERY_SECRET, [], { script: checkout({ origin }), deployStatus: 1 }).logs).not.toContain("Update Spark workflow");
   });
 });
 

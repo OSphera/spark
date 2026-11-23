@@ -12,7 +12,7 @@ import { encryptPush, InvalidPushKeyError, PushArgumentError, vapidAuthorization
 // forgotten, and any other failure is logged.
 
 /** Whom push services may contact about this deployment's pushes when VAPID_SUBJECT doesn't say: the project. */
-export const DEFAULT_VAPID_SUBJECT = "https://github.com/NYLLON-SOFTWARE/ember-cloudflare";
+export const DEFAULT_VAPID_SUBJECT = "https://github.com/OSphera/spark";
 
 /** How long a push service keeps a message's push for a browser that's away: four weeks, as the gem's `ttl` has it. */
 const TTL_SECONDS = 4 * 7 * 24 * 60 * 60;

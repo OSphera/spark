@@ -165,7 +165,7 @@ export interface Env {
   /**
    * The GitHub repository of the copy of Ember deployed, as `owner/name`, which `pnpm run deploy` gives
    * where git's origin is a copy on GitHub, with GIT_BRANCH, the branch that deploys, UPDATE_WORKFLOW,
-   * "true" where the copy has the Update Ember workflow, and BETA_WORKFLOW, "true" where it has the beta
+   * "true" where the copy has the Update Spark workflow, and BETA_WORKFLOW, "true" where it has the beta
    * workflow: General's release card links to running each, or to adding it.
    */
   GITHUB_REPOSITORY?: string;

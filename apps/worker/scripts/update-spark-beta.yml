@@ -1,9 +1,9 @@
-name: Update Ember to its newest beta
+name: Update Spark to its newest beta
 
-# Brings this copy of Ember up to Ember's newest beta, from github.com/NYLLON-SOFTWARE/ember-cloudflare,
+# Brings this copy of Ember up to Ember's newest beta, from github.com/OSphera/spark,
 # whenever it's run from the Actions tab: it opens a pull request with the beta, and merging that deploys
 # it (docs/self-hosting.md#betas). It runs the update script from Ember's newest release or beta rather
-# than the copy's own, which can't see betas in copies from before them. Update Ember goes on bringing
+# than the copy's own, which can't see betas in copies from before them. Update Spark goes on bringing
 # releases alone until the copy runs a beta, then brings the betas after it, then the release, and after
 # that releases alone again.
 on:
@@ -15,15 +15,15 @@ permissions:
   pull-requests: write
   issues: write
 
-# Update Ember's group, since the two push the same branches, so they never run at once.
+# Update Spark's group, since the two push the same branches, so they never run at once.
 concurrency:
-  group: update-ember
+  group: update-spark
   cancel-in-progress: false
 
 jobs:
   update:
     # Ember's own repository is where the betas come from, so it has nothing to update.
-    if: github.repository != 'NYLLON-SOFTWARE/ember-cloudflare'
+    if: github.repository != 'OSphera/spark'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -38,7 +38,7 @@ jobs:
           node-version: 22
       - name: Fetch Ember's newest update script
         run: |
-          ember=https://github.com/NYLLON-SOFTWARE/ember-cloudflare.git
+          ember=https://github.com/OSphera/spark.git
           # Ember's newest tag, a release's or a beta's, with each beta sorted before its release.
           tag=$(git -c versionsort.suffix=- ls-remote --tags --refs --sort=-version:refname "$ember" 'v*' | head -n 1 | sed 's|.*refs/tags/||')
           git -c advice.detachedHead=false clone --quiet --depth 1 --branch "$tag" --filter=blob:none --sparse "$ember" "$RUNNER_TEMP/ember"
@@ -50,4 +50,4 @@ jobs:
           GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
           GIT_COMMITTER_NAME: github-actions[bot]
           GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
-        run: node "$RUNNER_TEMP/ember/apps/worker/scripts/update-ember.ts" --publish --beta
+        run: node "$RUNNER_TEMP/ember/apps/worker/scripts/update-spark.ts" --publish --beta

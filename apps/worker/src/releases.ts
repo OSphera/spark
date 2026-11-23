@@ -1,4 +1,4 @@
-import { EMBER_REPOSITORY, isNewer, type CopyOnGitHub, type ReleaseCheck } from "@ember/protocol";
+import { SPARK_REPOSITORY, isNewer, type CopyOnGitHub, type ReleaseCheck } from "@ember/protocol";
 import type { Env } from "./env";
 import { isBeta, releaseNameOf, VERSION } from "./version";
 
@@ -18,12 +18,12 @@ import { isBeta, releaseNameOf, VERSION } from "./version";
 // tells a beta of the next, then of its release (docs/self-hosting.md#betas).
 
 /** Where GitHub sends whoever asks for Ember's latest release. */
-const LATEST_RELEASE = `${EMBER_REPOSITORY}/releases/latest`;
-const GITHUB = new URL(EMBER_REPOSITORY).origin;
+const LATEST_RELEASE = `${SPARK_REPOSITORY}/releases/latest`;
+const GITHUB = new URL(SPARK_REPOSITORY).origin;
 /** What the Worker says it is to GitHub. */
-const USER_AGENT = `Ember/${VERSION} (+${EMBER_REPOSITORY})`;
+const USER_AGENT = `Ember/${VERSION} (+${SPARK_REPOSITORY})`;
 /** Where git asks Ember's repository for its tags, as `git ls-remote` does. */
-const UPLOAD_PACK = `${EMBER_REPOSITORY}.git/git-upload-pack`;
+const UPLOAD_PACK = `${SPARK_REPOSITORY}.git/git-upload-pack`;
 /** A line of git's protocol: its length, the four characters that say it among them, in hex, then the line. */
 const pktLine = (line: string) => `${(line.length + 4).toString(16).padStart(4, "0")}${line}`;
 /** Git's request, in version 2 of its protocol, for Ember's tags of releases and betas, as `git ls-remote --tags` makes it. */
@@ -170,7 +170,7 @@ async function newestBetaOnGitHub(): Promise<Release | null | undefined> {
   // Decoded rather than read as text, which workerd warns of for a type that isn't text's.
   const betas = [...new TextDecoder().decode(await answer.arrayBuffer()).matchAll(BETA_TAG)].map(([, version]) => version!);
   const newest = betas.reduce<string | undefined>((newest, version) => (newest === undefined || isNewer(version, newest) ? version : newest), undefined);
-  return newest === undefined ? null : { version: newest, page: `${EMBER_REPOSITORY}/releases/tag/v${newest}` };
+  return newest === undefined ? null : { version: newest, page: `${SPARK_REPOSITORY}/releases/tag/v${newest}` };
 }
 
 /** That GitHub didn't list Ember's tags, as `why` says, which is logged. */

@@ -1056,7 +1056,7 @@ describe("Rail", () => {
 });
 
 describe("New releases", () => {
-  const NOTES = "https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v0.2.0";
+  const NOTES = "https://github.com/OSphera/spark/releases/tag/v0.2.0";
   const asAdministrator = { ...ada, administrator: true };
   /** How many times the release check was asked for, and afresh, as opening Admin asks for it. */
   const releaseChecks = () => vi.mocked(fetch).mock.calls.filter(([input]) => String(input) === "/api/account/release").length;
@@ -1085,11 +1085,11 @@ describe("New releases", () => {
     expect(releaseChecks()).toBe(0);
     act(() => idle.forEach((run) => run()));
     const admin = screen.getByRole("link", { name: "Admin" });
-    await waitFor(() => expect(admin).toHaveAccessibleDescription("Ember 0.2 is available"));
+    await waitFor(() => expect(admin).toHaveAccessibleDescription("Spark 0.2 is available"));
 
     // General says so too, as the release check answered, before opening Admin has it asked afresh.
     await user.click(admin);
-    expect(await screen.findByRole("heading", { level: 2, name: "Ember 0.2 is available" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Spark 0.2 is available" })).toBeInTheDocument();
     expect([releaseChecks(), afreshChecks()]).toEqual([1, 0]);
   });
 
@@ -1107,17 +1107,17 @@ describe("New releases", () => {
     await vi.waitFor(() => expect(idle).toHaveLength(2));
     act(() => idle.splice(0).forEach((run) => run()));
     const admin = screen.getByRole("link", { name: "Admin" });
-    await waitFor(() => expect(admin).toHaveAccessibleDescription("Ember 0.2 is available"));
+    await waitFor(() => expect(admin).toHaveAccessibleDescription("Spark 0.2 is available"));
 
     // GitHub has published another since, which General and the rail say once the check made afresh answers.
     newest = "0.3";
     await user.click(admin);
-    expect(await screen.findByRole("heading", { level: 2, name: "Ember 0.2 is available" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Spark 0.2 is available" })).toBeInTheDocument();
     await vi.waitFor(() => expect(idle).toHaveLength(1));
     expect(afreshChecks()).toBe(0);
     act(() => idle.splice(0).forEach((run) => run()));
-    expect(await screen.findByRole("heading", { level: 2, name: "Ember 0.3 is available" })).toBeInTheDocument();
-    expect(admin).toHaveAccessibleDescription("Ember 0.3 is available");
+    expect(await screen.findByRole("heading", { level: 2, name: "Spark 0.3 is available" })).toBeInTheDocument();
+    expect(admin).toHaveAccessibleDescription("Spark 0.3 is available");
     expect([releaseChecks(), afreshChecks()]).toEqual([1, 1]);
 
     // Going on to Membership, then home, asks nothing, but opening Admin again asks afresh again.
@@ -1150,7 +1150,7 @@ describe("New releases", () => {
       await communitySettings();
       await vi.waitFor(() => expect(idle).toHaveLength(2));
       act(() => idle.forEach((run) => run()));
-      expect(await screen.findByRole("region", { name: "Ember 0.1" })).toHaveTextContent(says);
+      expect(await screen.findByRole("region", { name: "Spark 0.1" })).toHaveTextContent(says);
       expect(screen.getByRole("link", { name: "Admin" })).not.toHaveAccessibleDescription();
       expect([releaseChecks(), afreshChecks()]).toEqual([0, 1]);
       unmount();
@@ -1158,12 +1158,12 @@ describe("New releases", () => {
     }
   });
 
-  it("marks Admin for the beta after a beta's own, which Update Ember brings, but not for a beta a release could try", async () => {
-    const betaNotes = "https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v0.2.0-beta.2";
+  it("marks Admin for the beta after a beta's own, which Update Spark brings, but not for a beta a release could try", async () => {
+    const betaNotes = "https://github.com/OSphera/spark/releases/tag/v0.2.0-beta.2";
     const newestBeta = { release: "0.2 beta 2", version: "0.2.0-beta.2", notes: betaNotes, newer: true };
     for (const [check, card, mark] of [
-      [{ release: "0.2 beta 1", beta: true, newest: { release: "0.1", version: "0.1.0", notes: NOTES, newer: false }, newestBeta, copy: null }, "Ember 0.2 beta 2 is available", "Ember 0.2 beta 2 is available"],
-      [{ release: "0.1", beta: false, newest: { release: "0.1", version: "0.1.0", notes: NOTES, newer: false }, newestBeta, copy: null }, "Ember 0.1", null],
+      [{ release: "0.2 beta 1", beta: true, newest: { release: "0.1", version: "0.1.0", notes: NOTES, newer: false }, newestBeta, copy: null }, "Spark 0.2 beta 2 is available", "Spark 0.2 beta 2 is available"],
+      [{ release: "0.1", beta: false, newest: { release: "0.1", version: "0.1.0", notes: NOTES, newer: false }, newestBeta, copy: null }, "Spark 0.1", null],
     ] as const) {
       const idle = idleCallbacks();
       serve({
@@ -1194,15 +1194,15 @@ describe("New releases", () => {
     await communitySettings();
     await vi.waitFor(() => expect(idle).toHaveLength(2));
     act(() => idle.splice(0).forEach((run) => run()));
-    const card = await screen.findByRole("region", { name: "Ember 0.1" });
+    const card = await screen.findByRole("region", { name: "Spark 0.1" });
     const admin = screen.getByRole("link", { name: "Admin" });
     expect(admin).not.toHaveAccessibleDescription();
 
     // GitHub has published 0.2 since, which Check for updates hears of without waiting for the browser to be idle.
     newest = { release: "0.2", version: "0.2.0", notes: NOTES, newer: true };
     await user.click(within(card).getByRole("button", { name: "Check for updates" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Ember 0.2 is available" })).toBeInTheDocument();
-    expect(admin).toHaveAccessibleDescription("Ember 0.2 is available");
+    expect(await screen.findByRole("heading", { level: 2, name: "Spark 0.2 is available" })).toBeInTheDocument();
+    expect(admin).toHaveAccessibleDescription("Spark 0.2 is available");
     expect(idle).toEqual([]);
     expect([releaseChecks(), afreshChecks()]).toEqual([0, 2]);
   });

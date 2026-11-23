@@ -1,5 +1,5 @@
 // Reads wrangler.jsonc as wrangler does, comments and trailing commas included, for the scripts that run
-// before anything is installed, as update-ember.ts does in a copy's Update Ember workflow.
+// before anything is installed, as update-spark.ts does in a copy's Update Spark workflow.
 
 interface Token {
   text: string;

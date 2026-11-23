@@ -131,7 +131,7 @@ which an install prompt shows: a few people chatting, on a phone. `pnpm screensh
 Ember's version is `version` in `apps/worker/package.json`, which the Worker reports in its
 `X-Version` header. A pull request that raises it is a release: once it's merged, the Release workflow
 (`.github/workflows/release.yml`) tags the commit `v<version>` and publishes the release, with notes
-listing the pull requests merged since the last, and every copy's Update Ember workflow offers it
+listing the pull requests merged since the last, and every copy's Update Spark workflow offers it
 within a week ([Updating](self-hosting.md#updating)), as General settings tells their administrators,
 going by GitHub's latest release. Copies move from release to release, never to `main` between them,
 and may skip any number of releases or go back one, so:
@@ -140,8 +140,8 @@ and may skip any number of releases or go back one, so:
   already: CI fails a pull request that changes one. A schema change goes in a new migration.
 - A migration adds to the tables rather than takes away, so the release before still runs on what it
   leaves: drop a column or table a release after the code stops using it.
-- `.github/workflows/update-ember.yml` stays thin, since an update can't change a copy's
-  workflows: change `apps/worker/scripts/update-ember.ts`, which updates bring, instead, and add to
+- `.github/workflows/update-spark.yml` stays thin, since an update can't change a copy's
+  workflows: change `apps/worker/scripts/update-spark.ts`, which updates bring, instead, and add to
   the workflow only what a copy with the one before can do without, as the box for a beta is. Its copy
   beside that script, which the deploy and General's release card offer copies without the
   workflow, as Deploy to Cloudflare's are, is the same file, as CI checks. The tests read that

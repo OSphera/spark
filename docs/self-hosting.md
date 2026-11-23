@@ -1,6 +1,6 @@
 # Self-hosting Ember
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/NYLLON-SOFTWARE/ember-cloudflare)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/OSphera/spark)
 
 Everything about running your own Ember: deploying it, the settings an administrator turns on, what it
 costs, and where it keeps messages. The [README](../README.md) has the short version, and
@@ -43,7 +43,7 @@ first time leaves you on Cloudflare's page for deploying one of your own reposit
 button again afterwards. If your account already has a bucket named `ember`, the form picks it, so
 pick a new one there for this Ember's files, and choose Create new for the database if it picks one
 another Ember uses. The copy has all of Ember but its `.github` folder, so
-add the Update Ember workflow to it, as [Updating](#updating) says, for it to be offered Ember's
+add the Update Spark workflow to it, as [Updating](#updating) says, for it to be offered Ember's
 releases.
 
 Cloudflare can build the copy before it has finished copying Ember into it. That first build then
@@ -69,7 +69,7 @@ variable names, if it's set, or else the only one your login reaches, as a Deplo
 build's token does. A login that reaches several gives none, unless you set the variable, and the
 field starts blank. Where git's origin is a copy of Ember on GitHub, as a Deploy to Cloudflare build's
 is, the deploy tells the Worker about it in three variables, for General's release card to link to
-its Update Ember workflow ([Updating](#updating)): `GITHUB_REPOSITORY`, the copy's `owner/name`;
+its Update Spark workflow ([Updating](#updating)): `GITHUB_REPOSITORY`, the copy's `owner/name`;
 `GIT_BRANCH`, the branch that deploys, Workers Builds' or else `main`; and `UPDATE_WORKFLOW`, `true`
 where the copy has the workflow. A `--var` of the same name keeps its own value.
 
@@ -121,18 +121,18 @@ touching storage.
 
 ### Updating
 
-Ember publishes [releases](https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases), and a copy
-made with Deploy to Cloudflare comes up to each with a pull request from its Update Ember workflow,
-`.github/workflows/update-ember.yml`, once you add it. Cloudflare's copy leaves out Ember's `.github`
+Ember publishes [releases](https://github.com/OSphera/spark/releases), and a copy
+made with Deploy to Cloudflare comes up to each with a pull request from its Update Spark workflow,
+`.github/workflows/update-spark.yml`, once you add it. Cloudflare's copy leaves out Ember's `.github`
 folder, so every deploy without the workflow ends its build log by saying so, and where git tells the
 build which GitHub repository it's from, with a link that opens GitHub's editor on your copy with
 Ember's workflow filled in: commit it there. Or create the file in your copy, on GitHub with **Add
 file**, then **Create new file**, with what
-[Ember's](https://github.com/NYLLON-SOFTWARE/ember-cloudflare/blob/main/.github/workflows/update-ember.yml)
+[Ember's](https://github.com/OSphera/spark/blob/main/.github/workflows/update-spark.yml)
 has.
 
 The workflow looks for a newer release every Monday, or when you run it from the Actions tab (Update
-Ember, then Run workflow), and opens a pull request, "Update Ember to v1.2.3", that links to what's
+Ember, then Run workflow), and opens a pull request, "Update Spark to v1.2.3", that links to what's
 new. It brings releases alone, never a beta unless you ask for one, as [Betas](#betas) says. Merging
 it deploys the update, as every push to `main` does, and that's all: each room's and the
 workspace's tables bring themselves up to date the first time they open. A page left open goes on
@@ -145,7 +145,7 @@ address.
 
 Ember tells its administrators too: while a newer release is out, Admin on the rail has a dot, and
 General, in Community settings, names the release, with its notes and how to update. For a copy the
-deploy told the Worker about, **Open GitHub action to update** opens the copy's Update Ember workflow
+deploy told the Worker about, **Open GitHub action to update** opens the copy's Update Spark workflow
 on GitHub, where **Run workflow** opens the pull request now, or, while the copy has no workflow,
 **Add GitHub action to update** opens GitHub's editor with it filled in, as the build log's link does.
 To know, the Worker asks GitHub for the page of Ember's latest release once an administrator has Ember
@@ -166,7 +166,7 @@ them on its branch to keep what both need, then merge it. Most have conflict mar
 versions, yours after `<<<<<<< HEAD` and Ember's after `=======` up to `>>>>>>> ember/v1.2.3`; for a
 file one side deleted, one that isn't text, or one in a folder Ember moved, it gives git's note on
 what it did. GitHub doesn't let a workflow change workflows either, so an update leaves your copy's as
-they are. Ember's others run only in its own repository, and when Update Ember's has a new version,
+they are. Ember's others run only in its own repository, and when Update Spark's has a new version,
 the pull request says so, for you to copy it over yours.
 
 A release's migrations add to Ember's tables rather than take anything away, so reverting an update's
@@ -174,13 +174,13 @@ merge, which deploys the release before it, leaves tables that release still wor
 release's pull request brings the reverted one's changes again, with its own. To stop updates, disable
 the workflow in the Actions tab.
 
-`apps/worker/scripts/update-ember.ts` makes the update, wherever git 2.40 or newer runs. For a copy on
+`apps/worker/scripts/update-spark.ts` makes the update, wherever git 2.40 or newer runs. For a copy on
 GitLab, which doesn't run GitHub's workflows, or to update by hand, run it in a clone of your copy, and
 it leaves the update on a branch for you to push and merge:
 
 ```sh
-node apps/worker/scripts/update-ember.ts    # makes update-ember/<the release>
-git push -u origin update-ember/v1.2.3      # then merge it into main
+node apps/worker/scripts/update-spark.ts    # makes update-spark/<the release>
+git push -u origin update-spark/v1.2.3      # then merge it into main
 ```
 
 A clone of Ember's own repository shares its history, so `git pull` brings it up to date too, or the
@@ -189,8 +189,8 @@ script, which merges from where yours and Ember's part.
 ### Betas
 
 Before a release with big changes, Ember may publish betas of it, such as `v0.5.0-beta.1`, on its
-[releases page](https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases), marked as
-pre-releases, for trying what's coming. Nobody gets one without asking: Update Ember brings a copy
+[releases page](https://github.com/OSphera/spark/releases), marked as
+pre-releases, for trying what's coming. Nobody gets one without asking: Update Spark brings a copy
 releases alone, and a copy whose update script predates betas, as Ember 0.4.2's and earlier do,
 doesn't see them at all. While a beta is out ahead of the newest release, General offers it to an
 Ember on the newest release, in a reddish box of its own under the Ember card, since a beta is
@@ -206,26 +206,26 @@ To try a beta:
 - On your computer: in a clone of Ember, `git checkout v0.5.0-beta.1`, then `pnpm install`,
   `pnpm build`, which `pnpm dev` serves the app from, `pnpm dev`, and `pnpm seed` for a community
   to try it in, as [Development](development.md#getting-started) says.
-- On a copy you have: run its beta workflow, **Update Ember to its newest beta**, from the Actions
+- On a copy you have: run its beta workflow, **Update Spark to its newest beta**, from the Actions
   tab, and merge the pull request it opens. For a copy the deploy told the Worker about, General's
   **Open GitHub action to try it** opens the workflow on GitHub, where **Run workflow** runs it, or,
   while the copy hasn't the workflow, **Add GitHub action to try betas** opens GitHub's editor with
-  Ember's filled in, `apps/worker/scripts/update-ember-beta.yml`, for you to commit. It runs the update
+  Ember's filled in, `apps/worker/scripts/update-spark-beta.yml`, for you to commit. It runs the update
   script from Ember's newest release or beta rather than the copy's own, so it works however old the
-  copy is. Update Ember's **Take Ember's newest beta** box, in the workflow Ember has had since 0.5
+  copy is. Update Spark's **Take Ember's newest beta** box, in the workflow Ember has had since 0.5
   beta 1, does the same with the copy's own script. Elsewhere, as on GitLab, run the beta's script in a
   clone of the copy, and push the branch it makes:
 
   ```sh
-  git fetch https://github.com/NYLLON-SOFTWARE/ember-cloudflare.git refs/tags/v0.5.0-beta.1
+  git fetch https://github.com/OSphera/spark.git refs/tags/v0.5.0-beta.1
   mkdir ../ember-beta && git archive FETCH_HEAD apps/worker/scripts | tar -x -C ../ember-beta
-  node ../ember-beta/apps/worker/scripts/update-ember.ts --beta   # makes update-ember/v0.5.0-beta.1
-  git push -u origin update-ember/v0.5.0-beta.1                   # then merge it into main
+  node ../ember-beta/apps/worker/scripts/update-spark.ts --beta   # makes update-spark/v0.5.0-beta.1
+  git push -u origin update-spark/v0.5.0-beta.1                   # then merge it into main
   ```
 
   Run by hand, it brings Ember's workflows too, so in a copy Deploy to Cloudflare made, which has no
   `.github` folder, it names those the beta changed as conflicts: on the branch, keep
-  `.github/workflows/update-ember.yml`, which brings the betas after it and the release, remove the
+  `.github/workflows/update-spark.yml`, which brings the betas after it and the release, remove the
   rest, which run only in Ember's own repository, and commit before you push.
 
 A copy that runs a beta is offered the betas after it, then the release, each as a pull request like
@@ -233,7 +233,7 @@ any update's, and from then on releases alone, until it asks for a beta again. A
 beta it asked for stays open until a release passes it. Its General says it's a beta, ahead of the
 newest release, and the newest beta until a later one is out, which it says is available, then the
 release, as Admin's dot does. General learned of betas in 0.5 beta 2, so 0.5 beta 1's says nothing of
-the betas after it, though Update Ember and the beta workflow bring them. A beta's migrations count as
+the betas after it, though Update Spark and the beta workflow bring them. A beta's migrations count as
 released ones, so a copy goes from beta to beta to release as it does from release to release, and
 reverting a beta's update leaves tables the release before it still works with.
 
@@ -256,7 +256,7 @@ Account Settings, User Details and Memberships, and D1 on `d1`, and choose **Upd
 keeps the token's value, which the builds hold, where Roll would give it a new one and fail every
 build until the Worker's **Settings**, under **Build**, name a token again.
 
-Every build runs with that token, those of Update Ember's pull requests included, so the less it may
+Every build runs with that token, those of Update Spark's pull requests included, so the less it may
 do, the less a dependency gone bad could. The Worker's **Settings**, under **Build**, name the token
 it builds with, and deleting the Worker leaves the token as it was: delete it too, under **API
 Tokens**, unless another Worker builds with it.

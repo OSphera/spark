@@ -1,4 +1,4 @@
-import { EMBER_REPOSITORY, type NewWorkspace, type ReleaseCheck } from "@ember/protocol";
+import { SPARK_REPOSITORY, type NewWorkspace, type ReleaseCheck } from "@ember/protocol";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AFRESH_AFTER_MS, ANSWER_KEPT_MS, forgetNewestRelease, LIST_TAGS, NO_ANSWER_KEPT_MS } from "../src/releases";
 import { isBeta, releaseNameOf, VERSION } from "../src/version";
@@ -30,9 +30,9 @@ async function releaseCheckFor(session: Session, check = checkRelease): Promise<
 }
 
 /** Where GitHub sends whoever asks for Ember's latest release. */
-const LATEST = `${EMBER_REPOSITORY}/releases/latest`;
+const LATEST = `${SPARK_REPOSITORY}/releases/latest`;
 /** The page of Ember's release `version`, as GitHub names it. */
-const pageOf = (version: string) => `${EMBER_REPOSITORY}/releases/tag/v${version}`;
+const pageOf = (version: string) => `${SPARK_REPOSITORY}/releases/tag/v${version}`;
 /** A version after this Ember's, and one before every release. */
 const NEXT = `${Number(VERSION.split(".")[0]) + 1}.0.0`;
 const FIRST = "0.0.1";
@@ -48,7 +48,7 @@ interface Asked {
 }
 
 /** Where git asks Ember's repository for its tags. */
-const UPLOAD_PACK = `${EMBER_REPOSITORY}.git/git-upload-pack`;
+const UPLOAD_PACK = `${SPARK_REPOSITORY}.git/git-upload-pack`;
 
 /** What GitHub answers git's request for Ember's tags: one for each of `versions`, in git's protocol. */
 function tagsOf(...versions: string[]): Response {
@@ -112,7 +112,7 @@ describe("Checking for a newer release", () => {
       newestBeta: null,
       copy: null,
     });
-    expect(asked).toEqual([{ url: LATEST, redirect: "manual", userAgent: `Ember/${VERSION} (+${EMBER_REPOSITORY})` }]);
+    expect(asked).toEqual([{ url: LATEST, redirect: "manual", userAgent: `Ember/${VERSION} (+${SPARK_REPOSITORY})` }]);
   });
 
   it("says this one is the newest when GitHub's is the same, or older, as when Ember is ahead of its last release", async () => {
@@ -178,7 +178,7 @@ describe("Checking for a newer release", () => {
       () => new Response("Too many requests", { status: 429 }),
       () => redirectTo("https://github.com/login?return_to=%2Freleases"),
       () => redirectTo("https://example.com/releases/tag/v99.0.0"),
-      () => redirectTo(`${EMBER_REPOSITORY}/releases/tag/v1.2`),
+      () => redirectTo(`${SPARK_REPOSITORY}/releases/tag/v1.2`),
       () => redirectTo(LATEST),
       () => Promise.reject(new DOMException("The operation was aborted due to timeout", "TimeoutError")),
     ];
@@ -194,7 +194,7 @@ describe("Checking for a newer release", () => {
       ["GitHub didn't name Ember's newest release: GitHub answered 429"],
       ["GitHub didn't name Ember's newest release: GitHub redirected to https://github.com/login?return_to=%2Freleases"],
       ["GitHub didn't name Ember's newest release: GitHub redirected to https://example.com/releases/tag/v99.0.0"],
-      [`GitHub didn't name Ember's newest release: GitHub redirected to ${EMBER_REPOSITORY}/releases/tag/v1.2`],
+      [`GitHub didn't name Ember's newest release: GitHub redirected to ${SPARK_REPOSITORY}/releases/tag/v1.2`],
       ["GitHub didn't name Ember's newest release: GitHub redirected more than 3 times"],
       ["Asking GitHub for Ember's newest release failed:", "The operation was aborted due to timeout"],
     ]);
@@ -400,7 +400,7 @@ describe("Ember's newest beta", () => {
       {
         method: "POST",
         headers: {
-          "user-agent": `Ember/${VERSION} (+${EMBER_REPOSITORY})`,
+          "user-agent": `Ember/${VERSION} (+${SPARK_REPOSITORY})`,
           "git-protocol": "version=2",
           "content-type": "application/x-git-upload-pack-request",
           accept: "application/x-git-upload-pack-result",
@@ -504,7 +504,7 @@ describe("The copy of Ember on GitHub", () => {
     return ((await response.json()) as ReleaseCheck).copy;
   }
 
-  it("names the copy the deploy told the Worker of, with the branch that deploys and whether it has the Update Ember workflow and the beta workflow", async () => {
+  it("names the copy the deploy told the Worker of, with the branch that deploys and whether it has the Update Spark workflow and the beta workflow", async () => {
     const administrator = await setUp();
     latestIs(NEXT);
     for (const path of ["/api/account/release", "/api/account/release_checks"]) {

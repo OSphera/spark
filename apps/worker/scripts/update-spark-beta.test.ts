@@ -4,18 +4,18 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// The beta workflow, which General's card has a copy add to try betas (docs/self-hosting.md#betas), and Update Ember's.
-const WORKFLOW = readFileSync(new URL("./update-ember-beta.yml", import.meta.url), "utf8");
-const UPDATE_WORKFLOW = readFileSync(new URL("./update-ember.yml", import.meta.url), "utf8");
-const EMBER = "https://github.com/NYLLON-SOFTWARE/ember-cloudflare.git";
-const UPDATE_SCRIPT = "apps/worker/scripts/update-ember.ts";
+// The beta workflow, which General's card has a copy add to try betas (docs/self-hosting.md#betas), and Update Spark's.
+const WORKFLOW = readFileSync(new URL("./update-spark-beta.yml", import.meta.url), "utf8");
+const UPDATE_WORKFLOW = readFileSync(new URL("./update-spark.yml", import.meta.url), "utf8");
+const EMBER = "https://github.com/OSphera/spark.git";
+const UPDATE_SCRIPT = "apps/worker/scripts/update-spark.ts";
 
 let dir: string;
 /** git's settings for these repositories alone, whatever the machine's say. */
 let gitEnv: Record<string, string>;
 
 beforeEach(() => {
-  dir = mkdtempSync(path.join(tmpdir(), "update-ember-beta-test-"));
+  dir = mkdtempSync(path.join(tmpdir(), "update-spark-beta-test-"));
   writeFileSync(path.join(dir, "gitconfig"), "[init]\n\tdefaultBranch = main\n");
   gitEnv = {
     GIT_CONFIG_GLOBAL: path.join(dir, "gitconfig"),
@@ -84,7 +84,7 @@ function fetchFrom(ember: string): string {
   return path.join(runnerTemp, "ember");
 }
 
-describe("Update Ember to its newest beta", () => {
+describe("Update Spark to its newest beta", () => {
   it("fetches the update script from Ember's newest tag, a release's or a beta's, with each beta before its release", () => {
     const ember = emberWith("v0.4.2", "v0.5.0-beta.9", "v0.5.0-beta.10");
     const checkout = fetchFrom(ember);
@@ -100,10 +100,10 @@ describe("Update Ember to its newest beta", () => {
     expect(newest()).toBe("// v0.10.0-beta.1\n");
   });
 
-  it("publishes the newest beta with that script in the copy's checkout, only when asked, and never beside Update Ember", () => {
+  it("publishes the newest beta with that script in the copy's checkout, only when asked, and never beside Update Spark", () => {
     expect(scriptOf("Update")).toBe(`node "$RUNNER_TEMP/ember/${UPDATE_SCRIPT}" --publish --beta`);
     expect(WORKFLOW).toContain("on:\n  workflow_dispatch:\n\n");
     // The two push the same branches.
-    for (const workflow of [WORKFLOW, UPDATE_WORKFLOW]) expect(workflow).toContain("concurrency:\n  group: update-ember\n");
+    for (const workflow of [WORKFLOW, UPDATE_WORKFLOW]) expect(workflow).toContain("concurrency:\n  group: update-spark\n");
   });
 });

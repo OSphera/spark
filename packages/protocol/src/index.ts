@@ -1089,10 +1089,10 @@ export interface CustomStyles {
 }
 
 /** Ember's repository, which publishes its releases, and its docs on updating a deployment to one. */
-export const EMBER_REPOSITORY = "https://github.com/NYLLON-SOFTWARE/ember-cloudflare";
-export const UPDATING_EMBER = `${EMBER_REPOSITORY}/blob/main/docs/self-hosting.md#updating`;
+export const SPARK_REPOSITORY = "https://github.com/OSphera/spark";
+export const UPDATING_SPARK = `${SPARK_REPOSITORY}/blob/main/docs/self-hosting.md#updating`;
 /** Ember's docs on its betas, and on trying one. */
-export const TRYING_BETAS = `${EMBER_REPOSITORY}/blob/main/docs/self-hosting.md#betas`;
+export const TRYING_BETAS = `${SPARK_REPOSITORY}/blob/main/docs/self-hosting.md#betas`;
 
 /**
  * What `GET /api/account/release` answers an administrator, for General settings to say, and `POST
@@ -1136,7 +1136,7 @@ export function isNewer(a: string, b: string): boolean {
 
 /**
  * A copy of Ember on GitHub, as its deploy tells the Worker: its repository, as `owner/name`, the branch
- * that deploys, and whether it has the Update Ember workflow, and the beta workflow, Update Ember to its
+ * that deploys, and whether it has the Update Spark workflow, and the beta workflow, Update Spark to its
  * newest beta, for General's release card to link to running each, or to adding it.
  */
 export interface CopyOnGitHub {

@@ -20,7 +20,7 @@ const MAX_SUBREQUESTS = 45;
 const LOOKUP_SUBREQUESTS = 2;
 
 /** Campfire sends Ruby's. This one says what's asking, with "bot" in it, which sites that serve tags only to bots look for. */
-export const USER_AGENT = "Mozilla/5.0 (compatible; Emberbot; +https://github.com/NYLLON-SOFTWARE/ember-cloudflare)";
+export const USER_AGENT = "Mozilla/5.0 (compatible; Sparkbot; +https://github.com/OSphera/spark)";
 
 /** `FILES_AND_MEDIA_URL_REGEX`'s extensions, after the URL's `\bhttps?://\S+`. */
 const FILE_OR_MEDIA_EXTENSION =

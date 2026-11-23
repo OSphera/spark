@@ -3,14 +3,14 @@
 // merges them itself, from the Ember commit the copy was made from, or the release its last update
 // brought, so whatever the copy changed stays, such as the Worker's and bucket's names Deploy to
 // Cloudflare wrote into wrangler.jsonc. The update is one commit on a branch named after the release,
-// update-ember/v1.2.3, with conflict markers in any file where one of Ember's changes meets one of the
+// update-spark/v1.2.3, with conflict markers in any file where one of Ember's changes meets one of the
 // copy's. A clone of Ember's repository shares its history, so it merges from where they part.
 //
-// The Update Ember workflow runs it every week with --publish, which pushes the branch and opens a
+// The Update Spark workflow runs it every week with --publish, which pushes the branch and opens a
 // pull request whose merge deploys the update (docs/self-hosting.md#updating). Without --publish, as
 // for a copy on GitLab, run it in a clone of the copy, then push the branch it makes:
 //
-//   node apps/worker/scripts/update-ember.ts [--publish] [--beta]
+//   node apps/worker/scripts/update-spark.ts [--publish] [--beta]
 //
 // Ember's betas, such as v1.2.0-beta.1, which come before its releases, come only to a copy that asks
 // for one, with --beta or the workflow's box for it, and to one that runs a beta already, which is
@@ -25,9 +25,9 @@ import { isDeepStrictEqual } from "node:util";
 import { dataOf, type JsoncString, stringsOf } from "./jsonc.ts";
 
 /** Ember's repository, where its releases are. */
-const EMBER = "https://github.com/NYLLON-SOFTWARE/ember-cloudflare";
+const EMBER = "https://github.com/OSphera/spark";
 /** Where to fetch Ember from, which the tests point at a repository of their own. */
-const EMBER_REPOSITORY = process.env.EMBER_REPOSITORY || `${EMBER}.git`;
+const SPARK_REPOSITORY = process.env.SPARK_REPOSITORY || `${EMBER}.git`;
 /**
  * Where Ember's main branch and release tags are fetched to, apart from the copy's own: a release is
  * refs/ember/v1.2.3, which git also knows as ember/v1.2.3, as conflict markers name it.
@@ -40,15 +40,15 @@ const RELEASE_TAG = /^v(\d+)\.(\d+)\.(\d+)(?:-beta\.(\d+))?$/;
  * What names the release an update brought: the trailer in its commit's message, or the title of
  * its pull request, which a squash merge may keep alone.
  */
-const RELEASE_NAMED = /^(?:Ember-Release: |Update Ember to )(v\d+\.\d+\.\d+(?:-beta\.\d+)?)\b/gm;
-const UPDATE_TITLE = /^Update Ember to v\d+\.\d+\.\d+(?:-beta\.\d+)?$/;
-/** The release that an update's branch, update-ember/v1.2.3, or its issue's title, Update Ember to v1.2.3, offers. */
-const OFFERED = /^(?:update-ember\/|Update Ember to )(v\d+\.\d+\.\d+(?:-beta\.\d+)?)$/;
+const RELEASE_NAMED = /^(?:Spark-Release: |Update Spark to )(v\d+\.\d+\.\d+(?:-beta\.\d+)?)\b/gm;
+const UPDATE_TITLE = /^Update Spark to v\d+\.\d+\.\d+(?:-beta\.\d+)?$/;
+/** The release that an update's branch, update-spark/v1.2.3, or its issue's title, Update Spark to v1.2.3, offers. */
+const OFFERED = /^(?:update-spark\/|Update Spark to )(v\d+\.\d+\.\d+(?:-beta\.\d+)?)$/;
 /** The trailer an update's commit has for each conflict git couldn't mark, which nothing in its file shows. */
 const NOTED_CONFLICT = /^Ember-Conflict: (.+)$/gm;
 /** A workflow's token can't change workflows, so a published update leaves the copy's as they are. */
 const WORKFLOWS = ".github/workflows";
-const UPDATE_WORKFLOW = `${WORKFLOWS}/update-ember.yml`;
+const UPDATE_WORKFLOW = `${WORKFLOWS}/update-spark.yml`;
 /** The Worker's settings, where Deploy to Cloudflare writes what the deployer chose in its form. */
 const WRANGLER = "wrangler.jsonc";
 /** What Deploy to Cloudflare changes in what it copies: it writes names into the Worker's settings and the package's, and leaves out .github. */
@@ -101,7 +101,7 @@ interface Update {
   releases: Release[];
   commit: string;
   conflicts: Conflict[];
-  /** What a published update leaves as the copy has it: Ember's changes to its workflows, and whether its Update Ember differs. */
+  /** What a published update leaves as the copy has it: Ember's changes to its workflows, and whether its Update Spark differs. */
   workflows: { changed: boolean; updateDiffers: boolean };
 }
 
@@ -154,7 +154,7 @@ function requireGit(): void {
 }
 
 function fetchEmber(): void {
-  git(["fetch", "--quiet", "--no-tags", "--force", EMBER_REPOSITORY, `+refs/heads/main:${EMBER_MAIN}`, `+refs/tags/v*:${EMBER_REFS}v*`]);
+  git(["fetch", "--quiet", "--no-tags", "--force", SPARK_REPOSITORY, `+refs/heads/main:${EMBER_MAIN}`, `+refs/tags/v*:${EMBER_REFS}v*`]);
 }
 
 /** Ember's releases and betas, oldest first: its tags named for a version. */
@@ -277,7 +277,7 @@ function merge(base: string, release: Release): { tree: string; conflicts: Confl
 
 /** `tree` as `edit` leaves it, edited in an index of its own. */
 function edited(tree: string, edit: (env: Record<string, string>) => void): string {
-  const scratch = mkdtempSync(path.join(tmpdir(), "update-ember-"));
+  const scratch = mkdtempSync(path.join(tmpdir(), "update-spark-"));
   const env = { GIT_INDEX_FILE: path.join(scratch, "index") };
   try {
     git(["read-tree", tree], undefined, env);
@@ -394,7 +394,7 @@ function wranglerWithCopysNames(base: string, release: Release): string | undefi
   }
 }
 
-/** What a published update leaves of Ember's at `release`: whether it changed workflows since `base`, and its Update Ember from the copy's. */
+/** What a published update leaves of Ember's at `release`: whether it changed workflows since `base`, and its Update Spark from the copy's. */
 function workflowsLeft(base: string, release: Release): Update["workflows"] {
   const changed = !gitSays(["diff", "--quiet", base, release.commit, "--", WORKFLOWS]);
   const blob = (revision: string) => run("git", ["rev-parse", "--verify", "--quiet", `${revision}:${UPDATE_WORKFLOW}`]).stdout.trim();
@@ -407,12 +407,12 @@ function workflowsLeft(base: string, release: Release): Update["workflows"] {
  */
 function commitOf(tree: string, release: Release, base: Update["base"], conflicts: Conflict[]): string {
   const noted = conflicts.filter((conflict) => conflict.note).map((conflict) => `Ember-Conflict: ${JSON.stringify(conflict)}\n`);
-  const message = `Update Ember to ${release.tag}\n\nBrings this copy up to Ember ${release.tag} from ${base.name}: ${EMBER}/compare/${base.commit}...${release.tag}\n\nEmber-Release: ${release.tag}\n${noted.join("")}`;
+  const message = `Update Spark to ${release.tag}\n\nBrings this copy up to Ember ${release.tag} from ${base.name}: ${EMBER}/compare/${base.commit}...${release.tag}\n\nSpark-Release: ${release.tag}\n${noted.join("")}`;
   return git(["commit-tree", tree, "-p", "HEAD", "-F", "-"], message);
 }
 
-const branchOf = (release: Release) => `update-ember/${release.tag}`;
-const titleOf = (release: Release) => `Update Ember to ${release.tag}`;
+const branchOf = (release: Release) => `update-spark/${release.tag}`;
+const titleOf = (release: Release) => `Update Spark to ${release.tag}`;
 const releaseLink = (release: Release) => `[${release.tag}](${EMBER}/releases/tag/${release.tag})`;
 
 /** How to settle the update's conflicts: those git marked in their files, and those it has a note on. */
@@ -470,7 +470,7 @@ function issueBody(update: Update, openLink: string): string {
     `Ember ${releaseLink(update.release)} is out, and the branch \`${branchOf(update.release)}\` brings your copy up to it from ${update.base.name}. ` +
       `**[Open its pull request](${openLink})**, then merge it to deploy the update. This issue closes itself once your copy has it.`,
     "",
-    "The Update Ember workflow can open the pull request itself once GitHub lets it: in your repository's **Settings**, under " +
+    "The Update Spark workflow can open the pull request itself once GitHub lets it: in your repository's **Settings**, under " +
       "**Actions** → **General** → **Workflow permissions**, tick **Allow GitHub Actions to create and approve pull requests**, and save.",
     "",
     ...details(update),
@@ -525,7 +525,7 @@ function closeStale(newest: Release, where?: string): void {
     return where ? order < 0 : order <= 0;
   };
   for (const pull of listed<ListedPull & { number: number }>(["pr", "list", "--state", "open", "--limit", "100", "--json", "number,headRefName,isCrossRepository"])) {
-    if (pull.headRefName.startsWith("update-ember/") && isFromCopy(pull) && isStale(pull.headRefName)) {
+    if (pull.headRefName.startsWith("update-spark/") && isFromCopy(pull) && isStale(pull.headRefName)) {
       run("gh", ["pr", "close", String(pull.number), "--delete-branch", "--comment", reason]);
     }
   }
@@ -641,7 +641,7 @@ function publish(update: Update): void {
 
 function update(args: string[]): void {
   const publishing = args.includes("--publish");
-  // The Update Ember workflow's box for a beta, which running it from the Actions tab offers, says so as EMBER_BETA.
+  // The Update Spark workflow's box for a beta, which running it from the Actions tab offers, says so as EMBER_BETA.
   const betas = args.includes("--beta") || process.env.EMBER_BETA === "true";
   requireGit();
   process.chdir(git(["rev-parse", "--show-toplevel"]));

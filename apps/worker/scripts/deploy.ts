@@ -23,7 +23,7 @@
 // gives them, as the Preview workflow's does from the repository's secrets. So does the ID of the
 // Cloudflare account the Worker goes to, as CLOUDFLARE_ACCOUNT_ID, which a Worker can't learn by itself,
 // for Set up Ember AI to fill in. Deploy to Cloudflare's copy of Ember leaves out the .github folder,
-// and with it the Update Ember workflow that offers the copy Ember's releases, so a deploy without that
+// and with it the Update Spark workflow that offers the copy Ember's releases, so a deploy without that
 // workflow ends by saying how to add it. A copy on GitHub tells the Worker its repository, the branch
 // that deploys, and whether it has the workflow, as vars, for General's release card to link to running
 // the workflow, or to adding it. Where STORAGE_BACKEND keeps messages in D1, the deploy makes the
@@ -44,12 +44,12 @@ import { vapidKeys } from "./vapid-keys.ts";
 const ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 
 /** Ember's repository, where its releases come from. */
-const EMBER = "https://github.com/NYLLON-SOFTWARE/ember-cloudflare";
+const EMBER = "https://github.com/OSphera/spark";
 /** The workflow that offers a copy Ember's releases (docs/self-hosting.md#updating), and Ember's, kept beside this script. */
-const UPDATE_WORKFLOW = ".github/workflows/update-ember.yml";
+const UPDATE_WORKFLOW = ".github/workflows/update-spark.yml";
 /** And the beta workflow, which brings a copy Ember's newest beta when it's run (docs/self-hosting.md#betas). */
-const BETA_WORKFLOW = ".github/workflows/update-ember-beta.yml";
-const EMBERS_UPDATE_WORKFLOW = new URL("./update-ember.yml", import.meta.url);
+const BETA_WORKFLOW = ".github/workflows/update-spark-beta.yml";
+const EMBERS_UPDATE_WORKFLOW = new URL("./update-spark.yml", import.meta.url);
 
 /** Runs `pnpm exec wrangler` from the root, with its output captured or shown, and `env` besides this process's. */
 function wrangler(args: string[], capture: boolean, env: Record<string, string> = {}) {
@@ -272,7 +272,7 @@ function copyRepository(): string | null {
   return repository && `https://github.com/${repository}`.toLowerCase() !== EMBER.toLowerCase() ? repository : null;
 }
 
-/** Whether the checkout has the Update Ember workflow. */
+/** Whether the checkout has the Update Spark workflow. */
 const hasUpdateWorkflow = () => existsSync(path.join(ROOT, UPDATE_WORKFLOW));
 /** And the beta workflow. */
 const hasBetaWorkflow = () => existsSync(path.join(ROOT, BETA_WORKFLOW));
@@ -282,7 +282,7 @@ const deployBranch = () => process.env.WORKERS_CI_BRANCH || "main";
 
 /**
  * The vars that tell the Worker of the copy it's deployed from, as `--var`s for wrangler deploy: its
- * repository on GitHub, the branch that deploys, and whether it has the Update Ember workflow and the
+ * repository on GitHub, the branch that deploys, and whether it has the Update Spark workflow and the
  * beta workflow, which General's release card links to, or to adding them. None for a checkout that
  * isn't a copy on GitHub, and none that `args` give themselves.
  */
@@ -295,14 +295,14 @@ function copyVars(args: string[]): string[] {
 }
 
 /**
- * Says how to add the Update Ember workflow to a copy that has none, as Deploy to Cloudflare's don't:
+ * Says how to add the Update Spark workflow to a copy that has none, as Deploy to Cloudflare's don't:
  * on GitHub, with a link that opens the copy's editor with Ember's workflow in it, ready to commit, on a
  * line of its own to copy, as the whole workflow makes it long.
  */
 function tellUpdateWorkflow(): void {
   if (hasUpdateWorkflow()) return;
   const repository = copyRepository();
-  const missing = "\nThis copy of Ember has no Update Ember workflow, which Deploy to Cloudflare leaves out with the rest of the .github folder, so nothing offers it Ember's new releases.";
+  const missing = "\nThis copy of Ember has no Update Spark workflow, which Deploy to Cloudflare leaves out with the rest of the .github folder, so nothing offers it Ember's new releases.";
   if (repository && existsSync(EMBERS_UPDATE_WORKFLOW)) {
     // A branch's name may hold what a link can't, such as `#`, so each of its parts goes in encoded.
     const branch = deployBranch().split("/").map(encodeURIComponent).join("/");
@@ -311,7 +311,7 @@ function tellUpdateWorkflow(): void {
     console.log(`${missing} To have each come as a pull request, commit the workflow in GitHub's editor, which this link opens with it filled in:\n${editor}?${workflow}`);
   } else {
     console.log(
-      `${missing} On GitHub, add ${UPDATE_WORKFLOW} to it as Ember has it, ${EMBER}/blob/main/${UPDATE_WORKFLOW}, to have each come as a pull request; elsewhere, update it with apps/worker/scripts/update-ember.ts (docs/self-hosting.md#updating).`,
+      `${missing} On GitHub, add ${UPDATE_WORKFLOW} to it as Ember has it, ${EMBER}/blob/main/${UPDATE_WORKFLOW}, to have each come as a pull request; elsewhere, update it with apps/worker/scripts/update-spark.ts (docs/self-hosting.md#updating).`,
     );
   }
 }

@@ -5,8 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-const SCRIPT = fileURLToPath(new URL("./update-ember.ts", import.meta.url));
-const WORKFLOW = ".github/workflows/update-ember.yml";
+const SCRIPT = fileURLToPath(new URL("./update-spark.ts", import.meta.url));
+const WORKFLOW = ".github/workflows/update-spark.yml";
 
 /**
  * Stands in for the GitHub CLI: it notes each call in $GH_LOG/calls and what it read in
@@ -46,7 +46,7 @@ let dir: string;
 let gitEnv: Record<string, string>;
 
 beforeEach(() => {
-  dir = mkdtempSync(path.join(tmpdir(), "update-ember-test-"));
+  dir = mkdtempSync(path.join(tmpdir(), "update-spark-test-"));
   writeFileSync(path.join(dir, "gitconfig"), "[init]\n\tdefaultBranch = main\n");
   gitEnv = {
     GIT_CONFIG_GLOBAL: path.join(dir, "gitconfig"),
@@ -149,7 +149,7 @@ function deployedCopy(ember: string, settings = wrangler("my-chat", "my-files"),
 
 /** Runs the script in `repo` with `args`, fetching Ember from `ember`. */
 function update(repo: string, ember: string, args: string[] = [], env: Record<string, string> = {}) {
-  const result = spawnSync(process.execPath, [SCRIPT, ...args], { cwd: repo, encoding: "utf8", env: { ...process.env, ...gitEnv, EMBER_REPOSITORY: ember, ...env } });
+  const result = spawnSync(process.execPath, [SCRIPT, ...args], { cwd: repo, encoding: "utf8", env: { ...process.env, ...gitEnv, SPARK_REPOSITORY: ember, ...env } });
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
@@ -160,28 +160,28 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const copy = deployedCopy(ember());
     const { status, output } = update(copy, path.join(dir, "ember"));
     expect(status, output).toBe(0);
-    expect(output).toContain("update-ember/v0.2.0 brings this copy up to Ember v0.2.0");
-    const branch = "update-ember/v0.2.0";
+    expect(output).toContain("update-spark/v0.2.0 brings this copy up to Ember v0.2.0");
+    const branch = "update-spark/v0.2.0";
     expect(git(copy, ["rev-parse", `${branch}~1`])).toBe(git(copy, ["rev-parse", "main"]));
     expect(show(copy, branch, "wrangler.jsonc")).toBe(wrangler("my-chat", "my-files", "2026-10-10").trim());
     expect(show(copy, branch, "src/new.ts")).toBe("export {};");
     // Without --publish, whoever runs it pushes it, so the workflows come too.
     expect(show(copy, branch, WORKFLOW)).toBe("on: schedule # weekly");
-    expect(git(copy, ["log", "-1", "--format=%B", branch])).toMatch(/^Update Ember to v0\.2\.0\n[\s\S]*\nEmber-Release: v0\.2\.0$/);
+    expect(git(copy, ["log", "-1", "--format=%B", branch])).toMatch(/^Update Spark to v0\.2\.0\n[\s\S]*\nSpark-Release: v0\.2\.0$/);
   });
 
   it("measures the copy's changes from the commit it was made from, not the release before", () => {
     const copy = deployedCopy(ember());
     expect(update(copy, path.join(dir, "ember")).output).toContain("from Ember's commit");
     // From v0.1.0, the copy's line would look changed on both sides, and conflict.
-    expect(show(copy, "update-ember/v0.2.0", "src/app.ts")).toBe(app("Two!").trim());
+    expect(show(copy, "update-spark/v0.2.0", "src/app.ts")).toBe(app("Two!").trim());
   });
 
   it("finds nothing to do once the update is merged", () => {
     const repo = ember();
     const copy = deployedCopy(repo);
     update(copy, repo);
-    git(copy, ["merge", "--quiet", "--ff-only", "update-ember/v0.2.0"]);
+    git(copy, ["merge", "--quiet", "--ff-only", "update-spark/v0.2.0"]);
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
     expect(output).toContain("This copy has everything in Ember's newest release, v0.2.0.");
@@ -191,28 +191,28 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const repo = ember();
     const copy = deployedCopy(repo);
     update(copy, repo);
-    git(copy, ["checkout", "--quiet", "update-ember/v0.2.0", "--", "."]);
-    git(copy, ["commit", "--quiet", "--message", "Update Ember to v0.2.0 (#3)"], "2026-10-12T12:00:00Z");
+    git(copy, ["checkout", "--quiet", "update-spark/v0.2.0", "--", "."]);
+    git(copy, ["commit", "--quiet", "--message", "Update Spark to v0.2.0 (#3)"], "2026-10-12T12:00:00Z");
     releaseNext(repo);
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
-    expect(output).toContain("update-ember/v0.3.0 brings this copy up to Ember v0.3.0 from v0.2.0.");
-    expect(show(copy, "update-ember/v0.3.0", "src/app.ts")).toBe(app("2").trim());
+    expect(output).toContain("update-spark/v0.3.0 brings this copy up to Ember v0.3.0 from v0.2.0.");
+    expect(show(copy, "update-spark/v0.3.0", "src/app.ts")).toBe(app("2").trim());
   });
 
   it("measures the next update from before one the copy reverted", () => {
     const repo = ember();
     const copy = deployedCopy(repo);
     update(copy, repo);
-    git(copy, ["merge", "--quiet", "--ff-only", "update-ember/v0.2.0"]);
+    git(copy, ["merge", "--quiet", "--ff-only", "update-spark/v0.2.0"]);
     git(copy, ["revert", "--no-edit", "HEAD"], "2026-10-12T12:00:00Z");
     releaseNext(repo);
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
-    expect(output).toContain("update-ember/v0.3.0 brings this copy up to Ember v0.3.0 from Ember's commit");
+    expect(output).toContain("update-spark/v0.3.0 brings this copy up to Ember v0.3.0 from Ember's commit");
     // From v0.2.0, its new file would look deleted in the copy, and its line changed there.
-    expect(show(copy, "update-ember/v0.3.0", "src/new.ts")).toBe("export {};");
-    expect(show(copy, "update-ember/v0.3.0", "src/app.ts")).toBe(app("2").trim());
+    expect(show(copy, "update-spark/v0.3.0", "src/new.ts")).toBe("export {};");
+    expect(show(copy, "update-spark/v0.3.0", "src/app.ts")).toBe(app("2").trim());
   });
 
   it("leaves conflict markers where one of Ember's changes meets one of the copy's", () => {
@@ -222,7 +222,7 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
     expect(output).toContain("First fix the conflicts in src/app.ts on it and commit.");
-    expect(show(copy, "update-ember/v0.2.0", "src/app.ts")).toMatch(/<<<<<<< HEAD\n[\s\S]*our two[\s\S]*=======[\s\S]*Two![\s\S]*>>>>>>> ember\/v0\.2\.0/);
+    expect(show(copy, "update-spark/v0.2.0", "src/app.ts")).toMatch(/<<<<<<< HEAD\n[\s\S]*our two[\s\S]*=======[\s\S]*Two![\s\S]*>>>>>>> ember\/v0\.2\.0/);
   });
 
   it("says what git kept where it couldn't mark a conflict", () => {
@@ -235,20 +235,20 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     expect(status, output).toBe(0);
     expect(output).toContain("First fix the conflicts in src/app.ts on it and commit.");
     expect(output).toContain("\nsrc/app.ts: CONFLICT (modify/delete): src/app.ts deleted in ember/v0.2.1 and modified in HEAD.");
-    expect(show(copy, "update-ember/v0.2.1", "src/app.ts")).toBe(app("our two").trim());
+    expect(show(copy, "update-spark/v0.2.1", "src/app.ts")).toBe(app("our two").trim());
   });
 
   it("leaves a branch an earlier run made as it is, with what was fixed on it", () => {
     const repo = ember();
     const copy = deployedCopy(repo);
     update(copy, repo);
-    git(copy, ["switch", "--quiet", "update-ember/v0.2.0"]);
+    git(copy, ["switch", "--quiet", "update-spark/v0.2.0"]);
     const fixed = commit(copy, "2026-10-12T12:00:00Z", { "src/app.ts": app("fixed") });
     git(copy, ["switch", "--quiet", "main"]);
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
-    expect(output).toContain("update-ember/v0.2.0 is made already");
-    expect(git(copy, ["rev-parse", "update-ember/v0.2.0"])).toBe(fixed);
+    expect(output).toContain("update-spark/v0.2.0 is made already");
+    expect(git(copy, ["rev-parse", "update-spark/v0.2.0"])).toBe(fixed);
   });
 
   it("keeps the copy's names for its Worker and bucket where Ember changes the lines beside them", () => {
@@ -260,7 +260,7 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
     expect(output).not.toContain("conflict markers");
-    expect(show(copy, "update-ember/v0.2.1", "wrangler.jsonc")).toBe(wrangler("my-chat", "my-files", "2026-10-10").replace("// The Worker.", "// The Worker, named.").replace("// Its files.", "// Its files, named.").trim());
+    expect(show(copy, "update-spark/v0.2.1", "wrangler.jsonc")).toBe(wrangler("my-chat", "my-files", "2026-10-10").replace("// The Worker.", "// The Worker, named.").replace("// Its files.", "// Its files, named.").trim());
   });
 
   it("keeps the preview bucket Deploy to Cloudflare adds after the bucket's name, as the button writes it, where Ember changes the lines beside them", () => {
@@ -273,7 +273,7 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
     expect(output).not.toContain("conflict");
-    expect(show(copy, "update-ember/v0.2.1", "wrangler.jsonc")).toBe(asDeployed(commented).trim());
+    expect(show(copy, "update-spark/v0.2.1", "wrangler.jsonc")).toBe(asDeployed(commented).trim());
   });
 
   it("keeps the copy's D1 database, with the id Deploy to Cloudflare adds after its name, and where its messages live, where Ember changes the lines beside them", () => {
@@ -300,7 +300,7 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
     expect(output).not.toContain("conflict");
-    expect(show(copy, "update-ember/v0.2.2", "wrangler.jsonc")).toBe(asDeployed(commented).trim());
+    expect(show(copy, "update-spark/v0.2.2", "wrangler.jsonc")).toBe(asDeployed(commented).trim());
   });
 
   it("gives a copy made before Ember bound a D1 database Ember's, and keeps where the copy's messages live", () => {
@@ -322,7 +322,7 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
     expect(output).not.toContain("conflict");
-    expect(show(copy, "update-ember/v0.2.1", "wrangler.jsonc")).toBe(bound.replace('"name": "ember"', '"name": "my-chat"').replace('"bucket_name": "ember"', '"bucket_name": "my-files"').replace('"do-sqlite"', '"d1"').trim());
+    expect(show(copy, "update-spark/v0.2.1", "wrangler.jsonc")).toBe(bound.replace('"name": "ember"', '"name": "my-chat"').replace('"bucket_name": "ember"', '"bucket_name": "my-files"').replace('"do-sqlite"', '"d1"').trim());
   });
 
   it("keeps the copy's bucket's name with its binding where Ember adds a bucket before it", () => {
@@ -334,7 +334,7 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
     const named = twoBuckets.replace('"name": "ember"', '"name": "my-chat"').replace('"bucket_name": "ember" }', '"bucket_name": "my-files" }');
-    expect(show(copy, "update-ember/v0.2.1", "wrangler.jsonc")).toBe(named.trim());
+    expect(show(copy, "update-spark/v0.2.1", "wrangler.jsonc")).toBe(named.trim());
   });
 
   it("leaves the copy's bucket's name to the merge where Ember renames its binding", () => {
@@ -345,7 +345,7 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
     expect(output).toContain("First fix the conflicts in wrangler.jsonc on it and commit.");
-    expect(show(copy, "update-ember/v0.2.1", "wrangler.jsonc")).toMatch(/<<<<<<< HEAD\n[\s\S]*"FILES", "bucket_name": "my-files"[\s\S]*=======[\s\S]*"UPLOADS", "bucket_name": "ember"[\s\S]*>>>>>>> /);
+    expect(show(copy, "update-spark/v0.2.1", "wrangler.jsonc")).toMatch(/<<<<<<< HEAD\n[\s\S]*"FILES", "bucket_name": "my-files"[\s\S]*=======[\s\S]*"UPLOADS", "bucket_name": "ember"[\s\S]*>>>>>>> /);
   });
 
   it("takes Ember's settings with the copy's names however the copy laid its settings out", () => {
@@ -355,7 +355,7 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const copy = deployedCopy(repo, rewritten);
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
-    expect(show(copy, "update-ember/v0.2.0", "wrangler.jsonc")).toBe(wrangler("my-chat", "my-files", "2026-10-10").trim());
+    expect(show(copy, "update-spark/v0.2.0", "wrangler.jsonc")).toBe(wrangler("my-chat", "my-files", "2026-10-10").trim());
   });
 
   it("merges settings the copy changed beyond its names", () => {
@@ -364,7 +364,7 @@ describe("updating a copy made with Deploy to Cloudflare", () => {
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
     expect(output).toContain("First fix the conflicts in wrangler.jsonc on it and commit.");
-    expect(show(copy, "update-ember/v0.2.0", "wrangler.jsonc")).toMatch(/<<<<<<< [\s\S]*src\/ours\.ts[\s\S]*=======[\s\S]*2026-10-10[\s\S]*>>>>>>> /);
+    expect(show(copy, "update-spark/v0.2.0", "wrangler.jsonc")).toMatch(/<<<<<<< [\s\S]*src\/ours\.ts[\s\S]*=======[\s\S]*2026-10-10[\s\S]*>>>>>>> /);
   });
 
   it("waits for Ember's first release", () => {
@@ -392,21 +392,21 @@ describe("updating a clone of Ember's repository", () => {
     const { status, output } = update(clone, repo);
     expect(status, output).toBe(0);
     expect(output).toContain("from v0.1.0");
-    expect(show(clone, "update-ember/v0.2.0", "wrangler.jsonc")).toBe(wrangler("our-ember", "our-files", "2026-10-10").trim());
-    expect(show(clone, "update-ember/v0.2.0", "src/app.ts")).toBe(app("Two!").trim());
+    expect(show(clone, "update-spark/v0.2.0", "wrangler.jsonc")).toBe(wrangler("our-ember", "our-files", "2026-10-10").trim());
+    expect(show(clone, "update-spark/v0.2.0", "src/app.ts")).toBe(app("Two!").trim());
   });
 
   it("measures the next update from the release the last one brought", () => {
     const repo = ember();
     const clone = cloneOf(repo);
     update(clone, repo);
-    git(clone, ["merge", "--quiet", "--ff-only", "update-ember/v0.2.0"]);
+    git(clone, ["merge", "--quiet", "--ff-only", "update-spark/v0.2.0"]);
     releaseNext(repo);
     const { status, output } = update(clone, repo);
     expect(status, output).toBe(0);
     expect(output).toContain("from v0.2.0.");
     // From where they part, the clone's line would look changed as v0.2.0 changed it, and conflict.
-    expect(show(clone, "update-ember/v0.3.0", "src/app.ts")).toBe(app("2").trim());
+    expect(show(clone, "update-spark/v0.3.0", "src/app.ts")).toBe(app("2").trim());
   });
 });
 
@@ -417,8 +417,8 @@ describe("Ember's betas", () => {
     const copy = deployedCopy(repo);
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
-    expect(output).toContain("update-ember/v0.2.0 brings this copy up to Ember v0.2.0");
-    git(copy, ["merge", "--quiet", "--ff-only", "update-ember/v0.2.0"]);
+    expect(output).toContain("update-spark/v0.2.0 brings this copy up to Ember v0.2.0");
+    git(copy, ["merge", "--quiet", "--ff-only", "update-spark/v0.2.0"]);
     expect(update(copy, repo).output).toContain("This copy has everything in Ember's newest release, v0.2.0.");
   });
 
@@ -429,8 +429,8 @@ describe("Ember's betas", () => {
       const copy = deployedCopy(repo);
       const { status, output } = update(copy, repo, asked.args, asked.env);
       expect(status, output).toBe(0);
-      expect(output).toContain("update-ember/v0.3.0-beta.1 brings this copy up to Ember v0.3.0-beta.1 from Ember's commit");
-      expect(show(copy, "update-ember/v0.3.0-beta.1", "src/app.ts")).toBe(app("beta 1").trim());
+      expect(output).toContain("update-spark/v0.3.0-beta.1 brings this copy up to Ember v0.3.0-beta.1 from Ember's commit");
+      expect(show(copy, "update-spark/v0.3.0-beta.1", "src/app.ts")).toBe(app("beta 1").trim());
       rmSync(copy, { recursive: true, force: true });
     }
   });
@@ -440,18 +440,18 @@ describe("Ember's betas", () => {
     releaseBeta(repo);
     const copy = deployedCopy(repo);
     update(copy, repo, ["--beta"]);
-    git(copy, ["merge", "--quiet", "--ff-only", "update-ember/v0.3.0-beta.1"]);
+    git(copy, ["merge", "--quiet", "--ff-only", "update-spark/v0.3.0-beta.1"]);
     releaseBeta(repo, 2);
     let { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
-    expect(output).toContain("update-ember/v0.3.0-beta.2 brings this copy up to Ember v0.3.0-beta.2 from v0.3.0-beta.1.");
-    git(copy, ["merge", "--quiet", "--ff-only", "update-ember/v0.3.0-beta.2"]);
+    expect(output).toContain("update-spark/v0.3.0-beta.2 brings this copy up to Ember v0.3.0-beta.2 from v0.3.0-beta.1.");
+    git(copy, ["merge", "--quiet", "--ff-only", "update-spark/v0.3.0-beta.2"]);
     releaseNext(repo);
     ({ status, output } = update(copy, repo));
     expect(status, output).toBe(0);
-    expect(output).toContain("update-ember/v0.3.0 brings this copy up to Ember v0.3.0 from v0.3.0-beta.2.");
-    expect(show(copy, "update-ember/v0.3.0", "src/app.ts")).toBe(app("2").trim());
-    git(copy, ["merge", "--quiet", "--ff-only", "update-ember/v0.3.0"]);
+    expect(output).toContain("update-spark/v0.3.0 brings this copy up to Ember v0.3.0 from v0.3.0-beta.2.");
+    expect(show(copy, "update-spark/v0.3.0", "src/app.ts")).toBe(app("2").trim());
+    git(copy, ["merge", "--quiet", "--ff-only", "update-spark/v0.3.0"]);
     commit(repo, "2026-10-25T12:00:00Z", { "src/app.ts": app("next"), "apps/worker/package.json": '{ "version": "0.4.0-beta.1" }\n' });
     git(repo, ["tag", "v0.4.0-beta.1"]);
     ({ status, output } = update(copy, repo));
@@ -468,10 +468,10 @@ describe("Ember's betas", () => {
     releaseNext(repo);
     const { status, output } = update(copy, repo);
     expect(status, output).toBe(0);
-    expect(output).toContain("update-ember/v0.3.0 brings this copy up to Ember v0.3.0 from v0.3.0-beta.1.");
+    expect(output).toContain("update-spark/v0.3.0 brings this copy up to Ember v0.3.0 from v0.3.0-beta.1.");
     // From main's commit before the copy was made, its new file would look deleted in the copy.
-    expect(show(copy, "update-ember/v0.3.0", "src/later.ts")).toBe("export const later = 1;");
-    expect(show(copy, "update-ember/v0.3.0", "wrangler.jsonc")).toBe(wrangler("my-chat", "my-files", "2026-10-10").trim());
+    expect(show(copy, "update-spark/v0.3.0", "src/later.ts")).toBe("export const later = 1;");
+    expect(show(copy, "update-spark/v0.3.0", "wrangler.jsonc")).toBe(wrangler("my-chat", "my-files", "2026-10-10").trim());
   });
 
   it("waits for Ember's first release while it has betas alone, unless it's asked for one", () => {
@@ -480,11 +480,11 @@ describe("Ember's betas", () => {
     releaseBeta(repo);
     const copy = deployedCopy(repo);
     expect(update(copy, repo).output).toContain("Ember has no releases yet.");
-    expect(update(copy, repo, ["--beta"]).output).toContain("update-ember/v0.3.0-beta.1 brings this copy up to Ember v0.3.0-beta.1");
+    expect(update(copy, repo, ["--beta"]).output).toContain("update-spark/v0.3.0-beta.1 brings this copy up to Ember v0.3.0-beta.1");
   });
 });
 
-describe("publishing an update, as the Update Ember workflow does", () => {
+describe("publishing an update, as the Update Spark workflow does", () => {
   /** The copy with its repository on GitHub, a bare one here, and the GitHub CLI's stand-in on its PATH. */
   function published() {
     const repo = ember();
@@ -510,12 +510,12 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     const { status, output } = update(copy, repo, ["--publish"], env);
     expect(status, output).toBe(0);
     expect(output).toContain("Opened https://github.com/me/chat/pull/7, which brings this copy up to Ember v0.2.0.");
-    expect(show(origin, "update-ember/v0.2.0", "src/new.ts")).toBe("export {};");
+    expect(show(origin, "update-spark/v0.2.0", "src/new.ts")).toBe("export {};");
     // The workflow's token can't push a change to a workflow.
-    expect(show(origin, "update-ember/v0.2.0", WORKFLOW)).toBe("on: schedule");
-    expect(calls()).toContain("pr create --base main --head update-ember/v0.2.0 --title Update Ember to v0.2.0 --body-file -");
-    expect(body("pr")).toContain("This brings your copy of Ember up to [v0.2.0](https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v0.2.0)");
-    expect(body("pr")).toContain(`copy [Ember's](https://github.com/NYLLON-SOFTWARE/ember-cloudflare/blob/v0.2.0/${WORKFLOW}) over \`${WORKFLOW}\``);
+    expect(show(origin, "update-spark/v0.2.0", WORKFLOW)).toBe("on: schedule");
+    expect(calls()).toContain("pr create --base main --head update-spark/v0.2.0 --title Update Spark to v0.2.0 --body-file -");
+    expect(body("pr")).toContain("This brings your copy of Ember up to [v0.2.0](https://github.com/OSphera/spark/releases/tag/v0.2.0)");
+    expect(body("pr")).toContain(`copy [Ember's](https://github.com/OSphera/spark/blob/v0.2.0/${WORKFLOW}) over \`${WORKFLOW}\``);
   });
 
   it("opens a draft when the update needs a hand", () => {
@@ -523,7 +523,7 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     commit(copy, "2026-10-07T12:00:00Z", { "src/app.ts": app("our two") });
     git(copy, ["push", "--quiet", "origin", "main"]);
     expect(update(copy, repo, ["--publish"], env).status).toBe(0);
-    expect(calls()).toContain("pr create --base main --head update-ember/v0.2.0 --title Update Ember to v0.2.0 --body-file - --draft");
+    expect(calls()).toContain("pr create --base main --head update-spark/v0.2.0 --title Update Spark to v0.2.0 --body-file - --draft");
     expect(body("pr")).toContain("Git left conflict markers around both versions: your copy's lines after `<<<<<<< HEAD`, and Ember's after `=======` up to `>>>>>>> ember/v0.2.0`.\n\n- `src/app.ts`\n");
   });
 
@@ -547,7 +547,7 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     commit(copy, "2026-10-07T12:00:00Z", { "src/extra.ts": "export {};\n", "lib/extra.ts": "export {};\n" });
     git(copy, ["push", "--quiet", "origin", "main"]);
     expect(update(copy, repo, ["--publish"], env).status).toBe(0);
-    expect(calls()).toContain("pr create --base main --head update-ember/v0.2.1 --title Update Ember to v0.2.1 --body-file - --draft");
+    expect(calls()).toContain("pr create --base main --head update-spark/v0.2.1 --title Update Spark to v0.2.1 --body-file - --draft");
     expect(body("pr")).toContain("- `lib/extra.ts`: `CONFLICT (implicit dir rename): Existing file/dir at lib/extra.ts in the way of implicit directory rename(s)");
   });
 
@@ -556,8 +556,8 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     const { status, output } = update(copy, repo, ["--publish"], { ...env, GH_PR_FAILS: PULL_REQUESTS_NOT_PERMITTED });
     expect(status, output).toBe(0);
     expect(output).toContain("so https://github.com/me/chat/issues/8 links to the one that brings this copy up to Ember v0.2.0.");
-    expect(calls()).toContain("issue create --title Update Ember to v0.2.0 --body-file -");
-    expect(body("issue")).toContain("https://github.com/me/chat/compare/main...update-ember/v0.2.0?expand=1&title=Update%20Ember%20to%20v0.2.0&body=This%20brings");
+    expect(calls()).toContain("issue create --title Update Spark to v0.2.0 --body-file -");
+    expect(body("issue")).toContain("https://github.com/me/chat/compare/main...update-spark/v0.2.0?expand=1&title=Update%20Spark%20to%20v0.2.0&body=This%20brings");
     expect(body("issue")).toContain("Allow GitHub Actions to create and approve pull requests");
   });
 
@@ -583,15 +583,15 @@ describe("publishing an update, as the Update Ember workflow does", () => {
   it("offers an update an earlier run pushed but couldn't offer, as its branch has it", () => {
     const { repo, copy, origin, env, calls } = published();
     expect(update(copy, repo, ["--publish"], { ...env, GH_PR_FAILS: "HTTP 502: Bad Gateway" }).status).toBe(1);
-    git(copy, ["fetch", "--quiet", "origin", "update-ember/v0.2.0"]);
+    git(copy, ["fetch", "--quiet", "origin", "update-spark/v0.2.0"]);
     git(copy, ["switch", "--quiet", "--create", "fixing", "FETCH_HEAD"]);
     const fixed = commit(copy, "2026-10-12T12:00:00Z", { "src/app.ts": app("fixed") });
-    git(copy, ["push", "--quiet", "origin", "fixing:update-ember/v0.2.0"]);
+    git(copy, ["push", "--quiet", "origin", "fixing:update-spark/v0.2.0"]);
     git(copy, ["switch", "--quiet", "main"]);
     const { status, output } = update(copy, repo, ["--publish"], env);
     expect(status, output).toBe(0);
     expect(output).toContain("Opened https://github.com/me/chat/pull/7");
-    expect(git(origin, ["rev-parse", "update-ember/v0.2.0"])).toBe(fixed);
+    expect(git(origin, ["rev-parse", "update-spark/v0.2.0"])).toBe(fixed);
     expect(calls().filter((call) => call.startsWith("pr create"))).toHaveLength(2);
   });
 
@@ -605,7 +605,7 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     git(copy, ["push", "--quiet", "origin", "main"]);
     const { status, output } = update(copy, repo, ["--publish"], env);
     expect(status, output).toBe(0);
-    expect(calls().at(-3)).toBe("pr create --base main --head update-ember/v0.2.0 --title Update Ember to v0.2.0 --body-file - --draft");
+    expect(calls().at(-3)).toBe("pr create --base main --head update-spark/v0.2.0 --title Update Spark to v0.2.0 --body-file - --draft");
     expect(body("pr")).toContain("Git left conflict markers around both versions");
     expect(body("pr")).toContain("- `src/app.ts`\n");
   });
@@ -619,7 +619,7 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     expect(update(copy, repo, ["--publish"], { ...env, GH_PR_FAILS: "HTTP 502: Bad Gateway" }).status).toBe(1);
     const { status, output } = update(copy, repo, ["--publish"], env);
     expect(status, output).toBe(0);
-    expect(calls().at(-3)).toBe("pr create --base main --head update-ember/v0.2.1 --title Update Ember to v0.2.1 --body-file - --draft");
+    expect(calls().at(-3)).toBe("pr create --base main --head update-spark/v0.2.1 --title Update Spark to v0.2.1 --body-file - --draft");
     expect(body("pr")).toContain("- `src/app.ts`: `CONFLICT (modify/delete): src/app.ts deleted in ember/v0.2.1 and modified in HEAD.");
   });
 
@@ -633,7 +633,7 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     expect(update(copy, repo, ["--publish"], { ...env, GH_PR_FAILS: "HTTP 502: Bad Gateway" }).status).toBe(1);
     const { status, output } = update(copy, repo, ["--publish"], env);
     expect(status, output).toBe(0);
-    expect(calls().at(-3)).toBe("pr create --base main --head update-ember/v0.2.1 --title Update Ember to v0.2.1 --body-file - --draft");
+    expect(calls().at(-3)).toBe("pr create --base main --head update-spark/v0.2.1 --title Update Spark to v0.2.1 --body-file - --draft");
     expect(body("pr")).toContain("- `src/main.ts`\n");
   });
 
@@ -642,25 +642,25 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     commit(copy, "2026-10-07T12:00:00Z", { "src/app.ts": app("our two") });
     git(copy, ["push", "--quiet", "origin", "main"]);
     expect(update(copy, repo, ["--publish"], { ...env, GH_PR_FAILS: "HTTP 502: Bad Gateway" }).status).toBe(1);
-    git(copy, ["fetch", "--quiet", "origin", "update-ember/v0.2.0"]);
+    git(copy, ["fetch", "--quiet", "origin", "update-spark/v0.2.0"]);
     git(copy, ["switch", "--quiet", "--create", "fixing", "FETCH_HEAD"]);
     commit(copy, "2026-10-12T12:00:00Z", { "src/app.ts": app("our Two!") });
-    git(copy, ["push", "--quiet", "origin", "fixing:update-ember/v0.2.0"]);
+    git(copy, ["push", "--quiet", "origin", "fixing:update-spark/v0.2.0"]);
     git(copy, ["switch", "--quiet", "main"]);
     const { status, output } = update(copy, repo, ["--publish"], env);
     expect(status, output).toBe(0);
-    expect(calls().at(-3)).toBe("pr create --base main --head update-ember/v0.2.0 --title Update Ember to v0.2.0 --body-file -");
+    expect(calls().at(-3)).toBe("pr create --base main --head update-spark/v0.2.0 --title Update Spark to v0.2.0 --body-file -");
     expect(body("pr")).not.toContain("needs a hand");
   });
 
   it("takes a closed pull request as turning its release down, until the next", () => {
     const { repo, copy, origin, env, calls } = published();
-    const pulls = JSON.stringify([{ url: "https://github.com/me/chat/pull/3", state: "CLOSED", headRefName: "update-ember/v0.2.0", ...FROM_COPY }]);
+    const pulls = JSON.stringify([{ url: "https://github.com/me/chat/pull/3", state: "CLOSED", headRefName: "update-spark/v0.2.0", ...FROM_COPY }]);
     const declined = update(copy, repo, ["--publish"], { ...env, GH_PULLS: pulls });
     expect(declined.status, declined.output).toBe(0);
     expect(declined.output).toContain("https://github.com/me/chat/pull/3 offered this copy Ember v0.2.0 and is closed now, so this waits for Ember's next release.");
     expect(calls().some((call) => call.startsWith("pr create"))).toBe(false);
-    expect(() => git(origin, ["rev-parse", "--verify", "--quiet", "refs/heads/update-ember/v0.2.0"])).toThrow();
+    expect(() => git(origin, ["rev-parse", "--verify", "--quiet", "refs/heads/update-spark/v0.2.0"])).toThrow();
     releaseNext(repo);
     const { status, output } = update(copy, repo, ["--publish"], { ...env, GH_PULLS: pulls });
     expect(status, output).toBe(0);
@@ -669,25 +669,25 @@ describe("publishing an update, as the Update Ember workflow does", () => {
 
   it("takes neither a fork's closed pull request nor somebody else's closed issue as turning a release down", () => {
     const { repo, copy, origin, env } = published();
-    const pulls = JSON.stringify([{ url: "https://github.com/me/chat/pull/3", state: "CLOSED", headRefName: "update-ember/v0.2.0", ...FROM_FORK }]);
-    const issues = JSON.stringify([{ url: "https://github.com/me/chat/issues/4", state: "CLOSED", title: "Update Ember to v0.2.0", ...BY_SOMEONE }]);
+    const pulls = JSON.stringify([{ url: "https://github.com/me/chat/pull/3", state: "CLOSED", headRefName: "update-spark/v0.2.0", ...FROM_FORK }]);
+    const issues = JSON.stringify([{ url: "https://github.com/me/chat/issues/4", state: "CLOSED", title: "Update Spark to v0.2.0", ...BY_SOMEONE }]);
     const { status, output } = update(copy, repo, ["--publish"], { ...env, GH_PULLS: pulls, GH_ISSUES: issues });
     expect(status, output).toBe(0);
     expect(output).toContain("Opened https://github.com/me/chat/pull/7, which brings this copy up to Ember v0.2.0.");
-    expect(show(origin, "update-ember/v0.2.0", "src/new.ts")).toBe("export {};");
+    expect(show(origin, "update-spark/v0.2.0", "src/new.ts")).toBe("export {};");
   });
 
   it("takes neither a fork's open pull request nor somebody else's open issue for the update's own, and closes none of theirs", () => {
     const { repo, copy, env, calls } = published();
     const pulls = JSON.stringify([
-      { number: 3, url: "https://github.com/me/chat/pull/3", state: "OPEN", headRefName: "update-ember/v0.2.0", ...FROM_FORK },
-      { number: 4, headRefName: "update-ember/v0.1.5", ...FROM_COPY },
-      { number: 5, headRefName: "update-ember/v0.1.5", ...FROM_FORK },
+      { number: 3, url: "https://github.com/me/chat/pull/3", state: "OPEN", headRefName: "update-spark/v0.2.0", ...FROM_FORK },
+      { number: 4, headRefName: "update-spark/v0.1.5", ...FROM_COPY },
+      { number: 5, headRefName: "update-spark/v0.1.5", ...FROM_FORK },
     ]);
     const issues = JSON.stringify([
-      { number: 9, url: "https://github.com/me/chat/issues/9", state: "OPEN", title: "Update Ember to v0.2.0", ...BY_SOMEONE },
-      { number: 6, title: "Update Ember to v0.1.5", ...BY_WORKFLOW },
-      { number: 10, title: "Update Ember to v0.1.5", ...BY_SOMEONE },
+      { number: 9, url: "https://github.com/me/chat/issues/9", state: "OPEN", title: "Update Spark to v0.2.0", ...BY_SOMEONE },
+      { number: 6, title: "Update Spark to v0.1.5", ...BY_WORKFLOW },
+      { number: 10, title: "Update Spark to v0.1.5", ...BY_SOMEONE },
     ]);
     const { status, output } = update(copy, repo, ["--publish"], { ...env, GH_PULLS: pulls, GH_ISSUES: issues });
     expect(status, output).toBe(0);
@@ -698,8 +698,8 @@ describe("publishing an update, as the Update Ember workflow does", () => {
 
   it("closes the pull requests and issues of the updates it replaces", () => {
     const { repo, copy, env, calls } = published();
-    const pulls = JSON.stringify([{ number: 4, headRefName: "update-ember/v0.1.5", ...FROM_COPY }, { number: 5, headRefName: "fix-typo", ...FROM_COPY }]);
-    const issues = JSON.stringify([{ number: 6, title: "Update Ember to v0.1.5", ...BY_WORKFLOW }, { number: 9, title: "Something else", ...BY_SOMEONE }]);
+    const pulls = JSON.stringify([{ number: 4, headRefName: "update-spark/v0.1.5", ...FROM_COPY }, { number: 5, headRefName: "fix-typo", ...FROM_COPY }]);
+    const issues = JSON.stringify([{ number: 6, title: "Update Spark to v0.1.5", ...BY_WORKFLOW }, { number: 9, title: "Something else", ...BY_SOMEONE }]);
     expect(update(copy, repo, ["--publish"], { ...env, GH_PULLS: pulls, GH_ISSUES: issues }).status).toBe(0);
     const reason = "Ember v0.2.0 is out, so https://github.com/me/chat/pull/7 brings this copy up to it instead.";
     expect(calls()).toContain(`pr close 4 --delete-branch --comment ${reason}`);
@@ -707,10 +707,10 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     expect(calls().filter((call) => call.includes("close"))).toHaveLength(2);
   });
 
-  it("says Update Ember's workflow has a new version until the copy has it", () => {
+  it("says Update Spark's workflow has a new version until the copy has it", () => {
     const { repo, copy, env, body } = published();
     update(copy, repo, ["--publish"], env);
-    git(copy, ["pull", "--quiet", "--ff-only", "origin", "update-ember/v0.2.0"]);
+    git(copy, ["pull", "--quiet", "--ff-only", "origin", "update-spark/v0.2.0"]);
     releaseNext(repo);
     expect(update(copy, repo, ["--publish"], env).status).toBe(0);
     expect(body("pr")).toContain(`/blob/v0.3.0/${WORKFLOW}) over \`${WORKFLOW}\``);
@@ -720,8 +720,8 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     const { repo, copy, env, calls, body } = published();
     releaseBeta(repo);
     expect(update(copy, repo, ["--publish"], { ...env, EMBER_BETA: "true" }).status).toBe(0);
-    expect(calls()).toContain("pr create --base main --head update-ember/v0.3.0-beta.1 --title Update Ember to v0.3.0-beta.1 --body-file -");
-    expect(body("pr")).toContain("What's new: [v0.2.0](https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v0.2.0), [v0.3.0-beta.1](https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v0.3.0-beta.1), and");
+    expect(calls()).toContain("pr create --base main --head update-spark/v0.3.0-beta.1 --title Update Spark to v0.3.0-beta.1 --body-file -");
+    expect(body("pr")).toContain("What's new: [v0.2.0](https://github.com/OSphera/spark/releases/tag/v0.2.0), [v0.3.0-beta.1](https://github.com/OSphera/spark/releases/tag/v0.3.0-beta.1), and");
     expect(body("pr")).toContain("**This is a beta** of Ember's next release, which a copy is offered only when it asks for one or runs one already");
   });
 
@@ -730,17 +730,17 @@ describe("publishing an update, as the Update Ember workflow does", () => {
     releaseBeta(repo);
     releaseNext(repo);
     expect(update(copy, repo, ["--publish"], env).status).toBe(0);
-    expect(body("pr")).toContain("What's new: [v0.2.0](https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v0.2.0), [v0.3.0](https://github.com/NYLLON-SOFTWARE/ember-cloudflare/releases/tag/v0.3.0), and");
+    expect(body("pr")).toContain("What's new: [v0.2.0](https://github.com/OSphera/spark/releases/tag/v0.2.0), [v0.3.0](https://github.com/OSphera/spark/releases/tag/v0.3.0), and");
     expect(body("pr")).not.toContain("beta");
   });
 
   it("leaves the pull request of a beta the copy asked for open until a release passes it", () => {
     const { repo, copy, env, calls } = published();
     update(copy, repo, ["--publish"], env);
-    git(copy, ["pull", "--quiet", "--ff-only", "origin", "update-ember/v0.2.0"]);
+    git(copy, ["pull", "--quiet", "--ff-only", "origin", "update-spark/v0.2.0"]);
     releaseBeta(repo);
-    const pulls = JSON.stringify([{ number: 9, url: "https://github.com/me/chat/pull/9", state: "OPEN", headRefName: "update-ember/v0.3.0-beta.1", ...FROM_COPY }]);
-    const issues = JSON.stringify([{ number: 10, url: "https://github.com/me/chat/issues/10", state: "OPEN", title: "Update Ember to v0.3.0-beta.1", ...BY_WORKFLOW }]);
+    const pulls = JSON.stringify([{ number: 9, url: "https://github.com/me/chat/pull/9", state: "OPEN", headRefName: "update-spark/v0.3.0-beta.1", ...FROM_COPY }]);
+    const issues = JSON.stringify([{ number: 10, url: "https://github.com/me/chat/issues/10", state: "OPEN", title: "Update Spark to v0.3.0-beta.1", ...BY_WORKFLOW }]);
     const held = update(copy, repo, ["--publish"], { ...env, GH_PULLS: pulls, GH_ISSUES: issues });
     expect(held.output).toContain("This copy has everything in Ember's newest release, v0.2.0.");
     expect(calls().filter((call) => call.includes("close"))).toEqual([]);
@@ -753,8 +753,8 @@ describe("publishing an update, as the Update Ember workflow does", () => {
   it("closes what's left once the copy has the newest release", () => {
     const { repo, copy, env, calls } = published();
     update(copy, repo, ["--publish"], env);
-    git(copy, ["pull", "--quiet", "--ff-only", "origin", "update-ember/v0.2.0"]);
-    const issues = JSON.stringify([{ number: 8, title: "Update Ember to v0.2.0", ...BY_WORKFLOW }]);
+    git(copy, ["pull", "--quiet", "--ff-only", "origin", "update-spark/v0.2.0"]);
+    const issues = JSON.stringify([{ number: 8, title: "Update Spark to v0.2.0", ...BY_WORKFLOW }]);
     expect(update(copy, repo, ["--publish"], { ...env, GH_ISSUES: issues }).status).toBe(0);
     expect(calls()).toContain("issue close 8 --comment This copy has Ember's newest release now.");
   });
