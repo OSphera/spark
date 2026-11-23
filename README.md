@@ -1,25 +1,27 @@
 # Spark
 
-Spark is a group chat for small circles, run on your own Cloudflare account. It grew out of [Ember](https://github.com/NYLLON-SOFTWARE/ember-cloudflare), and it is a friendly fork: we expect to change it quickly, in directions Ember may not want, so it carries its own name. What we try here shouldn't be taken for Ember's work, or reflect on it.
+Spark is a group chat for small circles, run on your own Cloudflare account. It grew out of [Ember](https://github.com/NYLLON-SOFTWARE/ember-cloudflare), and it is a fork that goes its own way: we change it quickly, in directions Ember may not want, so it carries its own name, its own [releases](https://github.com/OSphera/spark/releases) and its own version numbers, starting at 1.0.0. What we try here shouldn't be taken for Ember's work, or reflect on it.
 
-Spark keeps following Ember's releases, and what proves useful here is offered back.
+Spark picks the changes it wants from Ember, rather than following its releases: [docs/upstream.md](docs/upstream.md) says how, and logs each one.
 
 ## Where the name stands
 
-Only the front door says Spark so far: the page title, the sign-in, join and setup pages, emails and the installable app. Inside, the settings and messages, the guides under `docs/`, the source and the app's icon still say Ember, and so does the built-in assistant. That is on purpose, to keep merges from Ember small. Read "Ember" in those places as "this software".
+Spark says Spark at the front door (the page title, the sign-in, join and setup pages, emails and the installable app), in its icon, in its version and update notices, and on its Agents page. Some settings and messages, the guides under `docs/` and the source's own names still say Ember. Read "Ember" in those places as "this software"; saying Spark everywhere is [#12](https://github.com/OSphera/spark/issues/12).
 
 ## What it does today
 
-- **Rooms, private rooms and direct messages**, with threads, mentions, quotes, reactions, and editing or deleting what you wrote.
-- **Unread and activity**: unread rooms stand out, and each room's bell says whether you hear about every message, only mentions, or nothing. You see who's here and who's typing.
+- **Rooms, private rooms and direct messages**, with threads, mentions, `#` links to rooms, quotes, and editing or deleting what you wrote.
+- **Reactions**: 👍 ❤️ 🙂 one tap away, a tray of more, and any emoji you like.
+- **Writing**: drafts, messages scheduled for later, short voice and video clips, and `/` commands. Someone's messages close together show under their name once, two minutes apart unless an administrator chooses otherwise.
+- **Unread and activity**: unread rooms stand out, with a count of the mentions waiting, and each room's bell says whether you hear about every message, only mentions, or nothing. Pause notifications for a while when you need quiet. You see who's here and who's typing.
 - **Files, pictures and video** shared in a room and shown inline.
 - **Search** across every message in your rooms and direct messages, narrowed to a room, a person, links, files or threads.
 - **On your phone**: add it to your home screen, turn on push notifications, and sign in by scanning the QR code on your profile.
 - **Huddles**, voice and video in a room, if you turn them on.
-- **Bots and agents**: a bot posts through an incoming webhook or the bot API, and a member can have agents of their own, shown as theirs.
+- **Agents**: an agent posts through an incoming webhook or the bot API, and a member can have agents of their own, shown as theirs.
 - **Yours to shape**: your community's name, logo and tagline, room icons, custom CSS and your own domain. You choose who gets in: a join link, invitations by email, an email domain, or everyone.
 
-This list is what the code does now. Spark may take some of it out.
+Spark 1.0.0 took out Ember's built-in AI assistant and AI agents, connected apps and outside AI, and signing in through Memberful or single sign-on. The left rail shows which version you're running.
 
 ## Why run your own
 
@@ -69,9 +71,13 @@ Spark has no one-click deploy yet. Deploy it from a checkout with wrangler, as t
 - **Secure by default.** HTTPS everywhere with HSTS, a strict Content Security Policy, passwords hashed with scrypt, and setup only through the deployment's own password. Removing someone ends their sessions within a minute. The [security notes](docs/self-hosting.md#security-notes) have the rest.
 - **Tested.** The Worker's tests run on both storage backends, and browser tests drive the app on a desktop and on emulated phones.
 
+## Contributing
+
+Issues and pull requests are welcome from everyone: [CONTRIBUTING.md](CONTRIBUTING.md) says how.
+
 ## Learn more
 
-These guides are Ember's, and still say Ember:
+These guides began as Ember's, and parts still say Ember:
 
 - [Self-hosting guide](docs/self-hosting.md): deploying, custom domains, who can join, email, push notifications, files and security.
 - [Bot API](docs/bot-api.md): how a bot posts, reads, edits and boosts with its key in a header.
@@ -79,10 +85,11 @@ These guides are Ember's, and still say Ember:
 - [Development](docs/development.md): the code's layout, running it locally, tests and performance.
 - [The database](docs/database.md): the schema.
 - [This fork's migrations](docs/fork-migrations.md): how the fork's database changes stay clear of Ember's.
+- [Spark and Ember](docs/upstream.md): how Spark takes changes from Ember, and the log of each.
 
 ## Credits
 
-Spark grew out of [Ember](https://github.com/NYLLON-SOFTWARE/ember-cloudflare), NYLLON's group chat on Workers and Durable Objects. Ember in turn grew out of [Campfire](https://github.com/basecamp/once-campfire), 37signals' group chat. Most of what is here is their work.
+Spark grew out of [Ember](https://github.com/NYLLON-SOFTWARE/ember-cloudflare), NYLLON's group chat on Workers and Durable Objects. Ember in turn grew out of [Campfire](https://github.com/basecamp/once-campfire), 37signals' group chat. Our deep thanks to [Kevin Rose](https://github.com/kropdx) and NYLLON for Ember, and for releasing it under the MIT License, and to 37signals for Campfire, which they also opened up under the MIT License. Thank you, truly.
 
 Spark is [MIT licensed](LICENSE), as Ember and Campfire are, and the license file carries their copyright notices. Its icons are [Iconoir](https://iconoir.com)'s, and the made-up team's pictures are credited in [the seed's files](apps/worker/scripts/seed/files/README.md).
 
