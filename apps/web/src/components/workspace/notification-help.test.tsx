@@ -25,12 +25,23 @@ function platformOf(label: keyof typeof facts.platforms): Platform {
  * What Campfire's `partial` says for the user agent `label`, as `linesOf` reads it, in Ember's name and at
  * this page's address, or null where Campfire leaves it out.
  */
+/**
+ * Campfire's words as Spark's page says them: how to install the app says Spark (#18), and the rest,
+ * which names the installed app in the system's settings, still says Ember.
+ */
+function spark(html: string): string {
+  return html
+    .replaceAll("Campfire as a web app", "Spark as a web app")
+    .replaceAll("install Campfire chat", "install Spark chat")
+    .replaceAll("Campfire", "Ember");
+}
+
 function golden(partial: string, label: string): string[] | null {
   const html = goldens[`./golden/${partial}_${label}.html`];
   if (html === undefined) throw new Error(`No golden for ${partial}_${label}`);
   if (!html.trim()) return null;
   const site = new URL("/", location.href).href;
-  const page = new DOMParser().parseFromString(html.replaceAll("Campfire", "Ember").replaceAll(`${facts.base_url}/`, site), "text/html");
+  const page = new DOMParser().parseFromString(spark(html).replaceAll(`${facts.base_url}/`, site), "text/html");
   // Install now, which only shows once the browser offers to install Ember, as tests below check.
   page.querySelector(".pwa__installer")?.remove();
   return linesOf(page.body);
@@ -86,7 +97,7 @@ describe("Notification setup help", () => {
   it("leaves out the system's settings in a browser tab, and how to install Ember in the installed app", () => {
     shownIn("browser");
     const { container, rerender } = render(<NotificationHelp platform={SAFARI_MAC} />);
-    expect([...container.querySelectorAll("details")].map(titleOf)).toEqual(["Check your Safari settings", "Install Ember as a web app."]);
+    expect([...container.querySelectorAll("details")].map(titleOf)).toEqual(["Check your Safari settings", "Install Spark as a web app."]);
     shownIn("standalone");
     rerender(<NotificationHelp key="installed" platform={SAFARI_MAC} />);
     expect([...container.querySelectorAll("details")].map(titleOf)).toEqual(["Check your Safari settings", "Check your macOS settings"]);
@@ -95,8 +106,8 @@ describe("Notification setup help", () => {
   it("opens the one section it gives, and none of two or more", () => {
     shownIn("browser");
     const { container, rerender } = render(<NotificationHelp platform={SAFARI_IPHONE} />);
-    expect([...container.querySelectorAll("details")].map((details) => [titleOf(details), details.open])).toEqual([["Install Ember as a web app.", true]]);
-    expect(screen.getByText("To receive push notifications in Safari for iPhone, you must install Ember as a web app.")).toBeVisible();
+    expect([...container.querySelectorAll("details")].map((details) => [titleOf(details), details.open])).toEqual([["Install Spark as a web app.", true]]);
+    expect(screen.getByText("To receive push notifications in Safari for iPhone, you must install Spark as a web app.")).toBeVisible();
 
     rerender(<NotificationHelp platform={CHROME_MAC} />);
     expect([...container.querySelectorAll("details")].map((details) => [titleOf(details), details.open])).toEqual([["Check your Chrome settings", true]]);

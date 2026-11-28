@@ -255,18 +255,18 @@ function SystemSettings({ platform, open }: SectionProps) {
 }
 
 /**
- * How to install Ember. Chrome gets no install steps, so Chrome on Android's never show, and Edge's keep
+ * How to install Spark. Chrome gets no install steps, so Chrome on Android's never show, and Edge's keep
  * its button apart from the next word.
  */
 function InstallSteps({ platform, open }: SectionProps) {
   const browser = capitalize(platform.browser);
   const { firefox, chrome, safari, edge, android, ios, desktop } = platform;
   return (
-    <HelpSection icon={DownloadDataWindow} title="Install Ember as a web app." open={open}>
+    <HelpSection icon={DownloadDataWindow} title="Install Spark as a web app." open={open}>
       {edge ? (
         <Steps>
           <li>
-            Click <Pictured icon={GridPlus} alt="the app available - install Ember chat button" size={16} /> in the address bar.
+            Click <Pictured icon={GridPlus} alt="the app available - install Spark chat button" size={16} /> in the address bar.
           </li>
           <li>
             Click <em>Install</em>.
@@ -293,7 +293,7 @@ function InstallSteps({ platform, open }: SectionProps) {
       ) : (safari || chrome) && ios ? (
         <>
           <Paragraph>
-            To receive push notifications in {browser} for {platform.operatingSystem}, you must install Ember as a web app.
+            To receive push notifications in {browser} for {platform.operatingSystem}, you must install Spark as a web app.
           </Paragraph>
           <Steps>
             <li>
@@ -305,7 +305,7 @@ function InstallSteps({ platform, open }: SectionProps) {
           </Steps>
         </>
       ) : (
-        <Paragraph>Some platforms require you to install Ember as a web app to receive push notifications.</Paragraph>
+        <Paragraph>Some platforms require you to install Spark as a web app to receive push notifications.</Paragraph>
       )}
       <InstallNow />
     </HelpSection>

@@ -647,7 +647,7 @@ describe("Spark without AI on your profile (OSphera/spark#4)", () => {
 });
 
 describe("Install as an app", () => {
-  const install = () => screen.queryByText("Install Ember as a web app.")?.closest("details");
+  const install = () => screen.queryByText("Install Spark as a web app.")?.closest("details");
 
   it("says how to install Ember under the page's heading, closed, to a browser that gets install steps", async () => {
     showPage(account, null, SAFARI_MAC);
