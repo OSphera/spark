@@ -69,7 +69,7 @@ describe("The Your agents section of your profile", () => {
     ).toEqual(["Put it in a room…", "plans"]);
 
     await user.type(within(section).getByRole("textbox", { name: "New agent's name" }), "Herald");
-    await user.type(within(section).getByLabelText(/^Current password/), "compiler design");
+    await user.type(within(section).getByLabelText(/^Your Spark password/), "compiler design");
     await user.click(within(section).getByRole("button", { name: "Make agent" }));
 
     expect(await within(section).findByRole("textbox", { name: "Herald's key" })).toHaveValue("0mgk3x2a9b4c70ac-abc");
@@ -116,5 +116,64 @@ describe("The Your agents section of your profile", () => {
     await user.upload(await screen.findByLabelText("Choose a picture for Scout"), big);
     expect(await screen.findByText(AVATAR_TOO_LARGE)).toBeVisible();
     expect(fetched).not.toHaveBeenCalled();
+  });
+
+  describe("asks in the page, never with a browser dialog, since some browsers show none (#19)", () => {
+    function noDialogs() {
+      const confirm = vi.spyOn(window, "confirm").mockImplementation(() => {
+        throw new Error("confirm() was called");
+      });
+      const prompt = vi.spyOn(window, "prompt").mockImplementation(() => {
+        throw new Error("prompt() was called");
+      });
+      return [confirm, prompt];
+    }
+
+    it("renames an agent with a field under it", async () => {
+      const dialogs = noDialogs();
+      const requests = serve(() => ({ agent: { ...SCOUT, name: "Ranger" } }));
+      const { user } = show({ limit: 2, agents: [SCOUT] });
+      const section = await screen.findByRole("region", { name: "Your agents" });
+      await user.click(within(section).getByRole("button", { name: "Rename" }));
+      const field = within(section).getByRole("textbox", { name: "New name for Scout" });
+      expect(field).toHaveValue("Scout");
+      await user.clear(field);
+      await user.type(field, "Ranger");
+      await user.click(within(section).getByRole("button", { name: "Save name" }));
+      expect(await within(section).findByText("Ranger")).toBeVisible();
+      expect(requests).toEqual([`PATCH /api/users/me/agents/${SCOUT.id}`]);
+      for (const dialog of dialogs) expect(dialog).not.toHaveBeenCalled();
+    });
+
+    it("deletes an agent only once you say yes under it, and Cancel leaves it be", async () => {
+      const dialogs = noDialogs();
+      const requests = serve(() => null);
+      const { user } = show({ limit: 2, agents: [SCOUT] });
+      const section = await screen.findByRole("region", { name: "Your agents" });
+      await user.click(within(section).getByRole("button", { name: "Delete" }));
+      expect(within(section).getByRole("group", { name: "Delete Scout?" })).toBeVisible();
+      await user.click(within(section).getByRole("button", { name: "Cancel" }));
+      expect(within(section).queryByRole("group", { name: "Delete Scout?" })).toBeNull();
+      expect(requests).toEqual([]);
+
+      await user.click(within(section).getByRole("button", { name: "Delete" }));
+      await user.click(within(section).getByRole("button", { name: "Delete Scout" }));
+      await vi.waitFor(() => expect(within(section).queryByRole("list", { name: "Scout's rooms" })).toBeNull());
+      expect(requests).toEqual([`DELETE /api/users/me/agents/${SCOUT.id}`]);
+      for (const dialog of dialogs) expect(dialog).not.toHaveBeenCalled();
+    });
+
+    it("gives an agent a new key once you say yes under it, with your password", async () => {
+      const dialogs = noDialogs();
+      const requests = serve(() => ({ agent: SCOUT, key: `${SCOUT.id}-new` }));
+      const { user } = show({ limit: 2, agents: [SCOUT] });
+      const section = await screen.findByRole("region", { name: "Your agents" });
+      await user.type(within(section).getByLabelText(/^Your Spark password/), "compiler design");
+      await user.click(within(section).getByRole("button", { name: "New key" }));
+      await user.click(within(section).getByRole("button", { name: "Give it a new key" }));
+      expect(await within(section).findByRole("textbox", { name: "Scout's key" })).toHaveValue(`${SCOUT.id}-new`);
+      expect(requests).toEqual([`PUT /api/users/me/agents/${SCOUT.id}/key`]);
+      for (const dialog of dialogs) expect(dialog).not.toHaveBeenCalled();
+    });
   });
 });

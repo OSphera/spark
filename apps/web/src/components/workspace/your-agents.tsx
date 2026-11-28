@@ -13,16 +13,23 @@ import { PictureField } from "./picture-picker";
 // The Your agents section of your profile, while an administrator lets people have agents: the agents
 // you've made, each a bot of yours that speaks under its own name through the bot API, shown everywhere
 // as your agent. Each has its picture, which you can change and remove, as your avatar is, and its rooms, which are only rooms you're in, Rename, New key and Delete, and a
-// form makes another. A key is shown once, as it's made, since Ember keeps only a digest of it. Making
+// form makes another. A key is shown once, as it's made, since Spark keeps only a digest of it. Making
 // one or giving one a new key takes your password, as changing your email address does. Boxed as the AI
-// apps section is.
+// apps section is. Rename, New key and Delete ask in the page, under the agent, never with the browser's
+// prompt() or confirm(): some browsers show no dialogs, and there those buttons did nothing (#19).
 
 /** What the section says of agents of your own. */
 export const YOUR_AGENTS_EXPLAINED =
-  "An agent of yours posts under its own name, shown everywhere as your agent, with its key as Authorization: Bearer in the bot API. It's only ever in rooms you're in, and only where you put it.";
+  "If you have an AI agent of your own, this is where you give it a name on Spark and get the key it signs in with. Make it below, then give the key to your agent. It posts under that name, shown everywhere as your agent, and only in rooms you're in, where you put it.";
+
+/** The API detail, for whoever sets the agent up. */
+export const YOUR_AGENTS_API = "For whoever sets the agent up: it sends its key as Authorization: Bearer in the bot API.";
+
+/** Why the form asks for a password, and whose. */
+export const WHOSE_PASSWORD = "Making an agent, or giving one a new key, asks for your own Spark password. Agents don't have passwords.";
 
 /** What the section says once a key is made: it's shown this once. */
-export const KEY_SHOWN_ONCE = "Copy this key now. Ember keeps only a digest of it, so it can't show it again.";
+export const KEY_SHOWN_ONCE = "Copy this key now and give it to your agent. Spark keeps only a digest of it, so it can't show it again.";
 
 /** What a row says of an agent's picture: the one chat bots start with, until its person gives it one. */
 export const pictureSaid = (agent: PersonalAgent) => (agent.avatar ? "You gave it this picture." : "It has the picture agents start with. Choose another.");
@@ -50,6 +57,9 @@ export function YourAgents({ agents: loaded, rooms, hasPassword, onFailed }: Pro
   /** The key just made, for whose agent, until the page is left. */
   const [shownKey, setShownKey] = useState<{ agentId: UserId; key: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  /** What's being asked under an agent, in place of a browser dialog: a new name, or yes to a new key or to deleting it. */
+  const [asking, setAsking] = useState<{ agentId: UserId; what: "rename" | "rekey" | "delete" } | null>(null);
+  const [newName, setNewName] = useState("");
   const mounted = useMounted();
   const flash = useFlash();
 
@@ -83,8 +93,15 @@ export function YourAgents({ agents: loaded, rooms, hasPassword, onFailed }: Pro
     });
   };
 
-  const rename = (agent: PersonalAgent) => {
-    const renamed = prompt(`Rename ${agent.name}`, agent.name);
+  const ask = (agent: PersonalAgent, what: "rename" | "rekey" | "delete") => {
+    if (what === "rename") setNewName(agent.name);
+    setAsking({ agentId: agent.id, what });
+  };
+
+  const rename = (event: FormEvent, agent: PersonalAgent) => {
+    event.preventDefault();
+    const renamed = newName.trim();
+    setAsking(null);
     if (renamed && renamed !== agent.name) run(renameYourAgent(agent.id, renamed));
   };
 
@@ -94,13 +111,18 @@ export function YourAgents({ agents: loaded, rooms, hasPassword, onFailed }: Pro
     run(avatarVariantOf(file).then((variant) => changeYourAgentPicture(agent.id, { file, variant })));
   };
 
+  const askRekey = (agent: PersonalAgent) => {
+    if (hasPassword && !password) return flash("alert", "Enter your Spark password below to give an agent a new key.");
+    ask(agent, "rekey");
+  };
+
   const rekey = (agent: PersonalAgent) => {
-    if (hasPassword && !password) return flash("alert", "Enter your current password below to give an agent a new key.");
-    if (confirm(`Give ${agent.name} a new key? Its key now stops working at once.`)) run(rekeyYourAgent(agent.id, password), () => setPassword(""));
+    setAsking(null);
+    run(rekeyYourAgent(agent.id, password), () => setPassword(""));
   };
 
   const remove = (agent: PersonalAgent) => {
-    if (!confirm(`Delete ${agent.name}? It leaves its rooms and its key stops working. What it said stays.`)) return;
+    setAsking(null);
     run(
       deleteYourAgent(agent.id).then(() => ({})),
       () => setYours((now) => now && { ...now, agents: now.agents.filter((other) => other.id !== agent.id) }),
@@ -118,6 +140,7 @@ export function YourAgents({ agents: loaded, rooms, hasPassword, onFailed }: Pro
         Your agents
       </h2>
       <p>{YOUR_AGENTS_EXPLAINED}</p>
+      <p className="text-sm text-muted-foreground">{YOUR_AGENTS_API}</p>
       {yours.agents.length > 0 && (
         <ul className="flex flex-col gap-4">
           {yours.agents.map((agent) => {
@@ -150,17 +173,52 @@ export function YourAgents({ agents: loaded, rooms, hasPassword, onFailed }: Pro
                         Remove picture
                       </button>
                     )}
-                    <button type="button" disabled={busy} onClick={() => rename(agent)} className={BUTTON}>
+                    <button type="button" disabled={busy} onClick={() => ask(agent, "rename")} className={BUTTON}>
                       Rename
                     </button>
-                    <button type="button" disabled={busy} onClick={() => rekey(agent)} className={BUTTON}>
+                    <button type="button" disabled={busy} onClick={() => askRekey(agent)} className={BUTTON}>
                       New key
                     </button>
-                    <button type="button" disabled={busy} onClick={() => remove(agent)} className={BUTTON}>
+                    <button type="button" disabled={busy} onClick={() => ask(agent, "delete")} className={BUTTON}>
                       Delete
                     </button>
                   </div>
                 </div>
+                {asking?.agentId === agent.id && asking.what === "rename" && (
+                  <form onSubmit={(event) => rename(event, agent)} className="flex flex-wrap gap-2">
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      maxLength={MAX_USER_NAME_LENGTH}
+                      value={newName}
+                      onChange={(event) => setNewName(event.target.value)}
+                      aria-label={`New name for ${agent.name}`}
+                      className="min-h-11 min-w-0 flex-1 rounded-[9px] border bg-background px-[0.8em]"
+                    />
+                    <button type="submit" disabled={busy} className={BUTTON}>
+                      Save name
+                    </button>
+                    <button type="button" onClick={() => setAsking(null)} className={BUTTON}>
+                      Cancel
+                    </button>
+                  </form>
+                )}
+                {asking?.agentId === agent.id && asking.what !== "rename" && (
+                  <div role="group" aria-label={asking.what === "rekey" ? `Give ${agent.name} a new key?` : `Delete ${agent.name}?`} className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm">
+                      {asking.what === "rekey"
+                        ? `Give ${agent.name} a new key? Its key now stops working at once.`
+                        : `Delete ${agent.name}? It leaves its rooms and its key stops working. What it said stays.`}
+                    </span>
+                    <button type="button" disabled={busy} onClick={() => (asking.what === "rekey" ? rekey(agent) : remove(agent))} className={BUTTON}>
+                      {asking.what === "rekey" ? "Give it a new key" : `Delete ${agent.name}`}
+                    </button>
+                    <button type="button" onClick={() => setAsking(null)} className={BUTTON}>
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 {shownKey?.agentId === agent.id && (
                   <div className="flex flex-col gap-1">
                     <input
@@ -214,6 +272,7 @@ export function YourAgents({ agents: loaded, rooms, hasPassword, onFailed }: Pro
         </ul>
       )}
       <form onSubmit={make} className="flex flex-col gap-2">
+        {hasPassword && <p className="text-sm text-muted-foreground">{WHOSE_PASSWORD}</p>}
         <p className="text-sm text-muted-foreground">
           {full ? `You have as many agents as you can, ${yours.limit}.` : `You can have ${yours.limit} agent${yours.limit === 1 ? "" : "s"}.`}
         </p>
@@ -234,8 +293,8 @@ export function YourAgents({ agents: loaded, rooms, hasPassword, onFailed }: Pro
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              placeholder="Current password"
-              aria-label="Current password, to make an agent or give one a new key"
+              placeholder="Your Spark password"
+              aria-label="Your Spark password, to make an agent or give one a new key"
               className="min-h-11 min-w-0 flex-1 rounded-[9px] border bg-background px-[0.8em]"
             />
           )}
